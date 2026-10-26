@@ -5,11 +5,13 @@ import type { EstadoProduto, Produto } from '../lib/types';
 import { ESTADOS_PRODUTO } from '../lib/types';
 import { useDados } from '../state';
 import { paraCampo, vazioANull } from './acoes';
-import { Campo, Dinheiro, Foto, Janela, SelecionarConta, SelecionarPagador, TextoSugerido, lerPagador, reduzirFoto, useConfirmar, valorPagador } from './ui';
+import { Campo, Dinheiro, Foto, Janela, SelecionarConta, SelecionarPagador, TextoSugerido, lerPagador, reduzirFoto, useConfirmar, valorPagador , EscolherOuEscrever, NomeComSugestoes } from './ui';
+import { useCatalogo } from './catalogo';
 
 export function FormProduto({ id, aoFechar }: { id?: string; aoFechar(): void }) {
   const { dados, guardar, apagar, lista, store, aviso } = useDados();
   const confirmar = useConfirmar();
+  const catalogo = useCatalogo();
   const existente = dados.produtos.find((p) => p.id === id);
   const [novoId] = useState(() => id ?? crypto.randomUUID());
   const compra = existente?.compra_id ? dados.compras.find((c) => c.id === existente.compra_id) : undefined;
@@ -137,11 +139,34 @@ export function FormProduto({ id, aoFechar }: { id?: string; aoFechar(): void })
       }
     >
       <div className="grelha-form">
-        <Campo rotulo="Nome *" largo>
-          <input value={f.nome} onChange={(e) => mudar('nome', e.target.value)} placeholder="Ex.: Carro de bombeiros" />
+        <div className="campo campo-largo">
+          <span className="campo-rotulo">Nome *</span>
+          <NomeComSugestoes
+            valor={f.nome}
+            mudar={(v) => mudar('nome', v)}
+            sugestoes={catalogo.sugestoes}
+            escolher={(x) => setF((a) => ({ ...a, nome: x.nome, set_numero: x.set_numero ?? '', marca: x.marca ?? '', tema: x.tema ?? '' }))}
+            placeholder="Escreve para ver produtos que já existem"
+          />
+        </div>
+        <Campo rotulo="Categoria">
+          <EscolherOuEscrever valor={f.marca} mudar={(v) => mudar('marca', v)} opcoes={catalogo.marcas} placeholder="Ex.: LEGO" ariaLabel="Categoria" />
+        </Campo>
+        <Campo rotulo="Subcategoria">
+          <EscolherOuEscrever valor={f.tema} mudar={(v) => mudar('tema', v)} opcoes={catalogo.temasDe(f.marca)} placeholder="Ex.: Star Wars" ariaLabel="Subcategoria" />
         </Campo>
         <Campo rotulo="Número do set">
-          <input value={f.set_numero} onChange={(e) => mudar('set_numero', e.target.value)} placeholder="Ex.: 60374" inputMode="numeric" />
+          <input
+            value={f.set_numero}
+            onChange={(e) => mudar('set_numero', e.target.value)}
+            onBlur={() => {
+              // Se o set já existe, preenche o que estiver vazio
+              const x = catalogo.doSet(f.set_numero);
+              if (x) setF((a) => ({ ...a, nome: a.nome || x.nome, marca: a.marca || (x.marca ?? ''), tema: a.tema || (x.tema ?? '') }));
+            }}
+            placeholder="Ex.: 60374"
+            inputMode="numeric"
+          />
         </Campo>
         <Campo rotulo="Preço de compra">
           <Dinheiro valor={f.preco_compra} mudar={(v) => mudar('preco_compra', v)} />
@@ -204,12 +229,6 @@ export function FormProduto({ id, aoFechar }: { id?: string; aoFechar(): void })
           </Campo>
           <Campo rotulo="Quantidade" ajuda="Unidades neste registo">
             <input inputMode="numeric" value={f.quantidade} onChange={(e) => mudar('quantidade', e.target.value.replace(/\D/g, ''))} />
-          </Campo>
-          <Campo rotulo="Marca">
-            <TextoSugerido id="l-marcas" valor={f.marca} mudar={(v) => mudar('marca', v)} sugestoes={lista('marcas')} />
-          </Campo>
-          <Campo rotulo="Tema">
-            <TextoSugerido id="l-temas" valor={f.tema} mudar={(v) => mudar('tema', v)} sugestoes={lista('temas')} />
           </Campo>
           {f.estado !== 'anunciado' && (
             <Campo rotulo="Conta da Vinted">

@@ -4,7 +4,8 @@ import { fmtEuro, hoje, lerNumero } from '../lib/format';
 import type { Compra, Distribuicao, Produto } from '../lib/types';
 import { useDados } from '../state';
 import { paraCampo, vazioANull } from './acoes';
-import { Campo, Dinheiro, Janela, SelecionarPagador, TextoSugerido, lerPagador, useConfirmar, valorPagador } from './ui';
+import { Campo, Dinheiro, Janela, SelecionarPagador, TextoSugerido, lerPagador, useConfirmar, valorPagador , EscolherOuEscrever, NomeComSugestoes } from './ui';
+import { useCatalogo } from './catalogo';
 
 interface Item {
   id: string;
@@ -12,6 +13,8 @@ interface Item {
   nome: string;
   set_numero: string;
   condicao: string;
+  marca: string;
+  tema: string;
   quantidade: string;
   preco: string;
 }
@@ -19,6 +22,7 @@ interface Item {
 export function FormCompra({ id, aoFechar }: { id?: string; aoFechar(): void }) {
   const { dados, guardar, apagar, lista, aviso } = useDados();
   const confirmar = useConfirmar();
+  const catalogo = useCatalogo();
   const existente = dados.compras.find((c) => c.id === id);
   const produtosAtuais = existente ? dados.produtos.filter((p) => p.compra_id === existente.id) : [];
 
@@ -33,7 +37,7 @@ export function FormCompra({ id, aoFechar }: { id?: string; aoFechar(): void }) 
     outros_custos: paraCampo(existente?.outros_custos),
     notas: existente?.notas ?? '',
   }));
-  const itemVazio = (): Item => ({ id: crypto.randomUUID(), novo: true, nome: '', set_numero: '', condicao: '', quantidade: '1', preco: '' });
+  const itemVazio = (): Item => ({ id: crypto.randomUUID(), novo: true, nome: '', set_numero: '', condicao: '', marca: 'LEGO', tema: '', quantidade: '1', preco: '' });
   const [itens, setItens] = useState<Item[]>(() =>
     produtosAtuais.length
       ? produtosAtuais.map((p) => ({
@@ -42,6 +46,8 @@ export function FormCompra({ id, aoFechar }: { id?: string; aoFechar(): void }) 
           nome: p.nome,
           set_numero: p.set_numero ?? '',
           condicao: p.condicao ?? '',
+          marca: p.marca ?? '',
+          tema: p.tema ?? '',
           quantidade: String(p.quantidade),
           preco: paraCampo(p.preco_compra),
         }))
@@ -105,13 +111,15 @@ export function FormCompra({ id, aoFechar }: { id?: string; aoFechar(): void }) 
       const atual = dados.produtos.find((p) => p.id === item.id);
       const p = {
         // valores por omissão para produtos novos
-        descricao: null, marca: 'LEGO', tema: null, estado: 'por_anunciar', conta_id: null, data_anuncio: null,
+        descricao: null, estado: 'por_anunciar', conta_id: null, data_anuncio: null,
         preco_anuncio: null, notas: null, fotos: [],
         ...atual,
         id: item.id,
         compra_id: compra.id,
         nome: item.nome.trim(),
         set_numero: vazioANull(item.set_numero),
+        marca: vazioANull(item.marca),
+        tema: vazioANull(item.tema),
         condicao: vazioANull(item.condicao),
         quantidade: Math.max(Math.round(lerNumero(item.quantidade)) || 1, 1),
         data_compra: compra.data,
@@ -212,8 +220,27 @@ export function FormCompra({ id, aoFechar }: { id?: string; aoFechar(): void }) 
           const c = custoDe(item);
           return (
             <div className="item-compra" key={item.id}>
-              <input className="ic-nome" value={item.nome} onChange={(e) => mudarItem(i, 'nome', e.target.value)} placeholder="Nome do produto" aria-label="Nome do produto" />
-              <input className="ic-set" value={item.set_numero} onChange={(e) => mudarItem(i, 'set_numero', e.target.value)} placeholder="N.º set" aria-label="Número do set" inputMode="numeric" />
+              <NomeComSugestoes
+                className="ic-nome"
+                valor={item.nome}
+                mudar={(v) => mudarItem(i, 'nome', v)}
+                sugestoes={catalogo.sugestoes}
+                escolher={(x) => setItens((xs) => xs.map((y, j) => (j === i ? { ...y, nome: x.nome, set_numero: x.set_numero ?? '', marca: x.marca ?? '', tema: x.tema ?? '' } : y)))}
+                placeholder="Nome do produto"
+              />
+              <input
+                className="ic-set"
+                value={item.set_numero}
+                onChange={(e) => mudarItem(i, 'set_numero', e.target.value)}
+                onBlur={() => {
+                  const x = catalogo.doSet(item.set_numero);
+                  if (x)
+                    setItens((xs) => xs.map((y, j) => (j === i ? { ...y, nome: y.nome || x.nome, marca: y.marca || (x.marca ?? ''), tema: y.tema || (x.tema ?? '') } : y)));
+                }}
+                placeholder="N.º set"
+                aria-label="Número do set"
+                inputMode="numeric"
+              />
               <input className="ic-qtd" value={item.quantidade} onChange={(e) => mudarItem(i, 'quantidade', e.target.value.replace(/\D/g, ''))} aria-label="Quantidade" inputMode="numeric" title="Quantidade" />
               {individual ? (
                 <div className="ic-preco">
@@ -222,6 +249,8 @@ export function FormCompra({ id, aoFechar }: { id?: string; aoFechar(): void }) 
               ) : (
                 <span className="ic-preco ic-calc">{c ? fmtEuro(c.preco_compra) : '—'}</span>
               )}
+              <EscolherOuEscrever className="ic-cat" valor={item.marca} mudar={(v) => mudarItem(i, 'marca', v)} opcoes={catalogo.marcas} placeholder="Categoria" ariaLabel="Categoria" />
+              <EscolherOuEscrever className="ic-tema" valor={item.tema} mudar={(v) => mudarItem(i, 'tema', v)} opcoes={catalogo.temasDe(item.marca)} placeholder="Subcategoria" ariaLabel="Subcategoria" />
               <span className="ic-custo" title="Custo final com portes e outros custos distribuídos">
                 {c ? `= ${fmtEuro(c.preco_compra + c.custos_adicionais)}` : ''}
               </span>

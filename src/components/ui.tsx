@@ -421,3 +421,134 @@ export function BotaoTopo(props: { titulo: string; onClick(): void; primario?: b
     </button>
   );
 }
+
+// ---------- Campo com sugestões (escrever livremente ou escolher da lista) ----------
+
+/**
+ * Campo de texto livre com uma lista por baixo: ao clicar mostra todas as opções,
+ * ao escrever filtra. Pode escolher-se uma opção ou ficar com o que se escreveu.
+ */
+export function EscolherOuEscrever(props: {
+  valor: string;
+  mudar(v: string): void;
+  opcoes: string[];
+  placeholder?: string;
+  className?: string;
+  ariaLabel?: string;
+}) {
+  const [aberta, setAberta] = useState(false);
+  const t = props.valor.trim().toLowerCase();
+  const exata = props.opcoes.some((o) => o.toLowerCase() === t);
+  const filtradas = (t && !exata ? props.opcoes.filter((o) => o.toLowerCase().includes(t)) : props.opcoes).slice(0, 60);
+  return (
+    <div className={`procurar ${props.className ?? ''}`} onBlur={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setAberta(false)}>
+      <div className="procurar-campo">
+        <input
+          value={props.valor}
+          placeholder={props.placeholder}
+          aria-label={props.ariaLabel}
+          onClick={() => setAberta(true)}
+          onChange={(e) => {
+            props.mudar(e.target.value);
+            setAberta(true);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape' && aberta) {
+              e.stopPropagation();
+              setAberta(false);
+            }
+          }}
+        />
+        <span className="procurar-seta" aria-hidden="true">▾</span>
+      </div>
+      {aberta && filtradas.length > 0 && (
+        <ul className="procurar-lista" role="listbox">
+          {filtradas.map((o) => (
+            <li key={o} role="option" aria-selected={o === props.valor}>
+              <button
+                type="button"
+                className={`procurar-opcao ${o === props.valor ? 'escolhida' : ''}`}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  props.mudar(o);
+                  setAberta(false);
+                }}
+              >
+                <span className="truncar">{o}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+export interface SugestaoProduto {
+  chave: string;
+  nome: string;
+  set_numero: string | null;
+  marca: string | null;
+  tema: string | null;
+  detalhe: string;
+  imagem: string | null;
+}
+
+/** Campo de nome que, ao escrever, sugere produtos que já existem. */
+export function NomeComSugestoes(props: {
+  valor: string;
+  mudar(v: string): void;
+  sugestoes: SugestaoProduto[];
+  escolher(s: SugestaoProduto): void;
+  placeholder?: string;
+  className?: string;
+}) {
+  const [aberta, setAberta] = useState(false);
+  const t = props.valor.trim().toLowerCase();
+  const filtradas =
+    t.length < 2 ? [] : props.sugestoes.filter((s) => `${s.nome} ${s.set_numero ?? ''}`.toLowerCase().includes(t)).slice(0, 8);
+  return (
+    <div className={`procurar ${props.className ?? ''}`} onBlur={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setAberta(false)}>
+      <input
+        value={props.valor}
+        placeholder={props.placeholder}
+        aria-label="Nome do produto"
+        autoComplete="off"
+        onChange={(e) => {
+          props.mudar(e.target.value);
+          setAberta(true);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape' && aberta) {
+            e.stopPropagation();
+            setAberta(false);
+          }
+        }}
+      />
+      {aberta && filtradas.length > 0 && (
+        <ul className="procurar-lista" role="listbox" aria-label="Produtos que já existem">
+          <li className="procurar-titulo">Já existe — escolher para preencher</li>
+          {filtradas.map((s) => (
+            <li key={s.chave} role="option" aria-selected={false}>
+              <button
+                type="button"
+                className="procurar-opcao"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  props.escolher(s);
+                  setAberta(false);
+                }}
+              >
+                <ImagemReferencia url={s.imagem} className="procurar-img" />
+                <span className="procurar-texto">
+                  <span className="truncar">{s.nome}</span>
+                  <small className="mudo truncar">{s.detalhe}</small>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
