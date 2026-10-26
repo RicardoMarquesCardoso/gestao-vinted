@@ -5,10 +5,10 @@ import type { EstadoVenda, Venda } from '../lib/types';
 import { ESTADOS_VENDA } from '../lib/types';
 import { useDados } from '../state';
 import { paraCampo, vazioANull } from './acoes';
-import { Campo, Dinheiro, Janela, SelecionarConta, SelecionarPessoa, Valor, useConfirmar } from './ui';
+import { Campo, Dinheiro, Janela, SelecionarConta, SelecionarPessoa, Valor, useConfirmar, ProcurarLista, urlReferencia } from './ui';
 
 export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?: string; aoFechar(): void }) {
-  const { dados, guardar, apagar, aviso } = useDados();
+  const { dados, guardar, apagar, aviso, nomeConta } = useDados();
   const confirmar = useConfirmar();
   const existente = dados.vendas.find((v) => v.id === id);
   const produtoInicial = dados.produtos.find((p) => p.id === (existente?.produto_id ?? produtoId));
@@ -28,7 +28,6 @@ export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?
     notas: existente?.notas ?? '',
     acertada: existente?.acertada ?? false,
   }));
-  const [procura, setProcura] = useState('');
   const [aGuardar, setAGuardar] = useState(false);
   const mudar = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((x) => ({ ...x, [k]: v }));
 
@@ -37,16 +36,25 @@ export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?
 
   // Produtos que se podem vender (com unidades disponíveis) + o atual
   const opcoes = useMemo(() => {
-    const t = procura.trim().toLowerCase();
     return dados.produtos
       .filter(
         (p) =>
           p.id === f.produto_id ||
           ((p.estado === 'anunciado' || p.estado === 'por_anunciar') && unidadesVendidas(p.id, dados.vendas, id) < p.quantidade),
       )
-      .filter((p) => !t || p.id === f.produto_id || `${p.nome} ${p.set_numero ?? ''}`.toLowerCase().includes(t))
-      .sort((a, b) => a.nome.localeCompare(b.nome));
-  }, [dados.produtos, dados.vendas, procura, f.produto_id, id]);
+      .sort((a, b) => a.nome.localeCompare(b.nome))
+      .map((p) => {
+        const disp = p.quantidade - unidadesVendidas(p.id, dados.vendas, id);
+        return {
+          id: p.id,
+          titulo: p.nome,
+          detalhe: [p.set_numero && `Set ${p.set_numero}`, `custo ${fmtEuro(custoUnitario(p))}`, p.conta_id && nomeConta(p.conta_id), p.quantidade > 1 && `${disp} disp.`]
+            .filter(Boolean)
+            .join(' · '),
+          imagem: p.fotos[0] ? null : urlReferencia(p),
+        };
+      });
+  }, [dados.produtos, dados.vendas, f.produto_id, id, nomeConta]);
 
   const qtd = Math.max(Math.round(lerNumero(f.quantidade)) || 1, 1);
   const liquido = arred(lerNumero(f.preco_venda) - lerNumero(f.comissao) - lerNumero(f.portes) - lerNumero(f.outros_custos));
@@ -150,23 +158,10 @@ export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?
       }
     >
       <div className="grelha-form">
-        {!existente && !produtoId && (
-          <Campo rotulo="Procurar produto" largo>
-            <input type="search" value={procura} onChange={(e) => setProcura(e.target.value)} placeholder="Nome ou número do set" />
-          </Campo>
-        )}
-        <Campo rotulo="Produto vendido *" largo>
-          <select value={f.produto_id} onChange={(e) => escolherProduto(e.target.value)}>
-            <option value="">— escolhe —</option>
-            {opcoes.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nome}
-                {p.set_numero ? ` (${p.set_numero})` : ''}
-                {p.quantidade > 1 ? ` · ${p.quantidade - unidadesVendidas(p.id, dados.vendas, id)} disp.` : ''}
-              </option>
-            ))}
-          </select>
-        </Campo>
+        <div className="campo campo-largo">
+          <span className="campo-rotulo">Produto vendido *</span>
+          <ProcurarLista opcoes={opcoes} valor={f.produto_id} mudar={escolherProduto} placeholder="Escreve o nome ou o número do set…" />
+        </div>
         <Campo rotulo="Quantidade" ajuda={produto ? `${disponiveis} disponível(eis)` : undefined}>
           <input inputMode="numeric" value={f.quantidade} onChange={(e) => mudar('quantidade', e.target.value.replace(/\D/g, ''))} />
         </Campo>

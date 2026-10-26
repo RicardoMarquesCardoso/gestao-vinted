@@ -61,9 +61,18 @@ export function Painel() {
       </div>
 
       <div className="acoes-rapidas">
-        <button className="btn btn-primario" onClick={() => abrir({ tipo: 'venda' })}>+ Venda</button>
-        <button className="btn" onClick={() => abrir({ tipo: 'compra' })}>+ Compra</button>
-        <button className="btn" onClick={() => abrir({ tipo: 'produto' })}>+ Produto</button>
+        <button className="acao acao-principal" onClick={() => abrir({ tipo: 'venda' })}>
+          <strong>Registar venda</strong>
+          <span>Vendi um produto do inventário</span>
+        </button>
+        <button className="acao" onClick={() => abrir({ tipo: 'compra' })}>
+          <strong>Registar compra</strong>
+          <span>Comprei um ou mais produtos</span>
+        </button>
+        <button className="acao" onClick={() => abrir({ tipo: 'produto' })}>
+          <strong>Adicionar produto</strong>
+          <span>Já o tinha, sem compra a registar</span>
+        </button>
       </div>
 
       <div className="kpis">

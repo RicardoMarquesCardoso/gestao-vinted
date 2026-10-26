@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useAbrir } from '../components/acoes';
-import { EtiquetaProduto, Foto, Vazio } from '../components/ui';
+import { EtiquetaProduto, Foto, ImagemReferencia, Vazio, urlReferencia } from '../components/ui';
 import { custoTotalProduto, custoUnitario, diasEntre, emInventario, unidadesDisponiveis } from '../lib/calc';
 import { descarregar, paraCsv } from '../lib/csv';
 import { fmtData, fmtEuro, hoje, plural } from '../lib/format';
@@ -77,7 +77,7 @@ export function Inventario() {
         <h1>Inventário</h1>
         <div className="botoes">
           <button className="btn" onClick={exportar}>Exportar CSV</button>
-          <button className="btn btn-primario" onClick={() => abrir({ tipo: 'produto' })}>+ Produto</button>
+          <button className="btn btn-primario" onClick={() => abrir({ tipo: 'produto' })}>Adicionar produto</button>
         </div>
       </div>
 
@@ -121,7 +121,11 @@ export function Inventario() {
             return (
               <li key={p.id}>
                 <button className="produto" onClick={() => abrir({ tipo: 'detalhe', id: p.id })}>
-                  {p.fotos[0] ? <Foto refFoto={p.fotos[0]} alt="" className="produto-foto" /> : <div className="produto-foto produto-sem-foto">{p.set_numero || p.marca || '—'}</div>}
+                  {p.fotos[0] ? (
+                    <Foto refFoto={p.fotos[0]} alt="" className="produto-foto" />
+                  ) : (
+                    <ImagemReferencia url={urlReferencia(p)} className="produto-foto produto-sem-foto" vazio={p.set_numero || p.marca || '—'} />
+                  )}
                   <div className="produto-info">
                     <div className="produto-nome">{p.nome}</div>
                     <div className="produto-meta">

@@ -71,7 +71,7 @@ export function Vendas() {
         <h1>Vendas</h1>
         <div className="botoes">
           <button className="btn" onClick={exportar}>Exportar CSV</button>
-          <button className="btn btn-primario" onClick={() => abrir({ tipo: 'venda' })}>+ Venda</button>
+          <button className="btn btn-primario" onClick={() => abrir({ tipo: 'venda' })}>Registar venda</button>
         </div>
       </div>
       <div className="filtros">

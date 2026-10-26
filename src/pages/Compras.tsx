@@ -65,7 +65,7 @@ export function Compras() {
         <h1>Compras</h1>
         <div className="botoes">
           <button className="btn" onClick={exportar}>Exportar CSV</button>
-          <button className="btn btn-primario" onClick={() => abrir({ tipo: 'compra' })}>+ Compra</button>
+          <button className="btn btn-primario" onClick={() => abrir({ tipo: 'compra' })}>Registar compra</button>
         </div>
       </div>
       <div className="filtros">

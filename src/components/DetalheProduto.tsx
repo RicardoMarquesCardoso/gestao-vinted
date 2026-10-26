@@ -2,7 +2,7 @@ import { custoTotalProduto, custoUnitario, diasEntre, liquidoVenda, lucroVenda, 
 import { fmtData, fmtEuro, hoje } from '../lib/format';
 import { useDados } from '../state';
 import { useAbrir } from './acoes';
-import { EtiquetaProduto, EtiquetaVenda, Foto, Janela, Valor } from './ui';
+import { EtiquetaProduto, EtiquetaVenda, Foto, ImagemReferencia, Janela, Valor, urlReferencia } from './ui';
 
 export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void }) {
   const { dados, nomeConta, nomePagador } = useDados();
@@ -42,6 +42,16 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
             <Foto key={r} refFoto={r} alt={p.nome} />
           ))}
         </div>
+      )}
+      {p.fotos.length === 0 && urlReferencia(p) && (
+        <figure className="referencia">
+          <ImagemReferencia url={urlReferencia(p, true)} alt={`Set ${p.set_numero}`} className="referencia-img" />
+          <figcaption className="mudo">
+            Imagem de referência do set ·{' '}
+            <a href={`https://www.lego.com/pt-pt/search?q=${encodeURIComponent(p.set_numero ?? '')}`} target="_blank" rel="noreferrer">site da LEGO</a> ·{' '}
+            <a href={`https://brickset.com/sets/${encodeURIComponent(p.set_numero ?? '')}-1`} target="_blank" rel="noreferrer">Brickset</a>
+          </figcaption>
+        </figure>
       )}
       <div className="detalhe-topo">
         <EtiquetaProduto estado={p.estado} />

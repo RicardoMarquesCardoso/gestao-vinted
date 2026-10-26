@@ -280,3 +280,113 @@ export function Cartao(props: { titulo?: ReactNode; acao?: ReactNode; children: 
     </section>
   );
 }
+
+// ---------- Lista pesquisável (combobox) ----------
+
+export interface OpcaoProcura {
+  id: string;
+  titulo: string;
+  detalhe?: string;
+  imagem?: string | null;
+}
+
+/** Campo único: escreve-se para filtrar e escolhe-se da lista que aparece por baixo. */
+export function ProcurarLista(props: { opcoes: OpcaoProcura[]; valor: string; mudar(id: string): void; placeholder?: string }) {
+  const [aberta, setAberta] = useState(false);
+  const [texto, setTexto] = useState('');
+  const [ativo, setAtivo] = useState(0);
+  const selecionada = props.opcoes.find((o) => o.id === props.valor);
+  const t = texto.trim().toLowerCase();
+  const filtradas = (t ? props.opcoes.filter((o) => `${o.titulo} ${o.detalhe ?? ''}`.toLowerCase().includes(t)) : props.opcoes).slice(0, 80);
+
+  function escolher(o: OpcaoProcura) {
+    props.mudar(o.id);
+    setTexto('');
+    setAberta(false);
+  }
+
+  return (
+    <div className="procurar" onBlur={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setAberta(false)}>
+      <div className="procurar-campo">
+        <input
+          value={aberta ? texto : selecionada?.titulo ?? ''}
+          placeholder={selecionada ? selecionada.titulo : props.placeholder ?? 'Escreve para procurar…'}
+          onFocus={() => {
+            setAberta(true);
+            setTexto('');
+            setAtivo(0);
+          }}
+          onClick={() => setAberta(true)}
+          onChange={(e) => {
+            setTexto(e.target.value);
+            setAtivo(0);
+            setAberta(true);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowDown') {
+              e.preventDefault();
+              setAtivo((a) => Math.min(a + 1, filtradas.length - 1));
+            } else if (e.key === 'ArrowUp') {
+              e.preventDefault();
+              setAtivo((a) => Math.max(a - 1, 0));
+            } else if (e.key === 'Enter' && aberta && filtradas[ativo]) {
+              e.preventDefault();
+              escolher(filtradas[ativo]);
+            } else if (e.key === 'Escape' && aberta) {
+              e.stopPropagation();
+              setAberta(false);
+            }
+          }}
+          role="combobox"
+          aria-expanded={aberta}
+          aria-autocomplete="list"
+        />
+        <span className="procurar-seta" aria-hidden="true">▾</span>
+      </div>
+      {selecionada?.detalhe && !aberta && <span className="campo-ajuda">{selecionada.detalhe}</span>}
+      {aberta && (
+        <ul className="procurar-lista" role="listbox">
+          {filtradas.length === 0 && <li className="procurar-vazio">Nenhum produto encontrado</li>}
+          {filtradas.map((o, i) => (
+            <li key={o.id} role="option" aria-selected={o.id === props.valor}>
+              <button
+                type="button"
+                className={`procurar-opcao ${i === ativo ? 'ativa' : ''} ${o.id === props.valor ? 'escolhida' : ''}`}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => escolher(o)}
+                onMouseEnter={() => setAtivo(i)}
+              >
+                {o.imagem !== undefined && <ImagemReferencia url={o.imagem} className="procurar-img" />}
+                <span className="procurar-texto">
+                  <span className="truncar">{o.titulo}</span>
+                  {o.detalhe && <small className="mudo truncar">{o.detalhe}</small>}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// ---------- Imagens de referência dos sets LEGO ----------
+
+/**
+ * Imagem oficial do set, a partir do número (Brickset; se falhar, Rebrickable).
+ * Não é guardada: é mostrada diretamente a partir desses sites.
+ */
+export function urlReferencia(p: { marca: string | null; set_numero: string | null }, grande = false): string | null {
+  const set = (p.set_numero || '').trim();
+  if (!/^\d{4,7}$/.test(set)) return null;
+  if (p.marca && !/lego/i.test(p.marca)) return null;
+  return `https://images.brickset.com/sets/${grande ? 'images' : 'small'}/${set}-1.jpg`;
+}
+
+export function ImagemReferencia({ url, className, alt = '', vazio }: { url: string | null; className?: string; alt?: string; vazio?: ReactNode }) {
+  const [tentativa, setTentativa] = useState(0);
+  useEffect(() => setTentativa(0), [url]);
+  if (!url || tentativa > 1) return <div className={`foto-vazia ${className ?? ''}`}>{vazio}</div>;
+  const src = tentativa === 0 ? url : url.replace(/^https:\/\/images\.brickset\.com\/sets\/(images|small)\//, 'https://cdn.rebrickable.com/media/sets/');
+  return <img src={src} alt={alt} className={`img-ref ${className ?? ''}`} loading="lazy" referrerPolicy="no-referrer" onError={() => setTentativa((t) => t + 1)} />;
+}
