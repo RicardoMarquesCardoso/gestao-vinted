@@ -97,7 +97,7 @@ export function Inventario() {
         <ImagemProduto p={p} />
         <div className="produto-info">
           <div className="produto-nome">{p.nome}</div>
-          <div className="produto-meta">{[p.set_numero && `Set ${p.set_numero}`, p.condicao].filter(Boolean).join(' · ') || p.marca}</div>
+          <div className="produto-meta">{[categoria(p), p.set_numero && `Set ${p.set_numero}`].filter(Boolean).join(' · ')}</div>
           <div className="produto-linha">
             <EtiquetaProduto estado={p.estado} />
             {p.quantidade > 1 && <span className="chip">{disp}/{p.quantidade} un.</span>}
@@ -241,7 +241,7 @@ function GrupoProdutos(props: { grupo: Grupo; aberto: boolean; alternar(): void;
         </span>
         <div className="produto-info">
           <div className="produto-nome">{p.nome}{nomes.size > 1 ? ' e variantes' : ''}</div>
-          <div className="produto-meta">{[p.set_numero && `Set ${p.set_numero}`, p.marca].filter(Boolean).join(' · ')}</div>
+          <div className="produto-meta">{[categoria(p), p.set_numero && `Set ${p.set_numero}`].filter(Boolean).join(' · ')}</div>
           <div className="produto-linha">
             {estados.map((e) => (
               <span key={e.valor} className={`etiqueta et-${e.valor}`}>
@@ -282,4 +282,10 @@ function GrupoProdutos(props: { grupo: Grupo; aberto: boolean; alternar(): void;
       )}
     </li>
   );
+}
+
+/** Categoria e subcategoria, ex.: "LEGO › Speed Champions". */
+function categoria(p: Produto): string {
+  const tema = p.tema && p.tema.toLowerCase() !== (p.marca ?? '').toLowerCase() ? p.tema : null;
+  return [p.marca, tema].filter(Boolean).join(' › ');
 }
