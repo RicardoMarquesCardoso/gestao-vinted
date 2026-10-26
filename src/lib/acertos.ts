@@ -74,7 +74,7 @@ export function calcularAcertos(d: Dados): ResultadoAcertos {
   const linhas: LinhaVenda[] = [];
 
   for (const v of d.vendas) {
-    if (v.estado !== 'concluida') continue;
+    if (v.estado !== 'concluida' || v.acertada) continue;
     const p = produtoPorId.get(v.produto_id);
     const custo = custoVenda(v, p);
     const liquido = liquidoVenda(v);

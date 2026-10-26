@@ -204,3 +204,6 @@ alter table public.acertos enable row level security;
 drop policy if exists "membros" on public.acertos;
 create policy "membros" on public.acertos for all to authenticated
   using (public.e_membro()) with check (public.e_membro());
+
+-- Vendas cujo dinheiro já foi distribuído fora da app (não entram nos acertos)
+alter table public.vendas add column if not exists acertada boolean not null default false;

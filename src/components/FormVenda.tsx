@@ -26,6 +26,7 @@ export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?
     outros_custos: paraCampo(existente?.outros_custos),
     estado: (existente?.estado ?? 'pendente') as EstadoVenda,
     notas: existente?.notas ?? '',
+    acertada: existente?.acertada ?? false,
   }));
   const [procura, setProcura] = useState('');
   const [aGuardar, setAGuardar] = useState(false);
@@ -81,6 +82,7 @@ export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?
       outros_custos: lerNumero(f.outros_custos),
       estado: f.estado,
       notas: vazioANull(f.notas),
+      acertada: f.acertada,
     };
     setAGuardar(true);
     try {
@@ -208,6 +210,10 @@ export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?
         <Campo rotulo="Notas" largo>
           <textarea rows={2} value={f.notas} onChange={(e) => mudar('notas', e.target.value)} />
         </Campo>
+        <label className="caixa campo-largo">
+          <input type="checkbox" checked={f.acertada} onChange={(e) => mudar('acertada', e.target.checked)} /> Já acertada fora da app (não entra em
+          Acertos)
+        </label>
       </div>
 
       <div className="resumo-calculo">

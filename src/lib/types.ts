@@ -86,6 +86,8 @@ export interface Venda {
   outros_custos: number;
   estado: EstadoVenda;
   notas: string | null;
+  /** Já acertada fora da app (o lucro e o custo já foram distribuídos). */
+  acertada?: boolean;
   criado_em?: string;
 }
 

@@ -64,3 +64,7 @@ test('simplificar reduz transferências', () => {
   const t = simplificar(new Map([[R, -30], [A, 10], [J, 20]]));
   assert.deepEqual(t, [{ de: R, para: J, valor: 20 }, { de: R, para: A, valor: 10 }]);
 });
+
+test('vendas marcadas como já acertadas são ignoradas', () => {
+  assert.equal(calcularAcertos(cenario({}, { acertada: true })).transferencias.length, 0);
+});
