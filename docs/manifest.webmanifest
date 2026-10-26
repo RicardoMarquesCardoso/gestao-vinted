@@ -1,0 +1,16 @@
+{
+  "name": "Gestão Vinted",
+  "short_name": "Vinted",
+  "description": "Compras, vendas e lucro de brinquedos",
+  "lang": "pt-PT",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f4ef",
+  "theme_color": "#2450a6",
+  "icons": [
+    { "src": "icone-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icone-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icone.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
