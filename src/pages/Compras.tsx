@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useAbrir } from '../components/acoes';
-import { Vazio } from '../components/ui';
+import { Vazio , BotaoTopo } from '../components/ui';
 import { PREDEFINICOES, dentro, intervaloDe, totalCompra } from '../lib/calc';
 import type { Predefinicao } from '../lib/calc';
 import { descarregar, paraCsv } from '../lib/csv';
@@ -61,11 +61,11 @@ export function Compras() {
 
   return (
     <div className="pagina">
-      <div className="pagina-topo">
+      <div className="pagina-topo-icones">
         <h1>Compras</h1>
         <div className="botoes">
-          <button className="btn" onClick={exportar}>Exportar CSV</button>
-          <button className="btn btn-primario" onClick={() => abrir({ tipo: 'compra' })}>Registar compra</button>
+          <BotaoTopo titulo="Exportar CSV" icone="descarregar" onClick={exportar} />
+          <BotaoTopo titulo="Registar compra" icone="mais" primario onClick={() => abrir({ tipo: 'compra' })} />
         </div>
       </div>
       <div className="filtros">

@@ -60,8 +60,8 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
             </button>
           )}
           {disponiveis > 0 && (
-            <button className="btn btn-primario" onClick={() => abrir({ tipo: 'venda', produtoId: p.id })}>
-              Vender
+            <button className="btn btn-primario" onClick={() => abrir({ tipo: 'vendi', ids: [p.id] })}>
+              Vendi
             </button>
           )}
         </>

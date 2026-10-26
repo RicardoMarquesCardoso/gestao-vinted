@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useAbrir } from '../components/acoes';
-import { EtiquetaProduto, Foto, ImagemReferencia, Vazio, iconeMarca, urlReferencia } from '../components/ui';
+import { EtiquetaProduto, Foto, ImagemReferencia, Vazio, iconeMarca, urlReferencia , BotaoTopo } from '../components/ui';
 import { chaveComparacao, custoTotalProduto, custoUnitario, diasEntre, emInventario, unidadesDisponiveis } from '../lib/calc';
 import { descarregar, paraCsv } from '../lib/csv';
 import { fmtData, fmtEuro, hoje, plural } from '../lib/format';
@@ -17,25 +17,8 @@ export function Inventario() {
   const abrir = useAbrir();
   const [texto, setTexto] = useState('');
   const [estado, setEstado] = useState<FiltroEstado>('inventario');
-  const [conta, setConta] = useState('');
-  const [pessoa, setPessoa] = useState('');
   const [ordem, setOrdem] = useState<Ordem>('recentes');
-  const [agrupar, setAgruparEstado] = useState(() => {
-    try {
-      return localStorage.getItem('gv.agrupar') !== 'nao';
-    } catch {
-      return true;
-    }
-  });
   const [aberto, setAberto] = useState<string | null>(null);
-  const setAgrupar = (v: boolean) => {
-    setAgruparEstado(v);
-    try {
-      localStorage.setItem('gv.agrupar', v ? 'sim' : 'nao');
-    } catch {
-      /* ignorar */
-    }
-  };
   const h = hoje();
 
   const lista = useMemo(() => {
@@ -43,9 +26,10 @@ export function Inventario() {
     const r = dados.produtos.filter(
       (p) =>
         (estado === 'todos' || (estado === 'inventario' ? emInventario(p) : p.estado === estado)) &&
-        (!conta || p.conta_id === conta) &&
-        (!pessoa || p.pessoa_id === pessoa) &&
-        (!t || [p.nome, p.set_numero, p.tema, p.marca, p.condicao, p.notas].some((x) => (x || '').toLowerCase().includes(t))),
+        (!t ||
+          [p.nome, p.set_numero, p.tema, p.marca, p.condicao, p.notas, p.conta_id ? nomeConta(p.conta_id) : '', nomePagador(p)].some((x) =>
+            (x || '').toLowerCase().includes(t),
+          )),
     );
     const data = (p: Produto) => p.data_compra || p.criado_em || '';
     return r.sort((a, b) =>
@@ -57,13 +41,13 @@ export function Inventario() {
             ? data(a).localeCompare(data(b))
             : data(b).localeCompare(data(a)),
     );
-  }, [dados.produtos, texto, estado, conta, pessoa, ordem]);
+  }, [dados.produtos, texto, estado, ordem, nomeConta, nomePagador]);
 
   // Produtos iguais (mesmo n.º de set ou, sem set, mesmo nome) ficam num só grupo
   const grupos = useMemo(() => {
     const m = new Map<string, Produto[]>();
     for (const p of lista) {
-      const k = agrupar ? chaveComparacao(p) : p.id;
+      const k = chaveComparacao(p);
       m.set(k, [...(m.get(k) ?? []), p]);
     }
     const r = [...m.entries()].map(([chave, itens]) => {
@@ -74,7 +58,7 @@ export function Inventario() {
     });
     if (ordem === 'custo') r.sort((a, b) => b.media - a.media);
     return r;
-  }, [lista, agrupar, dados.vendas, ordem]);
+  }, [lista, dados.vendas, ordem]);
 
   const unidades = lista.reduce((a, p) => a + (emInventario(p) ? unidadesDisponiveis(p, dados.vendas) : 0), 0);
   const custo = lista.reduce((a, p) => a + (emInventario(p) ? custoUnitario(p) * unidadesDisponiveis(p, dados.vendas) : 0), 0);
@@ -121,7 +105,7 @@ export function Inventario() {
           </div>
           <div className="produto-rodape">
             <span>{fmtEuro(custoTotalProduto(p))}</span>
-            <span className="mudo">{p.conta_id ? nomeConta(p.conta_id) : fmtData(p.data_compra)}</span>
+            <span className="mudo">{[p.conta_id && nomeConta(p.conta_id), `pagou ${nomePagador(p)}`].filter(Boolean).join(' · ')}</span>
           </div>
         </div>
       </button>
@@ -151,8 +135,8 @@ export function Inventario() {
           </span>
         </button>
         {disp > 0 && (
-          <button className="btn btn-pequeno" onClick={() => abrir({ tipo: 'venda', produtoId: p.id })}>
-            Vender
+          <button className="btn btn-pequeno btn-primario" onClick={() => abrir({ tipo: 'vendi', ids: [p.id] })}>
+            Vendi
           </button>
         )}
       </li>
@@ -161,34 +145,23 @@ export function Inventario() {
 
   return (
     <div className="pagina">
-      <div className="pagina-topo">
+      <div className="pagina-topo-icones">
         <h1>Inventário</h1>
         <div className="botoes">
-          <button className="btn" onClick={exportar}>Exportar CSV</button>
-          <button className="btn btn-primario" onClick={() => abrir({ tipo: 'produto' })}>Adicionar produto</button>
+          <BotaoTopo titulo="Exportar CSV" icone="descarregar" onClick={exportar} />
+          <BotaoTopo titulo="Adicionar produto" icone="mais" primario onClick={() => abrir({ tipo: 'produto' })} />
         </div>
       </div>
 
-      <div className="filtros">
-        <input type="search" className="filtro-procura" placeholder="Procurar nome, set, tema…" value={texto} onChange={(e) => setTexto(e.target.value)} />
+      <div className="filtros-inv">
+        <input type="search" className="filtro-procura" placeholder="Procurar nome, set, conta, quem pagou…" value={texto} onChange={(e) => setTexto(e.target.value)} />
         <select value={estado} onChange={(e) => setEstado(e.target.value as FiltroEstado)} aria-label="Estado">
           <option value="inventario">Por vender</option>
-          <option value="todos">Todos os estados</option>
+          <option value="todos">Todos</option>
           {ESTADOS_PRODUTO.map((e) => (
             <option key={e.valor} value={e.valor}>{e.nome}</option>
           ))}
         </select>
-        <select value={conta} onChange={(e) => setConta(e.target.value)} aria-label="Conta">
-          <option value="">Todas as contas</option>
-          {dados.contas.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
-        </select>
-        <select value={pessoa} onChange={(e) => setPessoa(e.target.value)} aria-label="Quem pagou">
-          <option value="">Todas as pessoas</option>
-          {dados.pessoas.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
-        </select>
-        <label className="caixa filtro-caixa">
-          <input type="checkbox" checked={agrupar} onChange={(e) => setAgrupar(e.target.checked)} /> Agrupar iguais
-        </label>
         <select value={ordem} onChange={(e) => setOrdem(e.target.value as Ordem)} aria-label="Ordenar">
           <option value="recentes">Mais recentes</option>
           <option value="antigos">Mais antigos</option>
@@ -198,7 +171,7 @@ export function Inventario() {
       </div>
 
       <p className="resumo-lista">
-        {agrupar && grupos.length !== lista.length ? `${plural(grupos.length, 'produto diferente', 'produtos diferentes')} · ` : ''}
+        {grupos.length !== lista.length ? `${plural(grupos.length, 'produto diferente', 'produtos diferentes')} · ` : ''}
         {plural(lista.length, 'registo', 'registos')}
         {unidades > 0 && ` · ${plural(unidades, 'unidade por vender', 'unidades por vender')} · custo ${fmtEuro(custo)}`}
       </p>
@@ -218,6 +191,7 @@ export function Inventario() {
                 alternar={() => setAberto((x) => (x === g.chave ? null : g.chave))}
                 linha={linhaProduto}
                 anunciar={(ids, retirar) => abrir({ tipo: 'anunciar', ids, retirar })}
+                vendi={(ids) => abrir({ tipo: 'vendi', ids })}
               />
             ),
           )}
@@ -253,7 +227,7 @@ interface Grupo {
   max: number;
 }
 
-function GrupoProdutos(props: { grupo: Grupo; aberto: boolean; alternar(): void; linha(p: Produto): ReactNode; anunciar(ids: string[], retirar?: boolean): void }) {
+function GrupoProdutos(props: { grupo: Grupo; aberto: boolean; alternar(): void; linha(p: Produto): ReactNode; anunciar(ids: string[], retirar?: boolean): void; vendi(ids: string[]): void }) {
   const { grupo: g } = props;
   const p = g.itens[0];
   const estados = ESTADOS_PRODUTO.map((e) => ({ ...e, n: g.itens.filter((x) => x.estado === e.valor).length })).filter((e) => e.n > 0);
@@ -287,8 +261,13 @@ function GrupoProdutos(props: { grupo: Grupo; aberto: boolean; alternar(): void;
       {props.aberto && (
         <div className="grupo-painel">
           <div className="grupo-acoes">
+            {g.itens.some((x) => x.estado === 'por_anunciar' || x.estado === 'anunciado') && (
+              <button className="btn btn-pequeno btn-primario" onClick={() => props.vendi(g.itens.map((x) => x.id))}>
+                Vendi
+              </button>
+            )}
             {g.itens.some((x) => x.estado === 'por_anunciar') && (
-              <button className="btn btn-pequeno btn-primario" onClick={() => props.anunciar(g.itens.map((x) => x.id))}>
+              <button className="btn btn-pequeno" onClick={() => props.anunciar(g.itens.map((x) => x.id))}>
                 Anunciar
               </button>
             )}

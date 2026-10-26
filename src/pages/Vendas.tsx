@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useAbrir } from '../components/acoes';
-import { EtiquetaVenda, Vazio, Valor } from '../components/ui';
+import { EtiquetaVenda, Vazio, Valor , BotaoTopo } from '../components/ui';
 import { PREDEFINICOES, custoVenda, dentro, intervaloDe, liquidoVenda, lucroVenda, vendaValida } from '../lib/calc';
 import type { Predefinicao } from '../lib/calc';
 import { descarregar, paraCsv } from '../lib/csv';
@@ -67,11 +67,11 @@ export function Vendas() {
 
   return (
     <div className="pagina">
-      <div className="pagina-topo">
+      <div className="pagina-topo-icones">
         <h1>Vendas</h1>
         <div className="botoes">
-          <button className="btn" onClick={exportar}>Exportar CSV</button>
-          <button className="btn btn-primario" onClick={() => abrir({ tipo: 'venda' })}>Registar venda</button>
+          <BotaoTopo titulo="Exportar CSV" icone="descarregar" onClick={exportar} />
+          <BotaoTopo titulo="Registar venda" icone="mais" primario onClick={() => abrir({ tipo: 'venda' })} />
         </div>
       </div>
       <div className="filtros">

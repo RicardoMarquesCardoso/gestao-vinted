@@ -401,3 +401,23 @@ export function iconeMarca(marca: string | null): string {
   if (m.includes('playmobil')) return '🧸';
   return '🎁';
 }
+
+// ---------- Botões de ícone no topo das páginas ----------
+
+export function BotaoTopo(props: { titulo: string; onClick(): void; primario?: boolean; icone: 'descarregar' | 'mais' }) {
+  return (
+    <button className={`btn-redondo ${props.primario ? 'btn-redondo-primario' : ''}`} onClick={props.onClick} aria-label={props.titulo} title={props.titulo}>
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        {props.icone === 'mais' ? (
+          <path d="M12 5v14M5 12h14" />
+        ) : (
+          <>
+            <path d="M12 4v11" />
+            <path d="M7 10l5 5 5-5" />
+            <path d="M5 20h14" />
+          </>
+        )}
+      </svg>
+    </button>
+  );
+}

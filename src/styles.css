@@ -537,3 +537,26 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .icone-marca { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 1.6rem; line-height: 1; }
 .icone-marca small { font-size: 0.7rem; color: var(--texto-3); font-weight: 600; }
 .janela-rodape label.btn { cursor: pointer; }
+
+/* ---------- Botões redondos no topo ---------- */
+.pagina-topo-icones { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.pagina-topo-icones h1 { margin: 0; }
+.pagina-topo-icones .botoes { flex-wrap: nowrap; }
+.btn-redondo {
+  width: 44px; height: 44px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--linha); background: var(--superficie); color: var(--texto); cursor: pointer; flex: none;
+}
+.btn-redondo:hover { background: var(--superficie-2); }
+.btn-redondo-primario { background: var(--primario); border-color: var(--primario); color: var(--primario-texto); }
+.btn-redondo-primario:hover { background: var(--primario); filter: brightness(1.08); }
+.filtros-inv { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.filtros-inv .filtro-procura { grid-column: 1 / -1; }
+
+/* ---------- Vendi (venda rápida) ---------- */
+.vendi-preco .dinheiro input { font-size: 1.6rem; font-weight: 700; min-height: 56px; text-align: left; padding-left: 14px; }
+.vendi-preco .dinheiro span { font-size: 1.3rem; }
+.vendi-contas { margin-top: 16px; }
+.segmentos-largos { display: flex; width: 100%; }
+.segmentos-largos button { flex: 1; padding: 11px 12px; font-size: 0.95rem; }
+.vendi-resumo { margin: 16px 0 0; color: var(--texto-2); font-variant-numeric: tabular-nums; }
+.segmentos-largos button.ativo { background: var(--primario); color: var(--primario-texto); }
