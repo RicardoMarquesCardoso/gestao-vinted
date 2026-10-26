@@ -125,7 +125,7 @@ export function Painel() {
         </Cartao>
       )}
 
-        <Cartao titulo="Vendas recentes" acao={<button className="link" onClick={() => navegar('/vendas')}>Ver todas →</button>}>
+        <Cartao titulo="Vendas recentes" acao={<button className="link" onClick={() => navegar('/produtos/vendidos')}>Ver todas →</button>}>
           {recentes.length === 0 ? (
             <p className="mudo">Sem vendas.</p>
           ) : (

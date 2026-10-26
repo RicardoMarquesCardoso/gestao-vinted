@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useAbrir } from '../components/acoes';
-import { EtiquetaVenda, Vazio, Valor , BotaoTopo } from '../components/ui';
+import { CabecalhoProdutos } from '../components/CabecalhoProdutos';
+import { EtiquetaVenda, Vazio, Valor } from '../components/ui';
 import { PREDEFINICOES, custoVenda, dentro, intervaloDe, liquidoVenda, lucroVenda, vendaValida } from '../lib/calc';
 import type { Predefinicao } from '../lib/calc';
 import { descarregar, paraCsv } from '../lib/csv';
 import { fmtData, fmtEuro, hoje, plural } from '../lib/format';
-import type { EstadoVenda } from '../lib/types';
 import { ESTADOS_VENDA } from '../lib/types';
 import { useDados } from '../state';
 
@@ -14,9 +14,6 @@ export function Vendas() {
   const abrir = useAbrir();
   const [texto, setTexto] = useState('');
   const [periodo, setPeriodo] = useState<Predefinicao>('tudo');
-  const [estado, setEstado] = useState<'' | EstadoVenda>('');
-  const [conta, setConta] = useState('');
-  const [pessoa, setPessoa] = useState('');
   const h = hoje();
   const produtoPorId = useMemo(() => new Map(dados.produtos.map((p) => [p.id, p])), [dados.produtos]);
 
@@ -28,14 +25,12 @@ export function Vendas() {
         const p = produtoPorId.get(v.produto_id);
         return (
           dentro(v.data_venda, i) &&
-          (!estado || v.estado === estado) &&
-          (!conta || v.conta_id === conta) &&
-          (!pessoa || v.pessoa_id === pessoa) &&
-          (!t || `${p?.nome ?? ''} ${p?.set_numero ?? ''} ${v.notas ?? ''}`.toLowerCase().includes(t))
+          (!t ||
+            `${p?.nome ?? ''} ${p?.set_numero ?? ''} ${v.notas ?? ''} ${nomeConta(v.conta_id)} ${nomePessoa(v.pessoa_id)}`.toLowerCase().includes(t))
         );
       })
       .sort((a, b) => b.data_venda.localeCompare(a.data_venda));
-  }, [dados.vendas, produtoPorId, texto, periodo, estado, conta, pessoa, h]);
+  }, [dados.vendas, produtoPorId, texto, periodo, h, nomeConta, nomePessoa]);
 
   const validas = lista.filter(vendaValida);
   const liquido = validas.reduce((a, v) => a + liquidoVenda(v), 0);
@@ -67,29 +62,12 @@ export function Vendas() {
 
   return (
     <div className="pagina">
-      <div className="pagina-topo-icones">
-        <h1>Vendas</h1>
-        <div className="botoes">
-          <BotaoTopo titulo="Exportar CSV" icone="descarregar" onClick={exportar} />
-          <BotaoTopo titulo="Registar venda" icone="mais" primario onClick={() => abrir({ tipo: 'venda' })} />
-        </div>
-      </div>
-      <div className="filtros">
-        <input type="search" className="filtro-procura" placeholder="Procurar produto…" value={texto} onChange={(e) => setTexto(e.target.value)} />
+      <CabecalhoProdutos aba="vendidos" exportar={exportar} adicionar={() => abrir({ tipo: 'venda' })} />
+
+      <div className="filtros-inv filtros-inv-1">
+        <input type="search" className="filtro-procura" placeholder="Procurar produto, set, conta…" value={texto} onChange={(e) => setTexto(e.target.value)} />
         <select value={periodo} onChange={(e) => setPeriodo(e.target.value as Predefinicao)} aria-label="Período">
           {PREDEFINICOES.map((p) => <option key={p.valor} value={p.valor}>{p.nome}</option>)}
-        </select>
-        <select value={estado} onChange={(e) => setEstado(e.target.value as '' | EstadoVenda)} aria-label="Estado">
-          <option value="">Todos os estados</option>
-          {ESTADOS_VENDA.map((e) => <option key={e.valor} value={e.valor}>{e.nome}</option>)}
-        </select>
-        <select value={conta} onChange={(e) => setConta(e.target.value)} aria-label="Conta">
-          <option value="">Todas as contas</option>
-          {dados.contas.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
-        </select>
-        <select value={pessoa} onChange={(e) => setPessoa(e.target.value)} aria-label="Quem vendeu">
-          <option value="">Todas as pessoas</option>
-          {dados.pessoas.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
         </select>
       </div>
       <p className="resumo-lista">

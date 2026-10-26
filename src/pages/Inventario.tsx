@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useAbrir } from '../components/acoes';
-import { EtiquetaProduto, Foto, ImagemReferencia, Vazio, iconeMarca, urlReferencia , BotaoTopo } from '../components/ui';
+import { CabecalhoProdutos } from '../components/CabecalhoProdutos';
+import { EtiquetaProduto, Foto, ImagemReferencia, Vazio, iconeMarca, urlReferencia  } from '../components/ui';
 import { chaveComparacao, custoTotalProduto, custoUnitario, diasEntre, emInventario, unidadesDisponiveis } from '../lib/calc';
 import { descarregar, paraCsv } from '../lib/csv';
 import { fmtData, fmtEuro, hoje, plural } from '../lib/format';
@@ -9,14 +10,13 @@ import type { Produto } from '../lib/types';
 import { ESTADOS_PRODUTO } from '../lib/types';
 import { useDados } from '../state';
 
-type FiltroEstado = 'inventario' | 'todos' | Produto['estado'];
 type Ordem = 'recentes' | 'antigos' | 'nome' | 'custo';
 
 export function Inventario() {
   const { dados, nomeConta, nomePagador } = useDados();
   const abrir = useAbrir();
   const [texto, setTexto] = useState('');
-  const [estado, setEstado] = useState<FiltroEstado>('inventario');
+  const [verOutros, setVerOutros] = useState(false);
   const [ordem, setOrdem] = useState<Ordem>('recentes');
   const [aberto, setAberto] = useState<string | null>(null);
   const h = hoje();
@@ -25,7 +25,7 @@ export function Inventario() {
     const t = texto.trim().toLowerCase();
     const r = dados.produtos.filter(
       (p) =>
-        (estado === 'todos' || (estado === 'inventario' ? emInventario(p) : p.estado === estado)) &&
+        (emInventario(p) || (verOutros && (p.estado === 'cancelado' || p.estado === 'devolvido'))) &&
         (!t ||
           [p.nome, p.set_numero, p.tema, p.marca, p.condicao, p.notas, p.conta_id ? nomeConta(p.conta_id) : '', nomePagador(p)].some((x) =>
             (x || '').toLowerCase().includes(t),
@@ -41,7 +41,7 @@ export function Inventario() {
             ? data(a).localeCompare(data(b))
             : data(b).localeCompare(data(a)),
     );
-  }, [dados.produtos, texto, estado, ordem, nomeConta, nomePagador]);
+  }, [dados.produtos, texto, verOutros, ordem, nomeConta, nomePagador]);
 
   // Produtos iguais (mesmo n.º de set ou, sem set, mesmo nome) ficam num só grupo
   const grupos = useMemo(() => {
@@ -60,6 +60,7 @@ export function Inventario() {
     return r;
   }, [lista, dados.vendas, ordem]);
 
+  const outros = dados.produtos.filter((p) => p.estado === 'cancelado' || p.estado === 'devolvido').length;
   const unidades = lista.reduce((a, p) => a + (emInventario(p) ? unidadesDisponiveis(p, dados.vendas) : 0), 0);
   const custo = lista.reduce((a, p) => a + (emInventario(p) ? custoUnitario(p) * unidadesDisponiveis(p, dados.vendas) : 0), 0);
 
@@ -145,23 +146,11 @@ export function Inventario() {
 
   return (
     <div className="pagina">
-      <div className="pagina-topo-icones">
-        <h1>Inventário</h1>
-        <div className="botoes">
-          <BotaoTopo titulo="Exportar CSV" icone="descarregar" onClick={exportar} />
-          <BotaoTopo titulo="Adicionar produto" icone="mais" primario onClick={() => abrir({ tipo: 'produto' })} />
-        </div>
-      </div>
+      <CabecalhoProdutos aba="por_vender" exportar={exportar} adicionar={() => abrir({ tipo: 'produto' })} />
 
-      <div className="filtros-inv">
+
+      <div className="filtros-inv filtros-inv-1">
         <input type="search" className="filtro-procura" placeholder="Procurar nome, set, conta, quem pagou…" value={texto} onChange={(e) => setTexto(e.target.value)} />
-        <select value={estado} onChange={(e) => setEstado(e.target.value as FiltroEstado)} aria-label="Estado">
-          <option value="inventario">Por vender</option>
-          <option value="todos">Todos</option>
-          {ESTADOS_PRODUTO.map((e) => (
-            <option key={e.valor} value={e.valor}>{e.nome}</option>
-          ))}
-        </select>
         <select value={ordem} onChange={(e) => setOrdem(e.target.value as Ordem)} aria-label="Ordenar">
           <option value="recentes">Mais recentes</option>
           <option value="antigos">Mais antigos</option>
@@ -196,6 +185,13 @@ export function Inventario() {
             ),
           )}
         </ul>
+      )}
+      {outros > 0 && (
+        <p className="ver-outros">
+          <button className="link" onClick={() => setVerOutros((x) => !x)}>
+            {verOutros ? 'Esconder' : 'Mostrar'} {plural(outros, 'produto cancelado ou devolvido', 'produtos cancelados ou devolvidos')}
+          </button>
+        </p>
       )}
     </div>
   );

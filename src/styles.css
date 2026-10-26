@@ -560,3 +560,9 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .segmentos-largos button { flex: 1; padding: 11px 12px; font-size: 0.95rem; }
 .vendi-resumo { margin: 16px 0 0; color: var(--texto-2); font-variant-numeric: tabular-nums; }
 .segmentos-largos button.ativo { background: var(--primario); color: var(--primario-texto); }
+.abas-produtos { margin-bottom: 12px; }
+.filtros-inv .filtro-largo { grid-column: 1 / -1; }
+.filtros-inv-1 { grid-template-columns: 1fr; }
+.filtros-inv-1 { grid-template-columns: 1fr auto; }
+.filtros-inv-1 .filtro-procura { grid-column: auto; }
+.ver-outros { text-align: center; margin: 18px 0 0; }
