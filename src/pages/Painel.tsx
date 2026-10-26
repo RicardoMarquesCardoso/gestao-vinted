@@ -66,10 +66,6 @@ export function Painel() {
           <strong>Registar compra</strong>
           <span>Comprei um ou mais produtos</span>
         </button>
-        <button className="acao" onClick={() => abrir({ tipo: 'produto' })}>
-          <strong>Adicionar produto</strong>
-          <span>Já o tinha, sem compra a registar</span>
-        </button>
       </div>
 
       <div className="kpis">

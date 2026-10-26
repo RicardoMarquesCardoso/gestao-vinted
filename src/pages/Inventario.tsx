@@ -184,7 +184,7 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
 
   return (
     <div className="pagina">
-      <CabecalhoProdutos ver={ver} mudar={setVer} exportar={exportar} adicionar={() => abrir({ tipo: 'produto' })} />
+      <CabecalhoProdutos ver={ver} mudar={setVer} exportar={exportar} adicionar={() => abrir({ tipo: 'compra' })} />
 
 
       <div className="filtros-inv filtros-inv-1">

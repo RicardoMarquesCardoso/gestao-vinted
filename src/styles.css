@@ -604,3 +604,6 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 }
 .produto-rodape > span:first-child { white-space: nowrap; }
 .produto-rodape > span:first-child .valor { margin-left: 4px; }
+/* Painel: só Registar venda e Registar compra, lado a lado */
+.acoes-rapidas { grid-template-columns: 1fr 1fr; }
+@media (max-width: 640px) { .acoes-rapidas .acao-principal { grid-column: auto; } }

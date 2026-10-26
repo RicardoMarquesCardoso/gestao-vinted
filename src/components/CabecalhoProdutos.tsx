@@ -20,7 +20,7 @@ export function CabecalhoProdutos(props: { ver: VerProdutos; mudar(v: VerProduto
         <h1>Produtos</h1>
         <div className="botoes">
           <BotaoTopo titulo="Exportar CSV" icone="descarregar" onClick={props.exportar} />
-          <BotaoTopo titulo="Adicionar produto" icone="mais" primario onClick={props.adicionar} />
+          <BotaoTopo titulo="Registar compra" icone="mais" primario onClick={props.adicionar} />
         </div>
       </div>
       <div className="segmentos segmentos-largos abas-produtos" role="group" aria-label="Mostrar">
