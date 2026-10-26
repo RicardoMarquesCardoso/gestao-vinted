@@ -7,8 +7,8 @@
 -- ---------------------------------------------------------------------
 -- 1) Quem pode ver e alterar os dados.
 --    Só os emails desta lista têm acesso, mesmo que outra pessoa consiga
---    criar conta. Altera/acrescenta os emails e volta a correr esta parte
---    sempre que precisares.
+--    criar conta. Substitui os dois emails abaixo pelos vossos antes de
+--    correr. Para acrescentar alguém depois: Table Editor → membros.
 -- ---------------------------------------------------------------------
 create table if not exists public.membros (
   email text primary key
@@ -16,8 +16,8 @@ create table if not exists public.membros (
 alter table public.membros enable row level security;
 
 insert into public.membros (email) values
-  ('ricardo.nuno.marques.cardoso@gmail.com'),
-  ('EMAIL_DA_NAMORADA@exemplo.com')   -- <- substitui pelo email dela
+  ('EMAIL_1@exemplo.com'),   -- <- substitui
+  ('EMAIL_2@exemplo.com')    -- <- substitui
 on conflict do nothing;
 
 create or replace function public.e_membro() returns boolean
@@ -27,6 +27,8 @@ language sql stable security definer set search_path = public as $$
     where lower(email) = lower(coalesce(auth.jwt() ->> 'email', ''))
   );
 $$;
+revoke execute on function public.e_membro() from public, anon;
+grant execute on function public.e_membro() to authenticated;
 
 -- ---------------------------------------------------------------------
 -- 2) Tabelas

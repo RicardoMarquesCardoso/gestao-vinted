@@ -16,7 +16,7 @@ App web para gerir compras e vendas de brinquedos (sobretudo LEGO) na Vinted, a 
 ### 1. Base de dados no Supabase
 
 1. No Supabase, abre o projeto → **SQL Editor** → **New query**.
-2. Abre o ficheiro [`supabase/schema.sql`](supabase/schema.sql), **substitui `EMAIL_DA_NAMORADA@exemplo.com` pelo email dela**, cola tudo e carrega em **Run**.
+2. Abre o ficheiro [`supabase/schema.sql`](supabase/schema.sql), **substitui `EMAIL_1@exemplo.com` e `EMAIL_2@exemplo.com` pelos vossos emails**, cola tudo e carrega em **Run**.
 3. **Authentication → Users → Add user → Create new user**: cria um utilizador para cada um (email + palavra-passe, com **Auto Confirm User** ativado).
 4. **Authentication → Sign In / Providers**: desativa **Allow new users to sign up**, para mais ninguém poder criar conta.
 
