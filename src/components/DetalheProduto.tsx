@@ -2,10 +2,12 @@ import { custoTotalProduto, custoUnitario, diasEntre, liquidoVenda, lucroVenda, 
 import { fmtData, fmtEuro, hoje } from '../lib/format';
 import { useDados } from '../state';
 import { useAbrir } from './acoes';
-import { EtiquetaProduto, EtiquetaVenda, Foto, ImagemReferencia, Janela, Valor, urlReferencia } from './ui';
+import { useState } from 'react';
+import { EtiquetaProduto, EtiquetaVenda, Foto, ImagemReferencia, Janela, Valor, reduzirFoto, urlReferencia } from './ui';
 
 export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void }) {
-  const { dados, nomeConta, nomePagador } = useDados();
+  const { dados, nomeConta, nomePagador, store, guardar, aviso } = useDados();
+  const [aEnviar, setAEnviar] = useState(false);
   const abrir = useAbrir();
   const p = dados.produtos.find((x) => x.id === id);
   if (!p) return null;
@@ -17,6 +19,21 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
     ? dados.produtos.filter((x) => x.id !== p.id && x.set_numero?.trim().toLowerCase() === p.set_numero?.trim().toLowerCase())
     : [];
 
+  async function adicionarFoto(ficheiros: FileList | null) {
+    if (!ficheiros?.length || !p) return;
+    setAEnviar(true);
+    try {
+      const novas: string[] = [];
+      for (const f of Array.from(ficheiros)) novas.push(await store.enviarFoto(p.id, await reduzirFoto(f, store.modo === 'demo' ? 640 : 1280)));
+      await guardar('produtos', [{ ...p, fotos: [...p.fotos, ...novas] }]);
+      aviso('Fotografia adicionada.');
+    } catch (e) {
+      aviso(`Não foi possível enviar a fotografia: ${e instanceof Error ? e.message : e}`, 'erro');
+    } finally {
+      setAEnviar(false);
+    }
+  }
+
   return (
     <Janela
       titulo={p.nome}
@@ -27,10 +44,24 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
           <button className="btn" onClick={() => abrir({ tipo: 'produto', id: p.id })}>
             Editar
           </button>
+          <label className="btn">
+            <input type="file" accept="image/*" capture="environment" hidden onChange={(e) => adicionarFoto(e.target.files)} />
+            {aEnviar ? 'A enviar…' : '📷 Foto'}
+          </label>
           <span className="espaco" />
+          {p.estado === 'por_anunciar' && (
+            <button className="btn" onClick={() => abrir({ tipo: 'anunciar', ids: [p.id] })}>
+              Anunciar
+            </button>
+          )}
+          {p.estado === 'anunciado' && (
+            <button className="btn" onClick={() => abrir({ tipo: 'anunciar', ids: [p.id], retirar: true })}>
+              Retirar anúncio
+            </button>
+          )}
           {disponiveis > 0 && (
             <button className="btn btn-primario" onClick={() => abrir({ tipo: 'venda', produtoId: p.id })}>
-              Registar venda
+              Vender
             </button>
           )}
         </>

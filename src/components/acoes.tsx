@@ -5,13 +5,15 @@ import { FormConta } from './FormConta';
 import { FormProduto } from './FormProduto';
 import { FormVenda } from './FormVenda';
 import { DetalheProduto } from './DetalheProduto';
+import { FormAnunciar } from './FormAnunciar';
 
 export type Acao =
   | { tipo: 'produto'; id?: string }
   | { tipo: 'detalhe'; id: string }
   | { tipo: 'compra'; id?: string }
   | { tipo: 'venda'; id?: string; produtoId?: string }
-  | { tipo: 'conta'; id?: string };
+  | { tipo: 'conta'; id?: string }
+  | { tipo: 'anunciar'; ids: string[]; retirar?: boolean };
 
 const Contexto = createContext<(a: Acao) => void>(() => undefined);
 export const useAbrir = () => useContext(Contexto);
@@ -30,6 +32,7 @@ export function AcoesProvider({ children }: { children: ReactNode }) {
       {atual?.tipo === 'compra' && <FormCompra key={pilha.length} id={atual.id} aoFechar={fechar} />}
       {atual?.tipo === 'venda' && <FormVenda key={pilha.length} id={atual.id} produtoId={atual.produtoId} aoFechar={fechar} />}
       {atual?.tipo === 'conta' && <FormConta key={pilha.length} id={atual.id} aoFechar={fechar} />}
+      {atual?.tipo === 'anunciar' && <FormAnunciar key={pilha.length} ids={atual.ids} retirar={atual.retirar} aoFechar={fechar} />}
     </Contexto.Provider>
   );
 }

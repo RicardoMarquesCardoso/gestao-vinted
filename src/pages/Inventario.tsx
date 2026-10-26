@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useAbrir } from '../components/acoes';
-import { EtiquetaProduto, Foto, ImagemReferencia, Vazio, urlReferencia } from '../components/ui';
+import { EtiquetaProduto, Foto, ImagemReferencia, Vazio, iconeMarca, urlReferencia } from '../components/ui';
 import { chaveComparacao, custoTotalProduto, custoUnitario, diasEntre, emInventario, unidadesDisponiveis } from '../lib/calc';
 import { descarregar, paraCsv } from '../lib/csv';
 import { fmtData, fmtEuro, hoje, plural } from '../lib/format';
@@ -217,6 +217,7 @@ export function Inventario() {
                 aberto={aberto === g.chave}
                 alternar={() => setAberto((x) => (x === g.chave ? null : g.chave))}
                 linha={linhaProduto}
+                anunciar={(ids, retirar) => abrir({ tipo: 'anunciar', ids, retirar })}
               />
             ),
           )}
@@ -230,7 +231,16 @@ function ImagemProduto({ p }: { p: Produto }) {
   return p.fotos[0] ? (
     <Foto refFoto={p.fotos[0]} alt="" className="produto-foto" />
   ) : (
-    <ImagemReferencia url={urlReferencia(p)} className="produto-foto produto-sem-foto" vazio={p.set_numero || p.marca || '—'} />
+    <ImagemReferencia
+      url={urlReferencia(p)}
+      className="produto-foto produto-sem-foto"
+      vazio={
+        <span className="icone-marca">
+          <span aria-hidden="true">{iconeMarca(p.marca)}</span>
+          <small>{p.set_numero || p.marca || ''}</small>
+        </span>
+      }
+    />
   );
 }
 
@@ -243,7 +253,7 @@ interface Grupo {
   max: number;
 }
 
-function GrupoProdutos(props: { grupo: Grupo; aberto: boolean; alternar(): void; linha(p: Produto): ReactNode }) {
+function GrupoProdutos(props: { grupo: Grupo; aberto: boolean; alternar(): void; linha(p: Produto): ReactNode; anunciar(ids: string[], retirar?: boolean): void }) {
   const { grupo: g } = props;
   const p = g.itens[0];
   const estados = ESTADOS_PRODUTO.map((e) => ({ ...e, n: g.itens.filter((x) => x.estado === e.valor).length })).filter((e) => e.n > 0);
@@ -261,7 +271,7 @@ function GrupoProdutos(props: { grupo: Grupo; aberto: boolean; alternar(): void;
           <div className="produto-linha">
             {estados.map((e) => (
               <span key={e.valor} className={`etiqueta et-${e.valor}`}>
-                {e.n} {e.nome.toLowerCase()}
+                {e.n} {e.n > 1 && e.valor !== 'por_anunciar' ? `${e.nome.toLowerCase()}s` : e.nome.toLowerCase()}
               </span>
             ))}
           </div>
@@ -274,7 +284,23 @@ function GrupoProdutos(props: { grupo: Grupo; aberto: boolean; alternar(): void;
           </div>
         </div>
       </button>
-      {props.aberto && <ul className="grupo-itens">{g.itens.map((x) => props.linha(x))}</ul>}
+      {props.aberto && (
+        <div className="grupo-painel">
+          <div className="grupo-acoes">
+            {g.itens.some((x) => x.estado === 'por_anunciar') && (
+              <button className="btn btn-pequeno btn-primario" onClick={() => props.anunciar(g.itens.map((x) => x.id))}>
+                Anunciar
+              </button>
+            )}
+            {g.itens.some((x) => x.estado === 'anunciado') && (
+              <button className="btn btn-pequeno" onClick={() => props.anunciar(g.itens.map((x) => x.id), true)}>
+                Retirar anúncio
+              </button>
+            )}
+          </div>
+          <ul className="grupo-itens">{g.itens.map((x) => props.linha(x))}</ul>
+        </div>
+      )}
     </li>
   );
 }

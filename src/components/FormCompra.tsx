@@ -182,21 +182,15 @@ export function FormCompra({ id, aoFechar }: { id?: string; aoFechar(): void }) 
       }
     >
       <div className="grelha-form">
-        <Campo rotulo="Data">
-          <input type="date" value={f.data} onChange={(e) => mudar('data', e.target.value)} />
-        </Campo>
         <Campo rotulo="Quem pagou">
           <SelecionarPagador valor={f.pagador} mudar={(v) => mudar('pagador', v)} />
         </Campo>
-        <Campo rotulo="Método / conta de pagamento">
-          <TextoSugerido id="l-metodos" valor={f.metodo_pagamento} mudar={(v) => mudar('metodo_pagamento', v)} sugestoes={lista('metodos_pagamento')} />
-        </Campo>
-        <Campo rotulo="Comprado a / onde">
-          <input value={f.vendedor} onChange={(e) => mudar('vendedor', e.target.value)} placeholder="Ex.: Vinted — utilizador" />
+        <Campo rotulo="Data">
+          <input type="date" value={f.data} onChange={(e) => mudar('data', e.target.value)} />
         </Campo>
       </div>
 
-      <h4 className="secao-form">Produtos incluídos</h4>
+      <h4 className="secao-form">Produtos</h4>
       <div className="segmentos" role="radiogroup" aria-label="Como distribuir o custo">
         <button role="radio" aria-checked={individual} className={individual ? 'ativo' : ''} onClick={() => mudar('distribuicao', 'individual')}>
           Preço de cada um
@@ -220,7 +214,6 @@ export function FormCompra({ id, aoFechar }: { id?: string; aoFechar(): void }) 
             <div className="item-compra" key={item.id}>
               <input className="ic-nome" value={item.nome} onChange={(e) => mudarItem(i, 'nome', e.target.value)} placeholder="Nome do produto" aria-label="Nome do produto" />
               <input className="ic-set" value={item.set_numero} onChange={(e) => mudarItem(i, 'set_numero', e.target.value)} placeholder="N.º set" aria-label="Número do set" inputMode="numeric" />
-              <input className="ic-cond" value={item.condicao} onChange={(e) => mudarItem(i, 'condicao', e.target.value)} placeholder="Condição" aria-label="Condição" list="l-condicoes-c" />
               <input className="ic-qtd" value={item.quantidade} onChange={(e) => mudarItem(i, 'quantidade', e.target.value.replace(/\D/g, ''))} aria-label="Quantidade" inputMode="numeric" title="Quantidade" />
               {individual ? (
                 <div className="ic-preco">
@@ -238,29 +231,34 @@ export function FormCompra({ id, aoFechar }: { id?: string; aoFechar(): void }) 
             </div>
           );
         })}
-        <datalist id="l-condicoes-c">
-          {lista('condicoes').map((s) => (
-            <option key={s} value={s} />
-          ))}
-        </datalist>
         <button className="btn btn-secundario" onClick={() => setItens((xs) => [...xs, itemVazio()])}>
           + Acrescentar produto
         </button>
       </div>
 
-      <h4 className="secao-form">Custos extra</h4>
-      <p className="nota">São distribuídos pelos produtos em proporção ao preço de cada um.</p>
-      <div className="grelha-form">
-        <Campo rotulo="Portes">
+      <div className="grelha-form grelha-portes">
+        <Campo rotulo="Portes" ajuda="Repartidos pelos produtos">
           <Dinheiro valor={f.portes} mudar={(v) => mudar('portes', v)} />
         </Campo>
-        <Campo rotulo="Outros custos" ajuda="Taxas, proteção do comprador…">
-          <Dinheiro valor={f.outros_custos} mudar={(v) => mudar('outros_custos', v)} />
-        </Campo>
-        <Campo rotulo="Comprovativo / notas" largo>
-          <textarea rows={2} value={f.notas} onChange={(e) => mudar('notas', e.target.value)} placeholder="Referência do pagamento, link da conversa…" />
-        </Campo>
       </div>
+
+      <details className="mais-detalhes">
+        <summary>Mais detalhes</summary>
+        <div className="grelha-form">
+          <Campo rotulo="Comprado a / onde">
+            <input value={f.vendedor} onChange={(e) => mudar('vendedor', e.target.value)} placeholder="Ex.: Vinted — utilizador" />
+          </Campo>
+          <Campo rotulo="Método de pagamento">
+            <TextoSugerido id="l-metodos" valor={f.metodo_pagamento} mudar={(v) => mudar('metodo_pagamento', v)} sugestoes={lista('metodos_pagamento')} />
+          </Campo>
+          <Campo rotulo="Outros custos" ajuda="Taxas, proteção do comprador…">
+            <Dinheiro valor={f.outros_custos} mudar={(v) => mudar('outros_custos', v)} />
+          </Campo>
+          <Campo rotulo="Notas" largo>
+            <textarea rows={2} value={f.notas} onChange={(e) => mudar('notas', e.target.value)} placeholder="Referência do pagamento, link da conversa…" />
+          </Campo>
+        </div>
+      </details>
     </Janela>
   );
 }

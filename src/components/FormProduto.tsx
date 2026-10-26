@@ -143,17 +143,11 @@ export function FormProduto({ id, aoFechar }: { id?: string; aoFechar(): void })
         <Campo rotulo="Número do set">
           <input value={f.set_numero} onChange={(e) => mudar('set_numero', e.target.value)} placeholder="Ex.: 60374" inputMode="numeric" />
         </Campo>
-        <Campo rotulo="Marca">
-          <TextoSugerido id="l-marcas" valor={f.marca} mudar={(v) => mudar('marca', v)} sugestoes={lista('marcas')} />
+        <Campo rotulo="Preço de compra">
+          <Dinheiro valor={f.preco_compra} mudar={(v) => mudar('preco_compra', v)} />
         </Campo>
-        <Campo rotulo="Tema">
-          <TextoSugerido id="l-temas" valor={f.tema} mudar={(v) => mudar('tema', v)} sugestoes={lista('temas')} />
-        </Campo>
-        <Campo rotulo="Condição">
-          <TextoSugerido id="l-condicoes" valor={f.condicao} mudar={(v) => mudar('condicao', v)} sugestoes={lista('condicoes')} />
-        </Campo>
-        <Campo rotulo="Quantidade">
-          <input inputMode="numeric" value={f.quantidade} onChange={(e) => mudar('quantidade', e.target.value.replace(/\D/g, ''))} />
+        <Campo rotulo="Quem pagou">
+          <SelecionarPagador valor={f.pagador} mudar={(v) => mudar('pagador', v)} />
         </Campo>
         <Campo rotulo="Estado">
           <select value={f.estado} onChange={(e) => mudar('estado', e.target.value as EstadoProduto)}>
@@ -164,51 +158,24 @@ export function FormProduto({ id, aoFechar }: { id?: string; aoFechar(): void })
             ))}
           </select>
         </Campo>
-        <Campo rotulo="Descrição" largo>
-          <textarea rows={2} value={f.descricao} onChange={(e) => mudar('descricao', e.target.value)} />
-        </Campo>
+        {f.estado === 'anunciado' && (
+          <>
+            <Campo rotulo="Conta da Vinted">
+              <SelecionarConta valor={f.conta_id} mudar={(v) => mudar('conta_id', v)} />
+            </Campo>
+            <Campo rotulo="Preço anunciado">
+              <Dinheiro valor={f.preco_anuncio} mudar={(v) => mudar('preco_anuncio', v)} />
+            </Campo>
+          </>
+        )}
       </div>
-
-      <h4 className="secao-form">Custo</h4>
       {compra && (
         <p className="nota">
-          Faz parte da compra de {fmtData(compra.data)}{compra.vendedor ? ` (${compra.vendedor})` : ''}. Para redistribuir os custos, edita a
-          compra.
+          Faz parte da compra de {fmtData(compra.data)}{compra.vendedor ? ` (${compra.vendedor})` : ''}.
         </p>
       )}
-      <div className="grelha-form">
-        <Campo rotulo="Data de compra">
-          <input type="date" value={f.data_compra} onChange={(e) => mudar('data_compra', e.target.value)} />
-        </Campo>
-        <Campo rotulo="Quem pagou">
-          <SelecionarPagador valor={f.pagador} mudar={(v) => mudar('pagador', v)} />
-        </Campo>
-        <Campo rotulo="Preço de compra (total)" ajuda="Por todas as unidades">
-          <Dinheiro valor={f.preco_compra} mudar={(v) => mudar('preco_compra', v)} />
-        </Campo>
-        <Campo rotulo="Custos adicionais" ajuda="Portes, peças em falta…">
-          <Dinheiro valor={f.custos_adicionais} mudar={(v) => mudar('custos_adicionais', v)} />
-        </Campo>
-      </div>
 
-      <h4 className="secao-form">Anúncio</h4>
-      <div className="grelha-form">
-        <Campo rotulo="Conta da Vinted">
-          <SelecionarConta valor={f.conta_id} mudar={(v) => mudar('conta_id', v)} />
-        </Campo>
-        <Campo rotulo="Anunciado em">
-          <input type="date" value={f.data_anuncio} onChange={(e) => mudar('data_anuncio', e.target.value)} />
-        </Campo>
-        <Campo rotulo="Preço anunciado">
-          <Dinheiro valor={f.preco_anuncio} mudar={(v) => mudar('preco_anuncio', v)} />
-        </Campo>
-        <Campo rotulo="Notas" largo>
-          <textarea rows={2} value={f.notas} onChange={(e) => mudar('notas', e.target.value)} />
-        </Campo>
-      </div>
-
-      <h4 className="secao-form">Fotografias</h4>
-      <div className="fotos-edicao">
+      <div className="fotos-edicao fotos-form">
         {fotos.map((r) => (
           <div key={r} className="foto-item">
             <Foto refFoto={r} alt={f.nome} />
@@ -219,9 +186,47 @@ export function FormProduto({ id, aoFechar }: { id?: string; aoFechar(): void })
         ))}
         <label className="foto-adicionar">
           <input type="file" accept="image/*" multiple onChange={(e) => adicionarFotos(e.target.files)} hidden />
-          {aEnviar ? 'A enviar…' : '+ Fotografia'}
+          {aEnviar ? 'A enviar…' : '📷 Fotografia'}
         </label>
       </div>
+
+      <details className="mais-detalhes">
+        <summary>Mais detalhes</summary>
+        <div className="grelha-form">
+          <Campo rotulo="Data de compra">
+            <input type="date" value={f.data_compra} onChange={(e) => mudar('data_compra', e.target.value)} />
+          </Campo>
+          <Campo rotulo="Custos adicionais" ajuda="Portes, peças em falta…">
+            <Dinheiro valor={f.custos_adicionais} mudar={(v) => mudar('custos_adicionais', v)} />
+          </Campo>
+          <Campo rotulo="Condição">
+            <TextoSugerido id="l-condicoes" valor={f.condicao} mudar={(v) => mudar('condicao', v)} sugestoes={lista('condicoes')} />
+          </Campo>
+          <Campo rotulo="Quantidade" ajuda="Unidades neste registo">
+            <input inputMode="numeric" value={f.quantidade} onChange={(e) => mudar('quantidade', e.target.value.replace(/\D/g, ''))} />
+          </Campo>
+          <Campo rotulo="Marca">
+            <TextoSugerido id="l-marcas" valor={f.marca} mudar={(v) => mudar('marca', v)} sugestoes={lista('marcas')} />
+          </Campo>
+          <Campo rotulo="Tema">
+            <TextoSugerido id="l-temas" valor={f.tema} mudar={(v) => mudar('tema', v)} sugestoes={lista('temas')} />
+          </Campo>
+          {f.estado !== 'anunciado' && (
+            <Campo rotulo="Conta da Vinted">
+              <SelecionarConta valor={f.conta_id} mudar={(v) => mudar('conta_id', v)} />
+            </Campo>
+          )}
+          <Campo rotulo="Anunciado em">
+            <input type="date" value={f.data_anuncio} onChange={(e) => mudar('data_anuncio', e.target.value)} />
+          </Campo>
+          <Campo rotulo="Notas" largo>
+            <textarea rows={2} value={f.notas} onChange={(e) => mudar('notas', e.target.value)} />
+          </Campo>
+          <Campo rotulo="Descrição" largo>
+            <textarea rows={2} value={f.descricao} onChange={(e) => mudar('descricao', e.target.value)} />
+          </Campo>
+        </div>
+      </details>
     </Janela>
   );
 }

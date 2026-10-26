@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import { useAbrir } from '../components/acoes';
-import { BarrasMensais } from '../components/Graficos';
 import { BarraLimite, Cartao, EtiquetaVenda, Vazio, Valor } from '../components/ui';
 import { calcularAcertos } from '../lib/acertos';
 import { PREDEFINICOES, estatisticas, intervaloDe, liquidoVenda, lucroVenda, usoConta } from '../lib/calc';
@@ -15,7 +14,6 @@ export function Painel() {
   const [periodo, setPeriodo] = useState<Predefinicao>('mes');
   const h = hoje();
   const e = useMemo(() => estatisticas(dados, { intervalo: intervaloDe(periodo, h) }, h), [dados, periodo, h]);
-  const e12 = useMemo(() => estatisticas(dados, { intervalo: intervaloDe('tudo', h) }, h), [dados, h]);
   const alertas = useMemo(
     () => dados.contas.filter((c) => c.ativa).map((c) => usoConta(c, dados, h)).filter((u) => u.nivel === 'aviso' || u.nivel === 'excedido'),
     [dados, h],
@@ -23,7 +21,6 @@ export function Painel() {
   const porAcertar = useMemo(() => calcularAcertos(dados).transferencias, [dados]);
   const produtoPorId = new Map(dados.produtos.map((p) => [p.id, p]));
   const recentes = [...dados.vendas].sort((a, b) => b.data_venda.localeCompare(a.data_venda)).slice(0, 6);
-  const ultimosMeses = e12.porMes.slice(-12).map((m) => ({ mes: m.mes, valor: m.lucro }));
 
   if (!dados.produtos.length && !dados.compras.length) {
     return (
@@ -128,11 +125,6 @@ export function Painel() {
         </Cartao>
       )}
 
-      <div className="duas-colunas">
-        <Cartao titulo="Lucro por mês" acao={<button className="link" onClick={() => navegar('/analises')}>Análises →</button>}>
-          <BarrasMensais dados={ultimosMeses} nome="Lucro por mês" />
-        </Cartao>
-
         <Cartao titulo="Vendas recentes" acao={<button className="link" onClick={() => navegar('/vendas')}>Ver todas →</button>}>
           {recentes.length === 0 ? (
             <p className="mudo">Sem vendas.</p>
@@ -161,27 +153,7 @@ export function Painel() {
             </ul>
           )}
         </Cartao>
-      </div>
 
-      <Cartao titulo="Anunciados há mais tempo" acao={<button className="link" onClick={() => navegar('/inventario')}>Inventário →</button>}>
-        {e12.parados.length === 0 ? (
-          <p className="mudo">Nenhum produto anunciado.</p>
-        ) : (
-          <ul className="lista-simples">
-            {e12.parados.slice(0, 5).map(({ produto, dias }) => (
-              <li key={produto.id}>
-                <button className="linha-botao" onClick={() => abrir({ tipo: 'detalhe', id: produto.id })}>
-                  <span className="linha-principal">
-                    <span className="truncar">{produto.nome}</span>
-                    <small className="mudo">{nomeConta(produto.conta_id)}{produto.preco_anuncio ? ` · ${fmtEuro(produto.preco_anuncio)}` : ''}</small>
-                  </span>
-                  <span className={`dias ${dias > 60 ? 'dias-muitos' : ''}`}>{plural(dias, 'dia', 'dias')}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Cartao>
     </div>
   );
 }

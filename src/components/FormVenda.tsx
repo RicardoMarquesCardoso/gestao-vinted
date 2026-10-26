@@ -19,16 +19,20 @@ export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?
     data_venda: existente?.data_venda ?? hoje(),
     data_conclusao: existente?.data_conclusao ?? '',
     preco_venda: paraCampo(existente?.preco_venda ?? produtoInicial?.preco_anuncio),
-    conta_id: existente?.conta_id ?? produtoInicial?.conta_id ?? '',
-    pessoa_id: existente?.pessoa_id ?? produtoInicial?.pessoa_id ?? '',
+    conta_id: existente ? existente.conta_id ?? '' : produtoInicial?.conta_id ?? contaHabitual(dados.contas),
+    pessoa_id: existente?.pessoa_id ?? '',
     comissao: paraCampo(existente?.comissao),
     portes: paraCampo(existente?.portes),
     outros_custos: paraCampo(existente?.outros_custos),
-    estado: (existente?.estado ?? 'pendente') as EstadoVenda,
+    estado: (existente?.estado ?? 'concluida') as EstadoVenda,
     notas: existente?.notas ?? '',
     acertada: existente?.acertada ?? false,
   }));
   const [aGuardar, setAGuardar] = useState(false);
+  // Os detalhes abrem sozinhos só quando já têm alguma coisa preenchida
+  const [detalhesAbertos] = useState(
+    () => !!existente && (existente.estado !== 'concluida' || !!existente.comissao || !!existente.portes || !!existente.outros_custos || !!existente.notas),
+  );
   const mudar = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((x) => ({ ...x, [k]: v }));
 
   const produto = dados.produtos.find((p) => p.id === f.produto_id);
@@ -75,8 +79,7 @@ export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?
     setF((x) => ({
       ...x,
       produto_id: pid,
-      conta_id: x.conta_id || p?.conta_id || '',
-      pessoa_id: x.pessoa_id || p?.pessoa_id || '',
+      conta_id: p?.conta_id || x.conta_id || contaHabitual(dados.contas),
       preco_venda: x.preco_venda || paraCampo(p?.preco_anuncio),
     }));
   }
@@ -93,7 +96,8 @@ export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?
       data_conclusao: f.data_conclusao || (f.estado === 'concluida' ? hoje() : null),
       preco_venda: lerNumero(f.preco_venda),
       conta_id: f.conta_id || null,
-      pessoa_id: f.pessoa_id || null,
+      // quem vendeu: o indicado ou, por omissão, o titular da conta
+      pessoa_id: f.pessoa_id || dados.contas.find((c) => c.id === f.conta_id)?.titular_id || null,
       comissao: lerNumero(f.comissao),
       portes: lerNumero(f.portes),
       outros_custos: lerNumero(f.outros_custos),
@@ -171,53 +175,20 @@ export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?
           <span className="campo-rotulo">Produto vendido *</span>
           <ProcurarLista opcoes={opcoes} valor={f.produto_id} mudar={escolherProduto} placeholder="Escreve o nome ou o número do set…" />
         </div>
-        <Campo rotulo="Quantidade" ajuda={produto ? `${disponiveis} disponível(eis)` : undefined}>
-          <input inputMode="numeric" value={f.quantidade} onChange={(e) => mudar('quantidade', e.target.value.replace(/\D/g, ''))} />
-        </Campo>
-        <Campo rotulo="Estado">
-          <select value={f.estado} onChange={(e) => mudar('estado', e.target.value as EstadoVenda)}>
-            {ESTADOS_VENDA.map((e) => (
-              <option key={e.valor} value={e.valor}>
-                {e.nome}
-              </option>
-            ))}
-          </select>
-        </Campo>
-        <Campo rotulo="Data da venda">
-          <input type="date" value={f.data_venda} onChange={(e) => mudar('data_venda', e.target.value)} />
-        </Campo>
-        <Campo rotulo="Enviado / concluído em">
-          <input type="date" value={f.data_conclusao} onChange={(e) => mudar('data_conclusao', e.target.value)} />
+        <Campo rotulo="Preço de venda">
+          <Dinheiro valor={f.preco_venda} mudar={(v) => mudar('preco_venda', v)} />
         </Campo>
         <Campo rotulo="Conta da Vinted">
           <SelecionarConta valor={f.conta_id} mudar={(v) => mudar('conta_id', v)} />
         </Campo>
-        <Campo rotulo="Quem vendeu">
-          <SelecionarPessoa valor={f.pessoa_id} mudar={(v) => mudar('pessoa_id', v)} />
+        <Campo rotulo="Data da venda">
+          <input type="date" value={f.data_venda} onChange={(e) => mudar('data_venda', e.target.value)} />
         </Campo>
-      </div>
-
-      <h4 className="secao-form">Valores</h4>
-      <div className="grelha-form">
-        <Campo rotulo="Preço de venda (total)">
-          <Dinheiro valor={f.preco_venda} mudar={(v) => mudar('preco_venda', v)} />
-        </Campo>
-        <Campo rotulo="Comissões">
-          <Dinheiro valor={f.comissao} mudar={(v) => mudar('comissao', v)} />
-        </Campo>
-        <Campo rotulo="Portes pagos por nós">
-          <Dinheiro valor={f.portes} mudar={(v) => mudar('portes', v)} />
-        </Campo>
-        <Campo rotulo="Outros custos" ajuda="Embalagem, peças…">
-          <Dinheiro valor={f.outros_custos} mudar={(v) => mudar('outros_custos', v)} />
-        </Campo>
-        <Campo rotulo="Notas" largo>
-          <textarea rows={2} value={f.notas} onChange={(e) => mudar('notas', e.target.value)} />
-        </Campo>
-        <label className="caixa campo-largo">
-          <input type="checkbox" checked={f.acertada} onChange={(e) => mudar('acertada', e.target.checked)} /> Já acertada fora da app (não entra em
-          Acertos)
-        </label>
+        {produto && produto.quantidade > 1 && (
+          <Campo rotulo="Quantidade" ajuda={`${disponiveis} disponível(eis)`}>
+            <input inputMode="numeric" value={f.quantidade} onChange={(e) => mudar('quantidade', e.target.value.replace(/\D/g, ''))} />
+          </Campo>
+        )}
       </div>
 
       <div className="resumo-calculo">
@@ -236,6 +207,53 @@ export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?
           </strong>
         </div>
       </div>
+      <details className="mais-detalhes" open={detalhesAbertos || undefined}>
+        <summary>Mais detalhes</summary>
+        <div className="grelha-form">
+          <Campo rotulo="Estado" ajuda="Pendente: ainda à espera da confirmação">
+            <select value={f.estado} onChange={(e) => mudar('estado', e.target.value as EstadoVenda)}>
+              {ESTADOS_VENDA.map((e) => (
+                <option key={e.valor} value={e.valor}>
+                  {e.nome}
+                </option>
+              ))}
+            </select>
+          </Campo>
+          <Campo rotulo="Enviado / concluído em">
+            <input type="date" value={f.data_conclusao} onChange={(e) => mudar('data_conclusao', e.target.value)} />
+          </Campo>
+          <Campo rotulo="Portes pagos por nós">
+            <Dinheiro valor={f.portes} mudar={(v) => mudar('portes', v)} />
+          </Campo>
+          <Campo rotulo="Comissões">
+            <Dinheiro valor={f.comissao} mudar={(v) => mudar('comissao', v)} />
+          </Campo>
+          <Campo rotulo="Outros custos" ajuda="Embalagem, peças…">
+            <Dinheiro valor={f.outros_custos} mudar={(v) => mudar('outros_custos', v)} />
+          </Campo>
+          <Campo rotulo="Quem vendeu" ajuda="Por omissão, o titular da conta">
+            <SelecionarPessoa valor={f.pessoa_id} mudar={(v) => mudar('pessoa_id', v)} vazio="Titular da conta" />
+          </Campo>
+          <Campo rotulo="Notas" largo>
+            <textarea rows={2} value={f.notas} onChange={(e) => mudar('notas', e.target.value)} />
+          </Campo>
+          <label className="caixa campo-largo">
+            <input type="checkbox" checked={f.acertada} onChange={(e) => mudar('acertada', e.target.checked)} /> Já acertada fora da app (não entra em
+            Acertos)
+          </label>
+        </div>
+      </details>
     </Janela>
   );
+}
+
+/** A última conta usada para anunciar, ou a primeira conta ativa. */
+function contaHabitual(contas: { id: string; ativa: boolean }[]): string {
+  try {
+    const c = localStorage.getItem('gv.ultimaConta');
+    if (c && contas.some((x) => x.id === c && x.ativa)) return c;
+  } catch {
+    /* ignorar */
+  }
+  return contas.find((c) => c.ativa)?.id ?? '';
 }

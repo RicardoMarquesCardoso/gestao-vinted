@@ -90,6 +90,22 @@ export function Definicoes(props: { aoSair(): void }) {
     <div className="pagina">
       <h1>Definições</h1>
 
+      <Cartao titulo="Sessão">
+        <p>
+          {store.modo === 'demo' ? (
+            <>Estás no <strong>modo de demonstração</strong>: os dados ficam só neste browser e não são partilhados.</>
+          ) : (
+            <>Sessão iniciada como <strong>{store.utilizador}</strong>. Os dados estão sincronizados no Supabase.</>
+          )}
+        </p>
+        <button className="btn" onClick={props.aoSair}>{store.modo === 'demo' ? 'Sair do modo de demonstração' : 'Terminar sessão'}</button>
+      </Cartao>
+
+      <Cartao titulo="Instalar no telemóvel">
+        <p><strong>iPhone (Safari):</strong> botão Partilhar → "Adicionar ao ecrã principal".</p>
+        <p><strong>Android (Chrome):</strong> menu ⋮ → "Instalar app" ou "Adicionar ao ecrã principal".</p>
+      </Cartao>
+
       <Cartao titulo="Pessoas">
         <p className="nota">Quem paga as compras e quem faz as vendas.</p>
         <ul className="lista-edicao">
@@ -106,15 +122,6 @@ export function Definicoes(props: { aoSair(): void }) {
         </div>
       </Cartao>
 
-      <Cartao titulo="Listas e categorias">
-        <p className="nota">Sugestões que aparecem nos formulários. Um valor por linha. Os limites de cada conta definem-se em Contas.</p>
-        <div className="grelha-listas">
-          {Object.entries(LISTAS_PADRAO).map(([chave, l]) => (
-            <EditorLista key={chave} nome={l.nome} valores={lista(chave)} guardar={(valor) => guardar('definicoes', [{ chave, valor }])} />
-          ))}
-        </div>
-      </Cartao>
-
       <Cartao titulo="Exportar dados">
         <p className="nota">
           Em Inventário, Compras e Vendas há um botão "Exportar CSV" que exporta a lista com os filtros aplicados (abre no Excel). Aqui podes
@@ -123,6 +130,17 @@ export function Definicoes(props: { aoSair(): void }) {
         <button className="btn" onClick={() => descarregar(`gestao-vinted-copia-${hoje()}.json`, JSON.stringify(dados, null, 2), 'application/json')}>
           Descarregar cópia de segurança (JSON)
         </button>
+      </Cartao>
+
+      <details className="mais-detalhes avancado">
+        <summary>Avançado</summary>
+      <Cartao titulo="Listas e categorias">
+        <p className="nota">Sugestões que aparecem nos formulários. Um valor por linha. Os limites de cada conta definem-se em Contas.</p>
+        <div className="grelha-listas">
+          {Object.entries(LISTAS_PADRAO).map(([chave, l]) => (
+            <EditorLista key={chave} nome={l.nome} valores={lista(chave)} guardar={(valor) => guardar('definicoes', [{ chave, valor }])} />
+          ))}
+        </div>
       </Cartao>
 
       <Cartao titulo="Dados de exemplo">
@@ -136,22 +154,7 @@ export function Definicoes(props: { aoSair(): void }) {
       </Cartao>
 
       <HistoricoAlteracoes />
-
-      <Cartao titulo="Sessão">
-        <p>
-          {store.modo === 'demo' ? (
-            <>Estás no <strong>modo de demonstração</strong>: os dados ficam só neste browser e não são partilhados.</>
-          ) : (
-            <>Sessão iniciada como <strong>{store.utilizador}</strong>. Os dados estão sincronizados no Supabase.</>
-          )}
-        </p>
-        <button className="btn" onClick={props.aoSair}>{store.modo === 'demo' ? 'Sair do modo de demonstração' : 'Terminar sessão'}</button>
-      </Cartao>
-
-      <Cartao titulo="Instalar no telemóvel">
-        <p><strong>iPhone (Safari):</strong> botão Partilhar → "Adicionar ao ecrã principal".</p>
-        <p><strong>Android (Chrome):</strong> menu ⋮ → "Instalar app" ou "Adicionar ao ecrã principal".</p>
-      </Cartao>
+      </details>
     </div>
   );
 }

@@ -512,3 +512,28 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .grelha-produtos > li.grupo-aberto > .produto { height: auto; }
 .grupo-pilha { align-self: flex-start; width: 76px; height: 76px; }
 .grupo-pilha > .produto-foto { width: 76px; height: 76px; }
+
+/* ---------- Simplificação dos formulários ---------- */
+.mais-detalhes { margin-top: 18px; border-top: 1px solid var(--linha); padding-top: 12px; }
+.mais-detalhes > summary { cursor: pointer; font-weight: 600; color: var(--primario); list-style: none; padding: 4px 0 12px; }
+.mais-detalhes > summary::-webkit-details-marker { display: none; }
+.mais-detalhes > summary::before { content: '▸ '; }
+.mais-detalhes[open] > summary::before { content: '▾ '; }
+.fotos-form { margin-top: 14px; }
+.grelha-portes { margin-top: 14px; }
+.item-compra { grid-template-columns: minmax(140px, 2fr) 90px 56px 110px 90px 36px; }
+@media (max-width: 720px) {
+  .item-compra { grid-template-columns: 1fr 64px 1fr 36px; }
+  .ic-nome { grid-column: 1 / 4; }
+  .ic-nome ~ .btn-icone { grid-column: 4; grid-row: 1; }
+  .ic-set { grid-column: 1; }
+  .ic-qtd { grid-column: 2; }
+  .ic-preco { grid-column: 3 / 5; }
+  .ic-custo { grid-column: 1 / -1; text-align: left; }
+}
+.grupo-painel { margin: 8px 0 4px; }
+.grupo-acoes { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.grupo-painel .grupo-itens { margin: 0; }
+.icone-marca { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 1.6rem; line-height: 1; }
+.icone-marca small { font-size: 0.7rem; color: var(--texto-3); font-weight: 600; }
+.janela-rodape label.btn { cursor: pointer; }

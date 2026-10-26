@@ -14,7 +14,9 @@ export function Janela(props: { titulo: string; aoFechar(): void; children: Reac
     const tecla = (e: KeyboardEvent) => e.key === 'Escape' && props.aoFechar();
     document.addEventListener('keydown', tecla);
     document.body.classList.add('sem-scroll');
-    ref.current?.querySelector<HTMLElement>('input, select, textarea')?.focus({ preventScroll: true });
+    // No computador põe o cursor no primeiro campo; no telemóvel não, para não abrir o teclado
+    if (window.matchMedia('(pointer: fine)').matches)
+      ref.current?.querySelector<HTMLElement>('input:not([role=combobox]), select, textarea')?.focus({ preventScroll: true });
     return () => {
       document.removeEventListener('keydown', tecla);
       document.body.classList.remove('sem-scroll');
@@ -311,12 +313,10 @@ export function ProcurarLista(props: { opcoes: OpcaoProcura[]; valor: string; mu
         <input
           value={aberta ? texto : selecionada?.titulo ?? ''}
           placeholder={selecionada ? selecionada.titulo : props.placeholder ?? 'Escreve para procurar…'}
-          onFocus={() => {
+          onClick={() => {
+            if (!aberta) setTexto('');
             setAberta(true);
-            setTexto('');
-            setAtivo(0);
           }}
-          onClick={() => setAberta(true)}
           onChange={(e) => {
             setTexto(e.target.value);
             setAtivo(0);
@@ -389,4 +389,15 @@ export function ImagemReferencia({ url, className, alt = '', vazio }: { url: str
   if (!url || tentativa > 1) return <div className={`foto-vazia ${className ?? ''}`}>{vazio}</div>;
   const src = tentativa === 0 ? url : url.replace(/^https:\/\/images\.brickset\.com\/sets\/(images|small)\//, 'https://cdn.rebrickable.com/media/sets/');
   return <img src={src} alt={alt} className={`img-ref ${className ?? ''}`} loading="lazy" referrerPolicy="no-referrer" onError={() => setTentativa((t) => t + 1)} />;
+}
+
+/** Ícone simples por marca, para produtos sem fotografia nem imagem de referência. */
+export function iconeMarca(marca: string | null): string {
+  const m = (marca || '').toLowerCase();
+  if (m.includes('lego')) return '🧱';
+  if (m.includes('pok')) return '⚡';
+  if (m.includes('hot wheels')) return '🏎️';
+  if (m.includes('funko')) return '🧸';
+  if (m.includes('playmobil')) return '🧸';
+  return '🎁';
 }
