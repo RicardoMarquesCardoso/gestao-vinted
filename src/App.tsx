@@ -15,7 +15,6 @@ import { Definicoes } from './pages/Definicoes';
 import { Entrar } from './pages/Entrar';
 import { Inventario } from './pages/Inventario';
 import { Painel } from './pages/Painel';
-import { Vendas } from './pages/Vendas';
 import { navegar, useRota } from './router';
 import { DadosProvider, useDados } from './state';
 
@@ -118,10 +117,10 @@ function Estrutura({ aoSair }: { aoSair(): void }) {
 
   const pagina = useMemo(() => {
     switch (base) {
-      case '/produtos': return rota.startsWith('/produtos/vendidos') ? <Vendas /> : <Inventario />;
+      case '/produtos': return <Inventario key={rota} inicial={rota.startsWith('/produtos/vendidos') ? 'vendidos' : 'por_vender'} />;
       case '/inventario': return <Inventario />;
       case '/compras': return <Compras />;
-      case '/vendas': return <Vendas />;
+      case '/vendas': return <Inventario key="vendas" inicial="vendidos" />;
       case '/contas': return <Contas />;
       case '/acertos': return <Acertos />;
       case '/analises': return <Analises />;

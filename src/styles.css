@@ -602,3 +602,5 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
   .janela-rodape { gap: 6px; flex-wrap: nowrap; }
   .janela-rodape .btn { padding: 9px 12px; }
 }
+.produto-rodape > span:first-child { white-space: nowrap; }
+.produto-rodape > span:first-child .valor { margin-left: 4px; }
