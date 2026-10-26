@@ -8,7 +8,7 @@ import { fmtData, fmtEuro, hoje, plural } from '../lib/format';
 import { useDados } from '../state';
 
 export function Compras() {
-  const { dados, nomePessoa } = useDados();
+  const { dados, nomePagador } = useDados();
   const abrir = useAbrir();
   const [texto, setTexto] = useState('');
   const [periodo, setPeriodo] = useState<Predefinicao>('tudo');
@@ -37,8 +37,8 @@ export function Compras() {
   }, [dados.compras, texto, periodo, pessoa, h, produtosDe]);
 
   const total = lista.reduce((a, c) => a + totalCompra(c), 0);
-  const porPessoa = dados.pessoas
-    .map((p) => ({ nome: p.nome, total: lista.filter((c) => c.pessoa_id === p.id).reduce((a, c) => a + totalCompra(c), 0) }))
+  const porPessoa = [...new Set(lista.map((c) => nomePagador(c)))]
+    .map((nome) => ({ nome, total: lista.filter((c) => nomePagador(c) === nome).reduce((a, c) => a + totalCompra(c), 0) }))
     .filter((x) => x.total > 0);
 
   function exportar() {
@@ -46,7 +46,7 @@ export function Compras() {
       `compras-${h}.csv`,
       paraCsv(lista, [
         { titulo: 'Data', valor: (c) => c.data },
-        { titulo: 'Quem pagou', valor: (c) => nomePessoa(c.pessoa_id) },
+        { titulo: 'Quem pagou', valor: (c) => nomePagador(c) },
         { titulo: 'Método', valor: (c) => c.metodo_pagamento },
         { titulo: 'Comprado a', valor: (c) => c.vendedor },
         { titulo: 'Valor dos artigos', valor: (c) => c.valor_artigos },
@@ -95,7 +95,7 @@ export function Compras() {
                   <div className="registo-esquerda">
                     <div className="registo-titulo">{ps.length ? ps.map((p) => p.nome).join(', ') : 'Compra sem produtos'}</div>
                     <div className="registo-meta">
-                      {fmtData(c.data)} · {nomePessoa(c.pessoa_id)}
+                      {fmtData(c.data)} · {nomePagador(c)}
                       {c.metodo_pagamento ? ` · ${c.metodo_pagamento}` : ''}
                       {c.vendedor ? ` · ${c.vendedor}` : ''}
                     </div>

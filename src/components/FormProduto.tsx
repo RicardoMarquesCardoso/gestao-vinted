@@ -5,7 +5,7 @@ import type { EstadoProduto, Produto } from '../lib/types';
 import { ESTADOS_PRODUTO } from '../lib/types';
 import { useDados } from '../state';
 import { paraCampo, vazioANull } from './acoes';
-import { Campo, Dinheiro, Foto, Janela, SelecionarConta, SelecionarPessoa, TextoSugerido, reduzirFoto, useConfirmar } from './ui';
+import { Campo, Dinheiro, Foto, Janela, SelecionarConta, SelecionarPagador, TextoSugerido, lerPagador, reduzirFoto, useConfirmar, valorPagador } from './ui';
 
 export function FormProduto({ id, aoFechar }: { id?: string; aoFechar(): void }) {
   const { dados, guardar, apagar, lista, store, aviso } = useDados();
@@ -26,7 +26,7 @@ export function FormProduto({ id, aoFechar }: { id?: string; aoFechar(): void })
     data_compra: existente?.data_compra ?? hoje(),
     preco_compra: paraCampo(existente?.preco_compra),
     custos_adicionais: paraCampo(existente?.custos_adicionais),
-    pessoa_id: existente?.pessoa_id ?? '',
+    pagador: existente ? valorPagador(existente) : '',
     estado: (existente?.estado ?? 'por_anunciar') as EstadoProduto,
     conta_id: existente?.conta_id ?? '',
     data_anuncio: existente?.data_anuncio ?? '',
@@ -76,7 +76,7 @@ export function FormProduto({ id, aoFechar }: { id?: string; aoFechar(): void })
       data_compra: f.data_compra || null,
       preco_compra: lerNumero(f.preco_compra),
       custos_adicionais: lerNumero(f.custos_adicionais),
-      pessoa_id: f.pessoa_id || null,
+      ...lerPagador(f.pagador),
       estado: f.estado,
       conta_id: f.conta_id || null,
       data_anuncio: f.data_anuncio || (f.estado === 'anunciado' ? hoje() : null),
@@ -181,7 +181,7 @@ export function FormProduto({ id, aoFechar }: { id?: string; aoFechar(): void })
           <input type="date" value={f.data_compra} onChange={(e) => mudar('data_compra', e.target.value)} />
         </Campo>
         <Campo rotulo="Quem pagou">
-          <SelecionarPessoa valor={f.pessoa_id} mudar={(v) => mudar('pessoa_id', v)} />
+          <SelecionarPagador valor={f.pagador} mudar={(v) => mudar('pagador', v)} />
         </Campo>
         <Campo rotulo="Preço de compra (total)" ajuda="Por todas as unidades">
           <Dinheiro valor={f.preco_compra} mudar={(v) => mudar('preco_compra', v)} />

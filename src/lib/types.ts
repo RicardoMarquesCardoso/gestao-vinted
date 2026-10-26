@@ -4,6 +4,10 @@ export type EstadoProduto = 'por_anunciar' | 'anunciado' | 'vendido' | 'devolvid
 export type EstadoVenda = 'pendente' | 'concluida' | 'cancelada' | 'devolvida';
 export type TipoPeriodo = 'mensal' | 'semanal' | 'anual' | 'rolante' | 'personalizado';
 export type Distribuicao = 'igual' | 'individual';
+/** Quem pagou: uma pessoa (pessoa_id), a conta conjunta, ou dividido em partes iguais. */
+export type TipoPagamento = 'pessoa' | 'conjunta' | 'dividido';
+/** Uma "parte" nos acertos: o id de uma pessoa ou a conta conjunta. */
+export const CONJUNTA = 'conjunta';
 
 export interface Pessoa {
   id: string;
@@ -25,6 +29,7 @@ export interface Conta {
   periodo_inicio: string | null;
   periodo_fim: string | null;
   alerta_pct: number;
+  titular_id: string | null; // quem recebe o dinheiro das vendas desta conta
   criado_em?: string;
 }
 
@@ -32,6 +37,7 @@ export interface Compra {
   id: string;
   data: string; // AAAA-MM-DD
   pessoa_id: string | null;
+  tipo_pagamento: TipoPagamento;
   metodo_pagamento: string | null;
   vendedor: string | null;
   valor_artigos: number;
@@ -56,6 +62,7 @@ export interface Produto {
   preco_compra: number; // total pago por todas as unidades
   custos_adicionais: number; // portes, peças em falta, etc. (total)
   pessoa_id: string | null;
+  tipo_pagamento: TipoPagamento;
   estado: EstadoProduto;
   conta_id: string | null;
   data_anuncio: string | null;
@@ -93,6 +100,16 @@ export interface Historico {
   depois: unknown;
 }
 
+export interface Acerto {
+  id: string;
+  data: string;
+  de: string; // id da pessoa ou 'conjunta'
+  para: string;
+  valor: number;
+  notas: string | null;
+  criado_em?: string;
+}
+
 export interface Definicao {
   chave: string;
   valor: string[];
@@ -104,6 +121,7 @@ export interface Dados {
   compras: Compra[];
   produtos: Produto[];
   vendas: Venda[];
+  acertos: Acerto[];
   definicoes: Definicao[];
 }
 

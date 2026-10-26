@@ -4,7 +4,7 @@ import type { Conta, TipoPeriodo } from '../lib/types';
 import { PERIODOS } from '../lib/types';
 import { useDados } from '../state';
 import { paraCampo, vazioANull } from './acoes';
-import { Campo, Dinheiro, Janela, useConfirmar } from './ui';
+import { Campo, Dinheiro, Janela, SelecionarPessoa, useConfirmar } from './ui';
 
 export function FormConta({ id, aoFechar }: { id?: string; aoFechar(): void }) {
   const { dados, guardar, apagar, aviso } = useDados();
@@ -25,6 +25,7 @@ export function FormConta({ id, aoFechar }: { id?: string; aoFechar(): void }) {
     periodo_fim: existente?.periodo_fim ?? '',
     alerta_pct: inteiro(existente?.alerta_pct ?? 80),
     notas: existente?.notas ?? '',
+    titular_id: existente?.titular_id ?? '',
   }));
   const mudar = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((x) => ({ ...x, [k]: v }));
   const nOuNull = (s: string) => (s.trim() === '' ? null : lerNumero(s));
@@ -46,6 +47,7 @@ export function FormConta({ id, aoFechar }: { id?: string; aoFechar(): void }) {
       periodo_dias: f.periodo === 'rolante' ? Math.max(Math.round(lerNumero(f.periodo_dias)) || 30, 1) : null,
       periodo_inicio: f.periodo === 'personalizado' ? f.periodo_inicio : null,
       periodo_fim: f.periodo === 'personalizado' ? f.periodo_fim : null,
+      titular_id: f.titular_id || null,
       alerta_pct: Math.min(Math.max(Math.round(lerNumero(f.alerta_pct)) || 80, 1), 100),
     };
     try {
@@ -105,6 +107,9 @@ export function FormConta({ id, aoFechar }: { id?: string; aoFechar(): void }) {
         </Campo>
         <Campo rotulo="Utilizador na Vinted">
           <input value={f.utilizador_vinted} onChange={(e) => mudar('utilizador_vinted', e.target.value)} />
+        </Campo>
+        <Campo rotulo="Titular (recebe o dinheiro)" ajuda="Usado nos acertos">
+          <SelecionarPessoa valor={f.titular_id} mudar={(v) => mudar('titular_id', v)} />
         </Campo>
         <label className="caixa campo-largo">
           <input type="checkbox" checked={f.ativa} onChange={(e) => mudar('ativa', e.target.checked)} /> Conta ativa

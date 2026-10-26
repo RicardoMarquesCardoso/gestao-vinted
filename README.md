@@ -7,6 +7,7 @@ App web para gerir compras e vendas de brinquedos (sobretudo LEGO) na Vinted, a 
 - **Inventário**: produtos com set LEGO, tema, condição, quantidade, custo, quem pagou, estado, conta e fotografias. Pesquisa, filtros e exportação para CSV.
 - **Compras**: uma compra pode ter vários produtos. O custo pode ser indicado produto a produto, ou o valor total pode ser dividido igualmente. Os portes e outros custos são distribuídos automaticamente.
 - **Vendas**: o valor líquido e o lucro são calculados automaticamente (preço − comissões − portes − outros custos − custo do produto). O estado do produto passa a "Vendido" quando todas as unidades são vendidas.
+- **Acertos (tipo Splitwise)**: cada compra é paga por um de nós, pela conta conjunta ou dividida. Em cada venda concluída, quem recebeu devolve o custo a quem pagou e o lucro vai para a conta conjunta. A app mostra as transferências a fazer e guarda as que já foram feitas.
 - **Contas da Vinted**: limites próprios por conta (anúncios ativos, n.º de vendas e valor vendido por período), com avisos quando se aproximam do limite.
 - **Painel e Análises**: lucro, recebido, gasto, inventário, lucro por mês/conta/pessoa, comparação de preços pelo n.º do set, tempo até vender e produtos parados.
 - **Segurança dos registos**: apagar pede sempre confirmação e todas as alterações ficam num histórico que não pode ser alterado.

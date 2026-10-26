@@ -177,3 +177,30 @@ create policy "membros fotos alterar" on storage.objects for update to authentic
   using (bucket_id = 'fotos' and public.e_membro());
 create policy "membros fotos apagar" on storage.objects for delete to authenticated
   using (bucket_id = 'fotos' and public.e_membro());
+
+-- ---------------------------------------------------------------------
+-- 5) Acertos entre nós (tipo Splitwise)
+--    tipo_pagamento: 'pessoa' (paga pessoa_id), 'conjunta' (conta conjunta)
+--    ou 'dividido' (partes iguais entre as pessoas).
+--    contas.titular_id: quem recebe o dinheiro das vendas dessa conta.
+-- ---------------------------------------------------------------------
+alter table public.compras add column if not exists tipo_pagamento text not null default 'pessoa'
+  check (tipo_pagamento in ('pessoa','conjunta','dividido'));
+alter table public.produtos add column if not exists tipo_pagamento text not null default 'pessoa'
+  check (tipo_pagamento in ('pessoa','conjunta','dividido'));
+alter table public.contas add column if not exists titular_id uuid references public.pessoas(id) on delete set null;
+
+-- Transferências já feitas. "de" e "para" são 'conjunta' ou o id de uma pessoa.
+create table if not exists public.acertos (
+  id uuid primary key default gen_random_uuid(),
+  data date not null default current_date,
+  de text not null,
+  para text not null,
+  valor numeric(12,2) not null check (valor > 0),
+  notas text,
+  criado_em timestamptz not null default now()
+);
+alter table public.acertos enable row level security;
+drop policy if exists "membros" on public.acertos;
+create policy "membros" on public.acertos for all to authenticated
+  using (public.e_membro()) with check (public.e_membro());

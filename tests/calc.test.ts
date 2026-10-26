@@ -9,7 +9,7 @@ import type { Conta, Produto, Venda, Dados } from '../src/lib/types.ts';
 const produto = (x: Partial<Produto>): Produto => ({
   id: 'p1', compra_id: null, nome: 'Set', descricao: null, marca: 'LEGO', tema: null, set_numero: null,
   condicao: null, quantidade: 1, data_compra: '2026-01-01', preco_compra: 10, custos_adicionais: 0,
-  pessoa_id: null, estado: 'anunciado', conta_id: 'c1', data_anuncio: null, preco_anuncio: null,
+  pessoa_id: null, tipo_pagamento: 'pessoa', estado: 'anunciado', conta_id: 'c1', data_anuncio: null, preco_anuncio: null,
   notas: null, fotos: [], ...x,
 });
 const venda = (x: Partial<Venda>): Venda => ({
@@ -20,7 +20,7 @@ const venda = (x: Partial<Venda>): Venda => ({
 const conta = (x: Partial<Conta>): Conta => ({
   id: 'c1', nome: 'A', utilizador_vinted: null, notas: null, ativa: true, limite_anuncios: null,
   limite_vendas: null, limite_valor: null, periodo: 'mensal', periodo_dias: null, periodo_inicio: null,
-  periodo_fim: null, alerta_pct: 80, ...x,
+  periodo_fim: null, alerta_pct: 80, titular_id: null, ...x,
 });
 
 test('repartir mantém o total exato', () => {
@@ -99,8 +99,8 @@ test('uso de limites e avisos', () => {
 
 test('estatísticas básicas', () => {
   const d: Dados = {
-    pessoas: [], contas: [conta({})], definicoes: [],
-    compras: [{ id: 'k1', data: '2026-01-01', pessoa_id: null, metodo_pagamento: null, vendedor: null, valor_artigos: 20, portes: 2, outros_custos: 0, distribuicao: 'igual', notas: null }],
+    pessoas: [], contas: [conta({})], definicoes: [], acertos: [],
+    compras: [{ id: 'k1', data: '2026-01-01', pessoa_id: null, tipo_pagamento: 'pessoa', metodo_pagamento: null, vendedor: null, valor_artigos: 20, portes: 2, outros_custos: 0, distribuicao: 'igual', notas: null }],
     produtos: [
       produto({ id: 'p1', compra_id: 'k1', preco_compra: 10, custos_adicionais: 1, set_numero: '75192' }),
       produto({ id: 'p2', compra_id: 'k1', preco_compra: 10, custos_adicionais: 1, set_numero: '75192' }),

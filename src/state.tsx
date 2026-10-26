@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { chaveDe, dadosVazios } from './lib/store';
 import type { Store, TabelaDados } from './lib/store';
 import { SessaoExpirada } from './lib/supabase';
-import type { Dados, Historico } from './lib/types';
+import type { Dados, Historico, TipoPagamento } from './lib/types';
 import { LISTAS_PADRAO } from './lib/types';
 
 interface Estado {
@@ -19,6 +19,10 @@ interface Estado {
   lista(chave: string): string[];
   nomePessoa(id: string | null | undefined): string;
   nomeConta(id: string | null | undefined): string;
+  /** Nome de uma parte nos acertos: pessoa ou conta conjunta. */
+  nomeParte(id: string | null | undefined): string;
+  /** Quem pagou uma compra ou produto, em texto. */
+  nomePagador(x: { tipo_pagamento: TipoPagamento; pessoa_id: string | null }): string;
   aviso(texto: string, tipo?: 'ok' | 'erro'): void;
   sessaoExpirada(): void;
 }
@@ -170,6 +174,15 @@ export function DadosProvider(props: { store: Store; aoExpirar(): void; children
       lista: (chave) => dados.definicoes.find((x) => x.chave === chave)?.valor ?? LISTAS_PADRAO[chave]?.valores ?? [],
       nomePessoa: (id) => (id ? dados.pessoas.find((p) => p.id === id)?.nome ?? '—' : '—'),
       nomeConta: (id) => (id ? dados.contas.find((c) => c.id === id)?.nome ?? '—' : '—'),
+      nomeParte: (id) => (id === 'conjunta' ? 'Conta conjunta' : id ? dados.pessoas.find((p) => p.id === id)?.nome ?? '—' : '—'),
+      nomePagador: (x) =>
+        x.tipo_pagamento === 'conjunta'
+          ? 'Conta conjunta'
+          : x.tipo_pagamento === 'dividido'
+            ? 'Dividido'
+            : x.pessoa_id
+              ? dados.pessoas.find((p) => p.id === x.pessoa_id)?.nome ?? '—'
+              : '—',
     }),
     [store, dados, carregando, erro, ultimaAtualizacao, recarregar, guardar, apagar, aviso, aoExpirar],
   );

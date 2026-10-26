@@ -416,3 +416,20 @@ input[type='checkbox'] { width: 18px; height: 18px; min-height: 0; accent-color:
 .erro { color: var(--negativo); margin: 0; font-size: 0.9rem; }
 .separador { display: flex; align-items: center; gap: 10px; color: var(--texto-3); font-size: 0.82rem; }
 .separador::before, .separador::after { content: ''; flex: 1; border-top: 1px solid var(--linha); }
+
+/* ---------- Acertos ---------- */
+.acertos-regra { margin-top: -6px; }
+.cartao-acertar { border-color: var(--primario); }
+.tudo-acertado { color: var(--positivo); font-weight: 600; margin: 0; }
+.transferencias { list-style: none; margin: 0; padding: 0; }
+.transferencias li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; flex-wrap: wrap; }
+.transferencias li + li { border-top: 1px solid var(--linha); }
+.transf-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.transf-valor { font-size: 1.3rem; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.seta { color: var(--texto-3); margin: 0 2px; }
+.saldos { list-style: none; margin: 0; padding: 0; }
+.saldos li { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; font-variant-numeric: tabular-nums; }
+.saldos li + li { border-top: 1px solid var(--linha); }
+.saldos li span:last-child { font-weight: 600; }
+.linha-acerto { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; }
+.painel-acertos li { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; font-variant-numeric: tabular-nums; }

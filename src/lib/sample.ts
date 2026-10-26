@@ -21,11 +21,11 @@ export function dadosExemplo(hoje: string): Dados {
 
   const base: Omit<Conta, 'id' | 'nome'> = {
     utilizador_vinted: null, notas: null, ativa: true, limite_anuncios: null, limite_vendas: null,
-    limite_valor: null, periodo: 'mensal', periodo_dias: null, periodo_inicio: null, periodo_fim: null, alerta_pct: 80,
+    limite_valor: null, periodo: 'mensal', periodo_dias: null, periodo_inicio: null, periodo_fim: null, alerta_pct: 80, titular_id: null,
   };
   const contas: Conta[] = [
-    { ...base, id: id(11), nome: 'Conta principal', utilizador_vinted: 'ricardo_bricks', limite_anuncios: 10, limite_vendas: 8, limite_valor: 600 },
-    { ...base, id: id(12), nome: 'Conta da Ana', utilizador_vinted: 'ana.toys', limite_anuncios: 6, limite_vendas: 30, periodo: 'rolante', periodo_dias: 30 },
+    { ...base, id: id(11), nome: 'Conta principal', titular_id: ricardo, utilizador_vinted: 'ricardo_bricks', limite_anuncios: 10, limite_vendas: 8, limite_valor: 600 },
+    { ...base, id: id(12), nome: 'Conta da Ana', titular_id: ana, utilizador_vinted: 'ana.toys', limite_anuncios: 6, limite_vendas: 30, periodo: 'rolante', periodo_dias: 30 },
   ];
   const [principal, contaAna] = contas.map((c) => c.id);
 
@@ -36,24 +36,26 @@ export function dadosExemplo(hoje: string): Dados {
   const pBase = (x: Partial<Produto>): Produto => ({
     id: id(nProduto++), compra_id: null, nome: '', descricao: null, marca: 'LEGO', tema: null, set_numero: null,
     condicao: 'Usado completo', quantidade: 1, data_compra: null, preco_compra: 0, custos_adicionais: 0,
-    pessoa_id: null, estado: 'por_anunciar', conta_id: null, data_anuncio: null, preco_anuncio: null,
+    pessoa_id: null, tipo_pagamento: 'pessoa', estado: 'por_anunciar', conta_id: null, data_anuncio: null, preco_anuncio: null,
     notas: null, fotos: [], ...x,
   });
 
   function compra(
-    n: number, dias: number, pessoa: string, metodo: string, vendedor: string,
+    n: number, dias: number, pagador: string, metodo: string, vendedor: string,
     distribuicao: Compra['distribuicao'], valor: number, portes: number,
     itens: (Partial<Produto> & { preco?: number })[],
   ) {
     const c: Compra = {
-      id: id(n), data: d(dias), pessoa_id: pessoa, metodo_pagamento: metodo, vendedor,
+      id: id(n), data: d(dias), metodo_pagamento: metodo, vendedor,
+      pessoa_id: pagador === 'conjunta' || pagador === 'dividido' ? null : pagador,
+      tipo_pagamento: pagador === 'conjunta' || pagador === 'dividido' ? pagador : 'pessoa',
       valor_artigos: distribuicao === 'igual' ? valor : itens.reduce((a, i) => a + (i.preco || 0), 0),
       portes, outros_custos: 0, distribuicao, notas: null,
     };
     compras.push(c);
     const custos = distribuirCompra(c, itens.map((i) => ({ quantidade: i.quantidade || 1, preco: i.preco || 0 })));
     itens.forEach(({ preco: _p, ...i }, k) =>
-      produtos.push(pBase({ ...i, compra_id: c.id, data_compra: c.data, pessoa_id: pessoa, ...custos[k] })),
+      produtos.push(pBase({ ...i, compra_id: c.id, data_compra: c.data, pessoa_id: c.pessoa_id, tipo_pagamento: c.tipo_pagamento, ...custos[k] })),
     );
   }
 
@@ -63,7 +65,7 @@ export function dadosExemplo(hoje: string): Dados {
     { nome: 'Carro de bombeiros', set_numero: '60374', tema: 'City', preco: 18, estado: 'vendido', conta_id: principal, data_anuncio: d(115) },
     { nome: 'Hogwarts: primeira aula de voo', set_numero: '76395', tema: 'Harry Potter', preco: 26, estado: 'anunciado', conta_id: contaAna, data_anuncio: d(110), preco_anuncio: 35 },
   ]);
-  compra(22, 95, ana, 'Cartão', 'Loja (promoção)', 'individual', 0, 0, [
+  compra(22, 95, 'conjunta', 'Cartão', 'Loja (promoção)', 'individual', 0, 0, [
     { nome: 'Lamborghini Sián FKP 37', set_numero: '42115', tema: 'Technic', condicao: 'Novo e selado', preco: 289, estado: 'vendido', conta_id: contaAna, data_anuncio: d(94) },
     { nome: 'Carro de bombeiros', set_numero: '60374', tema: 'City', condicao: 'Novo e selado', quantidade: 2, preco: 39.98, estado: 'vendido', conta_id: principal, data_anuncio: d(90) },
   ]);
@@ -71,7 +73,7 @@ export function dadosExemplo(hoje: string): Dados {
     { nome: 'Ninjago — Dragão do Lloyd', set_numero: '71766', tema: 'Ninjago', condicao: 'Usado incompleto', preco: 22, custos_adicionais: 0, estado: 'vendido', conta_id: contaAna, data_anuncio: d(55), notas: 'Faltam 2 peças, encomendadas na Pick a Brick' },
     { nome: 'Minifiguras série 25 (lote)', tema: 'Minifiguras', quantidade: 5, preco: 15, estado: 'anunciado', conta_id: principal, data_anuncio: d(50), preco_anuncio: 5 },
   ]);
-  compra(24, 35, ana, 'MB WAY', 'Feira da Ladra', 'igual', 40, 0, [
+  compra(24, 35, 'dividido', 'Dinheiro', 'Feira da Ladra', 'igual', 40, 0, [
     { nome: 'Caixa de peças avulsas 2 kg', marca: 'LEGO', condicao: 'Só peças', estado: 'anunciado', conta_id: contaAna, data_anuncio: d(30), preco_anuncio: 45 },
     { nome: 'Playmobil — Quinta', marca: 'Playmobil', set_numero: null, condicao: 'Usado completo', estado: 'por_anunciar' },
   ]);
@@ -102,5 +104,5 @@ export function dadosExemplo(hoje: string): Dados {
 
   const definicoes = Object.entries(LISTAS_PADRAO).map(([chave, l]) => ({ chave, valor: l.valores }));
 
-  return { pessoas, contas, compras, produtos, vendas, definicoes };
+  return { pessoas, contas, compras, produtos, vendas, acertos: [], definicoes };
 }

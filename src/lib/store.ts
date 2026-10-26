@@ -27,6 +27,7 @@ export const dadosVazios = (): Dados => ({
   compras: [],
   produtos: [],
   vendas: [],
+  acertos: [],
   definicoes: [],
 });
 
@@ -40,15 +41,16 @@ export function storeSupabase(email: string): Store {
       const autorizado = await sb.rpc<boolean>('e_membro');
       if (!autorizado)
         throw new Error(`O email ${email} não está autorizado. Acrescenta-o à tabela "membros" no Supabase (ver supabase/schema.sql).`);
-      const [pessoas, contas, compras, produtos, vendas, definicoes] = await Promise.all([
+      const [pessoas, contas, compras, produtos, vendas, acertos, definicoes] = await Promise.all([
         sb.listar<Dados['pessoas'][number]>('pessoas', 'nome'),
         sb.listar<Dados['contas'][number]>('contas', 'nome'),
         sb.listar<Dados['compras'][number]>('compras', 'data.desc'),
         sb.listar<Dados['produtos'][number]>('produtos', 'criado_em.desc'),
         sb.listar<Dados['vendas'][number]>('vendas', 'data_venda.desc'),
+        sb.listar<Dados['acertos'][number]>('acertos', 'data.desc'),
         sb.listar<Dados['definicoes'][number]>('definicoes', 'chave'),
       ]);
-      return { pessoas, contas, compras: numeros(compras), produtos: numeros(produtos), vendas: numeros(vendas), definicoes };
+      return { pessoas, contas, compras: numeros(compras), produtos: numeros(produtos), vendas: numeros(vendas), acertos: numeros(acertos), definicoes };
     },
     async guardar(tabela, linhas) {
       // O Supabase exige que todas as linhas de um pedido tenham as mesmas colunas:
@@ -85,7 +87,7 @@ export function storeSupabase(email: string): Store {
 function numeros<T extends object>(linhas: T[]): T[] {
   const campos = [
     'valor_artigos', 'portes', 'outros_custos', 'preco_compra', 'custos_adicionais',
-    'preco_anuncio', 'preco_venda', 'comissao', 'quantidade',
+    'preco_anuncio', 'preco_venda', 'comissao', 'quantidade', 'valor',
   ];
   for (const l of linhas as Record<string, unknown>[]) {
     for (const c of campos) {
@@ -134,10 +136,12 @@ export function storeDemo(): Store {
     utilizador: 'demonstração',
     async carregar() {
       g = lerDemo();
+      g.dados = { ...dadosVazios(), ...g.dados };
       return structuredClone(g.dados);
     },
     async guardar(tabela, linhas) {
       const chave = chaveDe(tabela);
+      g.dados[tabela] ??= [] as never;
       const lista = g.dados[tabela] as unknown as Record<string, unknown>[];
       for (const l of linhas as Record<string, unknown>[]) {
         const i = lista.findIndex((x) => x[chave] === l[chave]);

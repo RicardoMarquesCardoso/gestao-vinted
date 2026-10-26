@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useAbrir } from '../components/acoes';
 import { BarrasMensais } from '../components/Graficos';
 import { BarraLimite, Cartao, EtiquetaVenda, Vazio, Valor } from '../components/ui';
+import { calcularAcertos } from '../lib/acertos';
 import { PREDEFINICOES, estatisticas, intervaloDe, liquidoVenda, lucroVenda, usoConta } from '../lib/calc';
 import type { Predefinicao } from '../lib/calc';
 import { fmtData, fmtEuro, fmtNum, hoje, plural } from '../lib/format';
@@ -9,7 +10,7 @@ import { navegar } from '../router';
 import { useDados } from '../state';
 
 export function Painel() {
-  const { dados, nomeConta } = useDados();
+  const { dados, nomeConta, nomeParte } = useDados();
   const abrir = useAbrir();
   const [periodo, setPeriodo] = useState<Predefinicao>('mes');
   const h = hoje();
@@ -19,6 +20,7 @@ export function Painel() {
     () => dados.contas.filter((c) => c.ativa).map((c) => usoConta(c, dados, h)).filter((u) => u.nivel === 'aviso' || u.nivel === 'excedido'),
     [dados, h],
   );
+  const porAcertar = useMemo(() => calcularAcertos(dados).transferencias, [dados]);
   const produtoPorId = new Map(dados.produtos.map((p) => [p.id, p]));
   const recentes = [...dados.vendas].sort((a, b) => b.data_venda.localeCompare(a.data_venda)).slice(0, 6);
   const ultimosMeses = e12.porMes.slice(-12).map((m) => ({ mes: m.mes, valor: m.lucro }));
@@ -101,6 +103,19 @@ export function Painel() {
                 ))}
             </div>
           ))}
+        </Cartao>
+      )}
+
+      {porAcertar.length > 0 && (
+        <Cartao titulo="Por acertar" acao={<button className="link" onClick={() => navegar('/acertos')}>Acertos →</button>}>
+          <ul className="lista-simples painel-acertos">
+            {porAcertar.map((t) => (
+              <li key={`${t.de}-${t.para}`}>
+                <span>{nomeParte(t.de)} → {nomeParte(t.para)}</span>
+                <strong>{fmtEuro(t.valor)}</strong>
+              </li>
+            ))}
+          </ul>
         </Cartao>
       )}
 

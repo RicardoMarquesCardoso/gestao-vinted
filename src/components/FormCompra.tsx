@@ -4,7 +4,7 @@ import { fmtEuro, hoje, lerNumero } from '../lib/format';
 import type { Compra, Distribuicao, Produto } from '../lib/types';
 import { useDados } from '../state';
 import { paraCampo, vazioANull } from './acoes';
-import { Campo, Dinheiro, Janela, SelecionarPessoa, TextoSugerido, useConfirmar } from './ui';
+import { Campo, Dinheiro, Janela, SelecionarPagador, TextoSugerido, lerPagador, useConfirmar, valorPagador } from './ui';
 
 interface Item {
   id: string;
@@ -24,7 +24,7 @@ export function FormCompra({ id, aoFechar }: { id?: string; aoFechar(): void }) 
 
   const [f, setF] = useState(() => ({
     data: existente?.data ?? hoje(),
-    pessoa_id: existente?.pessoa_id ?? '',
+    pagador: existente ? valorPagador(existente) : '',
     metodo_pagamento: existente?.metodo_pagamento ?? '',
     vendedor: existente?.vendedor ?? '',
     distribuicao: (existente?.distribuicao ?? 'individual') as Distribuicao,
@@ -82,7 +82,7 @@ export function FormCompra({ id, aoFechar }: { id?: string; aoFechar(): void }) 
     const compra: Compra = {
       id: existente?.id ?? crypto.randomUUID(),
       data: f.data || hoje(),
-      pessoa_id: f.pessoa_id || null,
+      ...lerPagador(f.pagador),
       metodo_pagamento: vazioANull(f.metodo_pagamento),
       vendedor: vazioANull(f.vendedor),
       valor_artigos: base.valor_artigos,
@@ -116,6 +116,7 @@ export function FormCompra({ id, aoFechar }: { id?: string; aoFechar(): void }) 
         quantidade: Math.max(Math.round(lerNumero(item.quantidade)) || 1, 1),
         data_compra: compra.data,
         pessoa_id: compra.pessoa_id,
+        tipo_pagamento: compra.tipo_pagamento,
         preco_compra: distribuicao[k].preco_compra,
         custos_adicionais: distribuicao[k].custos_adicionais,
       } as Produto;
@@ -185,7 +186,7 @@ export function FormCompra({ id, aoFechar }: { id?: string; aoFechar(): void }) 
           <input type="date" value={f.data} onChange={(e) => mudar('data', e.target.value)} />
         </Campo>
         <Campo rotulo="Quem pagou">
-          <SelecionarPessoa valor={f.pessoa_id} mudar={(v) => mudar('pessoa_id', v)} />
+          <SelecionarPagador valor={f.pagador} mudar={(v) => mudar('pagador', v)} />
         </Campo>
         <Campo rotulo="Método / conta de pagamento">
           <TextoSugerido id="l-metodos" valor={f.metodo_pagamento} mudar={(v) => mudar('metodo_pagamento', v)} sugestoes={lista('metodos_pagamento')} />

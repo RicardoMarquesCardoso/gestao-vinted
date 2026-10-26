@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import type { UsoLimite } from '../lib/calc';
 import { fmtEuro, fmtNum } from '../lib/format';
 import { ESTADOS_PRODUTO, ESTADOS_VENDA } from '../lib/types';
-import type { EstadoProduto, EstadoVenda } from '../lib/types';
+import type { EstadoProduto, EstadoVenda, TipoPagamento } from '../lib/types';
 import { useDados } from '../state';
 
 // ---------- Janela (modal) ----------
@@ -134,6 +134,28 @@ export function SelecionarPessoa(props: { valor: string; mudar(v: string): void;
           {p.nome}
         </option>
       ))}
+    </select>
+  );
+}
+
+/** Valor do seletor "Quem pagou": id da pessoa, 'conjunta' ou 'dividido'. */
+export const valorPagador = (x: { tipo_pagamento: TipoPagamento; pessoa_id: string | null }) =>
+  x.tipo_pagamento === 'pessoa' ? x.pessoa_id ?? '' : x.tipo_pagamento;
+export const lerPagador = (v: string): { tipo_pagamento: TipoPagamento; pessoa_id: string | null } =>
+  v === 'conjunta' || v === 'dividido' ? { tipo_pagamento: v, pessoa_id: null } : { tipo_pagamento: 'pessoa', pessoa_id: v || null };
+
+export function SelecionarPagador(props: { valor: string; mudar(v: string): void }) {
+  const { dados } = useDados();
+  return (
+    <select value={props.valor} onChange={(e) => props.mudar(e.target.value)}>
+      <option value="">—</option>
+      {dados.pessoas.map((p) => (
+        <option key={p.id} value={p.id}>
+          {p.nome}
+        </option>
+      ))}
+      <option value="conjunta">Conta conjunta</option>
+      {dados.pessoas.length > 1 && <option value="dividido">Dividido entre {dados.pessoas.length === 2 ? 'os dois' : 'todos'}</option>}
     </select>
   );
 }

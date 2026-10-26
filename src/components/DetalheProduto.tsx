@@ -5,7 +5,7 @@ import { useAbrir } from './acoes';
 import { EtiquetaProduto, EtiquetaVenda, Foto, Janela, Valor } from './ui';
 
 export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void }) {
-  const { dados, nomeConta, nomePessoa } = useDados();
+  const { dados, nomeConta, nomePagador } = useDados();
   const abrir = useAbrir();
   const p = dados.produtos.find((x) => x.id === id);
   if (!p) return null;
@@ -57,7 +57,7 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
         <div><dt>Custo total</dt><dd>{fmtEuro(custoTotalProduto(p))}{p.quantidade > 1 ? ` · ${fmtEuro(custoUnitario(p))}/un.` : ''}</dd></div>
         <div><dt>Compra</dt><dd>{fmtEuro(p.preco_compra)} + {fmtEuro(p.custos_adicionais)} de custos</dd></div>
         <div><dt>Comprado em</dt><dd>{fmtData(p.data_compra)}{compra?.vendedor ? ` · ${compra.vendedor}` : ''}</dd></div>
-        <div><dt>Quem pagou</dt><dd>{nomePessoa(p.pessoa_id)}</dd></div>
+        <div><dt>Quem pagou</dt><dd>{nomePagador(p)}</dd></div>
         <div><dt>Conta</dt><dd>{nomeConta(p.conta_id)}</dd></div>
         <div>
           <dt>Anunciado</dt>

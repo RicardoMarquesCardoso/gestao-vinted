@@ -12,7 +12,7 @@ type FiltroEstado = 'inventario' | 'todos' | Produto['estado'];
 type Ordem = 'recentes' | 'antigos' | 'nome' | 'custo';
 
 export function Inventario() {
-  const { dados, nomeConta, nomePessoa } = useDados();
+  const { dados, nomeConta, nomePagador } = useDados();
   const abrir = useAbrir();
   const [texto, setTexto] = useState('');
   const [estado, setEstado] = useState<FiltroEstado>('inventario');
@@ -61,7 +61,7 @@ export function Inventario() {
         { titulo: 'Preço de compra', valor: (p) => p.preco_compra },
         { titulo: 'Custos adicionais', valor: (p) => p.custos_adicionais },
         { titulo: 'Custo total', valor: (p) => custoTotalProduto(p) },
-        { titulo: 'Quem pagou', valor: (p) => nomePessoa(p.pessoa_id) },
+        { titulo: 'Quem pagou', valor: (p) => nomePagador(p) },
         { titulo: 'Conta', valor: (p) => nomeConta(p.conta_id) },
         { titulo: 'Anunciado em', valor: (p) => p.data_anuncio },
         { titulo: 'Preço anunciado', valor: (p) => p.preco_anuncio },
