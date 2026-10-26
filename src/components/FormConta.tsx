@@ -17,9 +17,9 @@ export function FormConta({ id, aoFechar }: { id?: string; aoFechar(): void }) {
     utilizador_vinted: existente?.utilizador_vinted ?? '',
     ativa: existente?.ativa ?? true,
     limite_anuncios: inteiro(existente?.limite_anuncios),
-    limite_vendas: inteiro(existente?.limite_vendas),
-    limite_valor: paraCampo(existente?.limite_valor),
-    periodo: (existente?.periodo ?? 'mensal') as TipoPeriodo,
+    limite_vendas: existente ? inteiro(existente.limite_vendas) : '30',
+    limite_valor: existente ? paraCampo(existente.limite_valor) : '2000',
+    periodo: (existente?.periodo ?? 'anual') as TipoPeriodo,
     periodo_dias: inteiro(existente?.periodo_dias ?? 30),
     periodo_inicio: existente?.periodo_inicio ?? '',
     periodo_fim: existente?.periodo_fim ?? '',
@@ -112,7 +112,7 @@ export function FormConta({ id, aoFechar }: { id?: string; aoFechar(): void }) {
       </div>
 
       <h4 className="secao-form">Limites</h4>
-      <p className="nota">Deixa em branco os limites que não se aplicam. Define-os de acordo com as regras que se aplicam a esta conta.</p>
+      <p className="nota">Por omissão: 30 vendas ou 2.000 € por ano civil (o que for atingido primeiro). Deixa em branco os limites que não se aplicam.</p>
       <div className="grelha-form">
         <Campo rotulo="Máx. de anúncios ativos">
           <input inputMode="numeric" value={f.limite_anuncios} onChange={(e) => mudar('limite_anuncios', e.target.value.replace(/\D/g, ''))} />
