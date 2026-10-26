@@ -480,3 +480,35 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 @media (max-width: 640px) {
   .grelha-form .campo:has(input[type='date']) { grid-column: 1 / -1; }
 }
+
+/* ---------- Grupos no inventário ---------- */
+.filtro-caixa { padding: 0 6px; white-space: nowrap; }
+.grelha-produtos > li.grupo-aberto { grid-column: 1 / -1; }
+.produto-grupo.ativo { border-color: var(--primario); }
+.grupo-pilha { position: relative; flex: none; }
+.grupo-pilha::before {
+  content: ''; position: absolute; inset: 4px -4px -4px 4px; border-radius: 9px; background: var(--superficie-2);
+  border: 1px solid var(--linha); z-index: 0;
+}
+.grupo-pilha > * { position: relative; z-index: 1; }
+.grupo-qtd {
+  position: absolute; z-index: 2; right: -6px; bottom: -6px; min-width: 28px; padding: 2px 7px; border-radius: 99px;
+  background: var(--primario); color: var(--primario-texto); font-weight: 700; font-size: 0.8rem; text-align: center;
+}
+.grupo-itens {
+  list-style: none; margin: 8px 0 4px; padding: 4px 12px; background: var(--superficie); border: 1px solid var(--linha);
+  border-radius: 12px;
+}
+.grupo-linha { display: flex; align-items: center; gap: 10px; }
+.grupo-linha + .grupo-linha { border-top: 1px solid var(--linha); }
+.grupo-linha-info {
+  flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 0; background: none; border: 0; cursor: pointer; text-align: left;
+}
+@media (max-width: 640px) {
+  .filtro-caixa { grid-column: 1 / -1; }
+  .grupo-linha-info .linha-direita .etiqueta { display: none; }
+}
+.grelha-produtos > li.grupo-aberto > .produto { height: auto; }
+.grupo-pilha { align-self: flex-start; width: 76px; height: 76px; }
+.grupo-pilha > .produto-foto { width: 76px; height: 76px; }

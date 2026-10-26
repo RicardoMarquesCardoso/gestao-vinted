@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { arred, custoUnitario, estadoAposVendas, unidadesVendidas } from '../lib/calc';
+import { arred, chaveComparacao, custoUnitario, estadoAposVendas, unidadesVendidas } from '../lib/calc';
 import { fmtEuro, hoje, lerNumero } from '../lib/format';
 import type { EstadoVenda, Venda } from '../lib/types';
 import { ESTADOS_VENDA } from '../lib/types';
@@ -8,7 +8,7 @@ import { paraCampo, vazioANull } from './acoes';
 import { Campo, Dinheiro, Janela, SelecionarConta, SelecionarPessoa, Valor, useConfirmar, ProcurarLista, urlReferencia } from './ui';
 
 export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?: string; aoFechar(): void }) {
-  const { dados, guardar, apagar, aviso, nomeConta } = useDados();
+  const { dados, guardar, apagar, aviso, nomeConta, nomePagador } = useDados();
   const confirmar = useConfirmar();
   const existente = dados.vendas.find((v) => v.id === id);
   const produtoInicial = dados.produtos.find((p) => p.id === (existente?.produto_id ?? produtoId));
@@ -34,27 +34,36 @@ export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?
   const produto = dados.produtos.find((p) => p.id === f.produto_id);
   const disponiveis = produto ? Math.max(produto.quantidade - unidadesVendidas(produto.id, dados.vendas, id), 0) : 0;
 
-  // Produtos que se podem vender (com unidades disponíveis) + o atual
+  // Produtos que se podem vender (com unidades disponíveis) + o atual.
+  // Unidades iguais e intermutáveis (mesmo set, custo, condição, quem pagou e conta) aparecem uma só vez.
   const opcoes = useMemo(() => {
-    return dados.produtos
+    const vendaveis = dados.produtos
       .filter(
         (p) =>
           p.id === f.produto_id ||
           ((p.estado === 'anunciado' || p.estado === 'por_anunciar') && unidadesVendidas(p.id, dados.vendas, id) < p.quantidade),
       )
-      .sort((a, b) => a.nome.localeCompare(b.nome))
-      .map((p) => {
-        const disp = p.quantidade - unidadesVendidas(p.id, dados.vendas, id);
-        return {
-          id: p.id,
-          titulo: p.nome,
-          detalhe: [p.set_numero && `Set ${p.set_numero}`, `custo ${fmtEuro(custoUnitario(p))}`, p.conta_id && nomeConta(p.conta_id), p.quantidade > 1 && `${disp} disp.`]
-            .filter(Boolean)
-            .join(' · '),
-          imagem: p.fotos[0] ? null : urlReferencia(p),
-        };
-      });
-  }, [dados.produtos, dados.vendas, f.produto_id, id, nomeConta]);
+      .sort((a, b) => a.nome.localeCompare(b.nome) || (a.data_compra ?? '').localeCompare(b.data_compra ?? ''));
+    const grupos = new Map<string, { p: (typeof vendaveis)[number]; disp: number }>();
+    for (const p of vendaveis) {
+      const disp = p.quantidade - unidadesVendidas(p.id, dados.vendas, id);
+      const k =
+        p.id === f.produto_id
+          ? p.id
+          : [chaveComparacao(p), custoUnitario(p).toFixed(2), p.condicao ?? '', p.tipo_pagamento, p.pessoa_id ?? '', p.conta_id ?? '', p.fotos.length ? p.id : ''].join('|');
+      const g = grupos.get(k);
+      if (g) g.disp += disp;
+      else grupos.set(k, { p, disp });
+    }
+    return [...grupos.values()].map(({ p, disp }) => ({
+      id: p.id,
+      titulo: disp > 1 ? `${p.nome} (×${disp})` : p.nome,
+      detalhe: [p.set_numero && `Set ${p.set_numero}`, p.condicao, `custo ${fmtEuro(custoUnitario(p))}`, `pagou ${nomePagador(p)}`, p.conta_id && nomeConta(p.conta_id)]
+        .filter(Boolean)
+        .join(' · '),
+      imagem: p.fotos[0] ? null : urlReferencia(p),
+    }));
+  }, [dados.produtos, dados.vendas, f.produto_id, id, nomeConta, nomePagador]);
 
   const qtd = Math.max(Math.round(lerNumero(f.quantidade)) || 1, 1);
   const liquido = arred(lerNumero(f.preco_venda) - lerNumero(f.comissao) - lerNumero(f.portes) - lerNumero(f.outros_custos));
