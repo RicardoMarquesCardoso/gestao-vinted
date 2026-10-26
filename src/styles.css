@@ -589,3 +589,16 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
   .item-compra .ic-tema { grid-column: 3 / 5; grid-row: 3; }
   .item-compra .ic-custo { grid-column: 1 / -1; grid-row: 4; text-align: left; }
 }
+
+/* Janelas: altura real do ecrã (no iPhone 100vh inclui a barra do browser e escondia o ✕) */
+.janela { max-height: calc(100dvh - 40px); }
+.janela-topo { position: sticky; top: 0; z-index: 3; background: var(--superficie); border-radius: 16px 16px 0 0; }
+.janela-topo .btn-icone { width: 44px; height: 44px; font-size: 1.25rem; background: var(--superficie-2); border-radius: 50%; }
+@media (max-width: 640px) {
+  .janela-fundo { padding-top: calc(env(safe-area-inset-top) + 12px); }
+  .janela { max-height: calc(100dvh - env(safe-area-inset-top) - 12px); }
+}
+@media (max-width: 640px) {
+  .janela-rodape { gap: 6px; flex-wrap: nowrap; }
+  .janela-rodape .btn { padding: 9px 12px; }
+}

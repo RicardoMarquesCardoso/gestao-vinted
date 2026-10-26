@@ -46,7 +46,7 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
           </button>
           <label className="btn">
             <input type="file" accept="image/*" capture="environment" hidden onChange={(e) => adicionarFoto(e.target.files)} />
-            {aEnviar ? 'A enviar…' : '📷 Foto'}
+            {aEnviar ? '…' : '📷'}
           </label>
           <span className="espaco" />
           {p.estado === 'por_anunciar' && (
@@ -56,7 +56,7 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
           )}
           {p.estado === 'anunciado' && (
             <button className="btn" onClick={() => abrir({ tipo: 'anunciar', ids: [p.id], retirar: true })}>
-              Retirar anúncio
+              Retirar
             </button>
           )}
           {disponiveis > 0 && (

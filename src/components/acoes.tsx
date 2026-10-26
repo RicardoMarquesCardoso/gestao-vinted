@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { FormCompra } from './FormCompra';
 import { FormConta } from './FormConta';
@@ -23,8 +23,24 @@ export const useAbrir = () => useContext(Contexto);
 /** Gere as janelas de criar/editar, que podem ser abertas a partir de qualquer ecrã. */
 export function AcoesProvider({ children }: { children: ReactNode }) {
   const [pilha, setPilha] = useState<Acao[]>([]);
-  const abrir = (a: Acao) => setPilha((p) => [...p, a]);
-  const fechar = () => setPilha((p) => p.slice(0, -1));
+  // Cada janela aberta fica no histórico do browser, para o botão/gesto "voltar" a fechar.
+  const abrir = (a: Acao) => {
+    setPilha((p) => [...p, a]);
+    try {
+      history.pushState({ gvJanela: true }, '');
+    } catch {
+      /* ignorar */
+    }
+  };
+  const fechar = () => {
+    if ((history.state as { gvJanela?: boolean } | null)?.gvJanela) history.back(); // o popstate fecha a janela
+    else setPilha((p) => p.slice(0, -1));
+  };
+  useEffect(() => {
+    const aoVoltar = () => setPilha((p) => p.slice(0, -1));
+    window.addEventListener('popstate', aoVoltar);
+    return () => window.removeEventListener('popstate', aoVoltar);
+  }, []);
   const atual = pilha[pilha.length - 1];
   return (
     <Contexto.Provider value={abrir}>
