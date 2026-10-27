@@ -257,3 +257,14 @@ test('plano: vender já quando o lucro compensa, guardar quando ainda vai valori
   const t2 = tarefas({ ...ctx([a]), dados: { produtos: [a], vendas: [], definicoes: [{ chave: 'tarefas_adiadas', valor: { [t[1].id]: '2026-11-10' } as never }] } });
   assert.equal(t2.length, 0);
 });
+
+test('plano: Pokémon usa o preço do TCGplayer e valoriza a taxa fixa', () => {
+  const p = produto({ id: 'k', nome: '30th Celebration ETB', marca: 'Pokémon', set_numero: null, preco_compra: 50, estado: 'por_anunciar' });
+  const merc = { brickset: {}, bricklink: {}, pokemon: { '30th celebration etb': { id: 1, nome: 'x', set: null, usd: 100, eur: 90, auto: true } } };
+  const pl = sugerirPlano(p, { dados: { produtos: [p], vendas: [], definicoes: [] }, mercado: merc, hoje: '2026-10-27' });
+  assert.equal(pl.referencia?.fonte, 'tcgplayer');
+  assert.equal(pl.acao, 'vender'); // +80%
+  const q = { ...p, preco_compra: 85 }; // +6% agora; a 15%/ano chega a +20% em ~10 meses
+  const pq = sugerirPlano(q, { dados: { produtos: [q], vendas: [], definicoes: [] }, mercado: merc, hoje: '2026-10-27' });
+  assert.equal(pq.acao, 'guardar');
+});

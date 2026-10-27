@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { fmtData, fmtEuro, hoje, plural } from '../lib/format';
-import { useMercado } from '../lib/investimento';
-import { CHAVE_ADIADAS, CHAVE_PLANOS, chavePlano, mesAno, planosManuais, sugerirPlano, tarefas, tarefasAdiadas } from '../lib/plano';
+import { chavePokemon, precoPokemon, useMercado } from '../lib/investimento';
+import { CHAVE_ADIADAS, CHAVE_PLANOS, CHAVE_POKEMON_IDS, chavePlano, mesAno, planosManuais, sugerirPlano, tarefas, tarefasAdiadas } from '../lib/plano';
 import type { Contexto, Plano, PlanoManual, Tarefa } from '../lib/plano';
 import type { Produto } from '../lib/types';
 import { useDados } from '../state';
@@ -177,5 +177,65 @@ export function FormPlano({ ids, aoFechar }: { ids: string[]; aoFechar(): void }
       </div>
       <p className="nota">Vale para {plural(dados.produtos.filter((x) => chavePlano(x) === chave).length, 'produto igual', 'produtos iguais')} (mesmo set e condição).</p>
     </Janela>
+  );
+}
+
+/**
+ * Preço de mercado de um produto Pokémon (PokemonPriceTracker) e a associação ao produto certo.
+ *
+ * A tarefa semanal procura cada produto pelo nome. Como os nossos nomes são curtos ("ETB"),
+ * a pesquisa pode escolher o produto errado — por isso mostramos o nome encontrado e deixamos
+ * indicar o n.º do TCGplayer certo (está no endereço da página do produto em tcgplayer.com).
+ * A escolha fica em definicoes.pokemon_ids e é usada na próxima atualização.
+ */
+export function LinhaPokemon({ p }: { p: Produto }) {
+  const { dados, guardar, aviso } = useDados();
+  const mercado = useMercado();
+  const [editar, setEditar] = useState(false);
+  const chave = chavePokemon(p.nome);
+  const ids = (dados.definicoes.find((d) => d.chave === CHAVE_POKEMON_IDS)?.valor ?? {}) as unknown as Record<string, string>;
+  const [id, setId] = useState(ids[chave] ?? '');
+  const pk = precoPokemon(mercado, p.nome);
+
+  async function gravar(novo: string) {
+    const limpo = novo.trim().match(/\d+/)?.[0] ?? ''; // aceita o n.º ou o endereço completo
+    const valor = { ...ids };
+    if (limpo) valor[chave] = limpo;
+    else delete valor[chave];
+    await guardar('definicoes', [{ chave: CHAVE_POKEMON_IDS, valor: valor as never }]);
+    aviso(limpo ? 'Associado. O preço atualiza na próxima atualização semanal.' : 'Associação removida.');
+    setEditar(false);
+  }
+
+  return (
+    <div className="linha-plano">
+      <div>
+        <strong>Mercado (TCGplayer, EUA):</strong>{' '}
+        {pk ? (
+          <>
+            {fmtEuro(pk.eur)} <span className="mudo">({pk.usd} $)</span>
+          </>
+        ) : (
+          <span className="mudo">ainda sem preço</span>
+        )}
+      </div>
+      {pk?.nome && (
+        <p className="mudo pequeno">
+          {pk.auto ? 'Encontrado pela pesquisa: ' : 'Associado: '}
+          {pk.nome}
+          {pk.set ? ` · ${pk.set}` : ''}
+          {pk.auto && ids[chave] ? ' (a vossa associação entra na próxima atualização)' : ''}
+        </p>
+      )}
+      {editar ? (
+        <div className="linha-botoes">
+          <input placeholder="N.º ou endereço do TCGplayer" value={id} onChange={(e) => setId(e.target.value)} />
+          <button className="btn btn-pequeno btn-primario" onClick={() => gravar(id)}>Guardar</button>
+          {ids[chave] && <button className="btn btn-pequeno" onClick={() => gravar('')}>Remover</button>}
+        </div>
+      ) : (
+        <button className="link" onClick={() => setEditar(true)}>{pk?.auto !== false ? 'Não é este produto?' : 'Mudar associação'}</button>
+      )}
+    </div>
   );
 }

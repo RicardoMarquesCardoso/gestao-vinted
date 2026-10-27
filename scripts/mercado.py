@@ -1,32 +1,56 @@
-"""Dados de mercado dos sets LEGO, para as análises de investimento.
+"""Dados de mercado para as análises de investimento e para os planos (vender / guardar).
 
-Gera public/mercado-sets.json (e docs/mercado-sets.json) com:
+COMO FUNCIONA
+-------------
+Este script corre todas as semanas numa GitHub Action (.github/workflows/mercado.yml),
+nos servidores do GitHub, e não no telemóvel. Vai buscar dados a três serviços externos e
+grava tudo num único ficheiro JSON, que fica publicado com o site. A app lê esse ficheiro
+como lê qualquer outro ficheiro estático.
+
+Porque não é a app a chamar estes serviços diretamente?
+  1. As chaves de acesso têm de ficar secretas, e o código da app é público (qualquer pessoa
+     pode ver o JavaScript de um site). As chaves ficam nos "segredos" do GitHub.
+  2. Assim a app não depende de serviços lentos ou em baixo, e não gasta pedidos a cada abertura.
+
+O QUE GERA (public/mercado-sets.json e docs/mercado-sets.json)
+--------------------------------------------------------------
   brickset:  {"75192": [lançamento, retirada, pvp_DE, pvp_UK, disponibilidade], ...}
-             para todos os sets desde 2005 (datas AAAA-MM-DD ou null).
-  bricklink: {"75192": {"n": [média, n.º vendas], "u": [média, n.º vendas]}, ...}
-             preços de venda dos últimos 6 meses na Europa, em EUR (sem IVA),
-             só para os sets que temos ou já vendemos.
+             Todos os sets LEGO desde 2005 (datas AAAA-MM-DD ou null).
+  bricklink: {"75192": {"n": [média, n.º vendidos], "u": [média, n.º vendidos]}, ...}
+             Preços de venda dos últimos 6 meses na Europa, em EUR (sem IVA), novo (n) e usado (u).
+             Só para os sets que temos ou já vendemos.
+  pokemon:   {"30th celebration etb": {"id": ..., "nome": ..., "set": ..., "usd": 59.9, "eur": 55.1, "auto": true}, ...}
+             Preço de mercado (TCGplayer, EUA) dos produtos Pokémon selados que temos em stock.
+             A chave é o nosso nome do produto em minúsculas. "auto" = associação feita pela pesquisa
+             por nome (pode estar errada); false = associação escolhida por nós na app.
 
-Cada fonte só corre se os segredos respetivos existirem; se faltarem, mantém os dados anteriores.
-Segredos (GitHub → Settings → Secrets and variables → Actions):
-  BRICKSET_API_KEY
+Cada fonte só corre se os segredos respetivos existirem. Se faltarem, mantêm-se os dados anteriores.
+
+SEGREDOS (GitHub → Settings → Secrets and variables → Actions)
+---------------------------------------------------------------
+  VINTEDUO_TOKEN                 código que deixa ler, no Supabase, só a lista dos nossos sets/produtos Pokémon
+  BRICKSET_API_KEY               chave gratuita da Brickset
   BRICKLINK_CONSUMER_KEY, BRICKLINK_CONSUMER_SECRET, BRICKLINK_TOKEN, BRICKLINK_TOKEN_SECRET
-  VINTEDUO_TOKEN  (para ler a lista dos nossos n.º de set)
+  POKEMONPRICETRACKER_API_KEY    chave gratuita da PokemonPriceTracker (100 créditos por dia)
 """
 import base64, datetime, hashlib, hmac, json, os, re, secrets, sys, time, urllib.parse, urllib.request
 
-# URL e chave pública (publishable) do Supabase, lidas do código da app
+# O URL e a chave pública ("publishable") do Supabase são lidos do código da app (src/config.ts),
+# para não estarem repetidos. Esta chave é pública por natureza: sozinha não dá acesso a nada,
+# porque as tabelas estão protegidas por regras (RLS) que exigem sessão iniciada.
 _config = open(os.path.join(os.path.dirname(__file__), '..', 'src', 'config.ts'), encoding='utf-8').read()
 SUPABASE_URL = re.search(r"SUPABASE_URL\s*=\s*'([^']+)'", _config).group(1)
 SUPABASE_KEY = re.search(r"'(sb_publishable_[^']+)'", _config).group(1)
+
 DESTINOS = sys.argv[1:] or ['public/mercado-sets.json', 'docs/mercado-sets.json']
 HOJE = datetime.date.today()
 
 
 def pedir(url, data=None, headers=None, tentativas=3):
+    """Faz um pedido HTTP e devolve o JSON da resposta. Tenta outra vez se falhar (rede instável)."""
     for i in range(tentativas):
         try:
-            req = urllib.request.Request(url, data=data, headers=headers or {})
+            req = urllib.request.Request(url, data=data, headers={'User-Agent': 'VinteDuo/1.0', **(headers or {})})
             with urllib.request.urlopen(req, timeout=60) as r:
                 return json.loads(r.read().decode('utf-8'))
         except Exception as e:  # noqa: BLE001
@@ -37,16 +61,29 @@ def pedir(url, data=None, headers=None, tentativas=3):
 
 
 def data(s):
+    """'2024-12-31T00:00:00Z' → '2024-12-31' (ou None)."""
     return s[:10] if s else None
 
 
-# ---------------------------------------------------------------- Brickset
+def rpc_supabase(funcao, token):
+    """Chama uma função do Supabase que só responde com o código certo (VINTEDUO_TOKEN).
+
+    Estas funções (sets_mercado e pokemon_mercado) devolvem apenas números de set e nomes de
+    produtos, nunca preços, pessoas ou vendas. Estão definidas em supabase/schema.sql.
+    """
+    return pedir(f'{SUPABASE_URL}/rest/v1/rpc/{funcao}', data=json.dumps({'token': token}).encode(), headers={
+        'apikey': SUPABASE_KEY, 'Authorization': f'Bearer {SUPABASE_KEY}', 'Content-Type': 'application/json'})
+
+
+# ============================================================================ Brickset
+# A Brickset é uma base de dados de sets LEGO feita por fãs. Interessa-nos sobretudo a data em que
+# cada set saiu de produção ("exitDate"), porque é a partir daí que o preço costuma subir.
 
 def brickset(chave):
     sets = {}
     for ano in range(2005, HOJE.year + 2):
         pagina = 1
-        while True:
+        while True:  # cada pedido devolve no máximo 500 sets; um ano pode ter mais
             params = json.dumps({'year': str(ano), 'pageSize': 500, 'pageNumber': pagina})
             corpo = urllib.parse.urlencode({'apiKey': chave, 'userHash': '', 'params': params}).encode()
             r = pedir('https://brickset.com/api/v3.asmx/getSets', data=corpo,
@@ -57,6 +94,7 @@ def brickset(chave):
             for s in lista:
                 numero = str(s.get('number') or '').strip()
                 variante = s.get('numberVariant') or 1
+                # Fica a variante mais baixa (normalmente "-1", o set principal)
                 if not numero or (numero in sets and sets[numero][0] <= variante):
                     continue
                 lego = s.get('LEGOCom') or {}
@@ -71,26 +109,23 @@ def brickset(chave):
     return {k: v[1] for k, v in sorted(sets.items())}
 
 
-# ---------------------------------------------------------------- BrickLink (OAuth 1.0a)
+# ============================================================================ BrickLink
+# A BrickLink é o maior mercado de LEGO. O "price guide" diz por quanto cada set foi
+# vendido nos últimos 6 meses. A API usa OAuth 1.0a: cada pedido leva uma assinatura
+# calculada com as chaves secretas, para a BrickLink saber que somos nós.
 
 def assinar_bricklink(metodo, url, query, ck, cs, tk, ts):
+    """Gera o cabeçalho 'Authorization' do OAuth 1.0a (assinatura HMAC-SHA1)."""
     oauth = {
         'oauth_consumer_key': ck, 'oauth_token': tk, 'oauth_signature_method': 'HMAC-SHA1',
         'oauth_timestamp': str(int(time.time())), 'oauth_nonce': secrets.token_hex(12), 'oauth_version': '1.0',
     }
-    q = lambda x: urllib.parse.quote(str(x), safe='~')  # noqa: E731
+    q = lambda x: urllib.parse.quote(str(x), safe='~')  # noqa: E731  (codificação exigida pelo OAuth)
     todos = sorted((q(k), q(v)) for k, v in {**query, **oauth}.items())
     base = '&'.join([metodo, q(url), q('&'.join(f'{k}={v}' for k, v in todos))])
     chave = f'{q(cs)}&{q(ts)}'.encode()
     oauth['oauth_signature'] = base64.b64encode(hmac.new(chave, base.encode(), hashlib.sha1).digest()).decode()
     return 'OAuth ' + ', '.join(f'{q(k)}="{q(v)}"' for k, v in oauth.items())
-
-
-def nossos_sets(token):
-    url = f'{SUPABASE_URL}/rest/v1/rpc/sets_mercado'
-    r = pedir(url, data=json.dumps({'token': token}).encode(), headers={
-        'apikey': SUPABASE_KEY, 'Authorization': f'Bearer {SUPABASE_KEY}', 'Content-Type': 'application/json'})
-    return sorted({str(x).strip() for x in r if str(x).strip()})
 
 
 def bricklink(sets, ck, cs, tk, ts):
@@ -99,7 +134,7 @@ def bricklink(sets, ck, cs, tk, ts):
         numero = n if '-' in n else f'{n}-1'
         url = f'https://api.bricklink.com/api/store/v1/items/SET/{urllib.parse.quote(numero)}/price'
         linha = {}
-        for estado in ('N', 'U'):
+        for estado in ('N', 'U'):  # N = novo, U = usado
             query = {'guide_type': 'sold', 'new_or_used': estado, 'region': 'europe', 'currency_code': 'EUR'}
             cab = {'Authorization': assinar_bricklink('GET', url, query, ck, cs, tk, ts)}
             try:
@@ -111,17 +146,101 @@ def bricklink(sets, ck, cs, tk, ts):
                 print(f"  BrickLink {numero} {estado}: {(r.get('meta') or {}).get('description')}")
                 continue
             d = r.get('data') or {}
+            # qty_avg_price = média pesada pela quantidade (mais fiável quando alguém vende vários)
             media = float(d.get('qty_avg_price') or d.get('avg_price') or 0)
             if media > 0:
                 linha[estado.lower()] = [round(media, 2), int(d.get('total_quantity') or 0)]
-            time.sleep(0.3)
+            time.sleep(0.3)  # não sobrecarregar a API
         if linha:
             res[n] = linha
     print(f'BrickLink: {len(res)} de {len(sets)} sets com vendas')
     return res
 
 
-# ---------------------------------------------------------------- principal
+# ============================================================================ Pokémon (PokemonPriceTracker)
+# Não há API pública do Cardmarket (não aceitam novos pedidos). A PokemonPriceTracker tem um
+# plano grátis com preços do TCGplayer (mercado dos EUA, em dólares) para produtos selados.
+# Não é o mercado europeu, mas serve de referência e para ver a tendência.
+
+PPT = 'https://www.pokemonpricetracker.com/api/v2/sealed-products'
+
+
+def taxa_usd_eur():
+    """Câmbio do dia (Banco Central Europeu, via frankfurter.app). Sem rede, usa um valor aproximado."""
+    try:
+        return float(pedir('https://api.frankfurter.app/latest?from=USD&to=EUR', tentativas=2)['rates']['EUR'])
+    except Exception:  # noqa: BLE001
+        return 0.92
+
+
+def _lista(r):
+    """A resposta pode vir como {"data": [...]}, {"data": {...}} ou diretamente uma lista."""
+    d = r.get('data', r) if isinstance(r, dict) else r
+    return d if isinstance(d, list) else [d] if isinstance(d, dict) else []
+
+
+def _preco(item):
+    """Procura o preço de mercado em vários nomes possíveis (a API não documenta bem a resposta)."""
+    for k in ('marketPrice', 'unopenedPrice', 'price', 'lowPrice'):
+        if isinstance(item.get(k), (int, float)) and item[k] > 0:
+            return float(item[k])
+    p = item.get('prices') or {}
+    for k in ('market', 'marketPrice', 'low'):
+        if isinstance(p.get(k), (int, float)) and p[k] > 0:
+            return float(p[k])
+    return None
+
+
+def _expandir(nome):
+    """As nossas abreviaturas → nomes oficiais, para a pesquisa encontrar o produto certo."""
+    for curto, longo in ((r'\betb\b', 'Elite Trainer Box'), (r'\bbb\b', 'Booster Box'), (r'\bupc\b', 'Ultra Premium Collection')):
+        nome = re.sub(curto, longo, nome, flags=re.I)
+    return nome
+
+
+def _palavras(s):
+    return {w for w in re.sub(r'[^a-z0-9]+', ' ', (s or '').lower()).split() if len(w) > 1}
+
+
+def pokemon(produtos, chave):
+    taxa = taxa_usd_eur()
+    cab = {'Authorization': f'Bearer {chave}'}
+    res, mostrou = {}, False
+    for p in produtos:
+        try:
+            if p.get('id_manual'):  # associação escolhida por nós na app
+                itens = _lista(pedir(f"{PPT}?{urllib.parse.urlencode({'tcgPlayerId': p['id_manual']})}", headers=cab, tentativas=2))
+            else:  # pesquisa pelo nome e escolhe o resultado com mais palavras em comum
+                nome = _expandir(p['nome'])
+                itens = _lista(pedir(f"{PPT}?{urllib.parse.urlencode({'search': nome, 'limit': 5})}", headers=cab, tentativas=2))
+                nossas = _palavras(nome)
+                itens.sort(key=lambda i: -len(nossas & _palavras(i.get('name'))))
+        except Exception as e:  # noqa: BLE001
+            print(f"  Pokémon '{p['nome']}': {e}")
+            continue
+        if itens and not mostrou:  # ajuda a perceber o formato da resposta nos registos da Action
+            print('  Campos da resposta:', sorted(itens[0].keys()))
+            mostrou = True
+        item = next((i for i in itens if _preco(i)), None)
+        if not item:
+            print(f"  Pokémon '{p['nome']}': sem resultado")
+            continue
+        usd = _preco(item)
+        res[p['chave']] = {
+            'id': item.get('tcgPlayerId') or item.get('id'),
+            'nome': item.get('name'),
+            'set': item.get('setName') or ((item.get('set') or {}).get('name') if isinstance(item.get('set'), dict) else item.get('set')),
+            'usd': round(usd, 2),
+            'eur': round(usd * taxa, 2),
+            'auto': not p.get('id_manual'),
+        }
+        print(f"  {p['nome']} → {res[p['chave']]['nome']} ({usd} $)")
+        time.sleep(1.1)  # o plano grátis permite 60 pedidos por minuto
+    print(f'Pokémon: {len(res)} de {len(produtos)} produtos com preço (1 $ = {taxa:.3f} €)')
+    return res
+
+
+# ============================================================================ principal
 
 anterior = {}
 try:
@@ -130,13 +249,14 @@ try:
 except FileNotFoundError:
     pass
 
-saida = {
+saida = {k: anterior.get(k) for k in ('brickset_atualizado', 'bricklink_atualizado', 'pokemon_atualizado')}
+saida.update({
     'atualizado': HOJE.isoformat(),
     'brickset': anterior.get('brickset', {}),
     'bricklink': anterior.get('bricklink', {}),
-    'brickset_atualizado': anterior.get('brickset_atualizado'),
-    'bricklink_atualizado': anterior.get('bricklink_atualizado'),
-}
+    'pokemon': anterior.get('pokemon', {}),
+})
+token = os.environ.get('VINTEDUO_TOKEN')
 
 if os.environ.get('BRICKSET_API_KEY'):
     saida['brickset'] = brickset(os.environ['BRICKSET_API_KEY'])
@@ -145,11 +265,18 @@ else:
     print('Sem BRICKSET_API_KEY: Brickset não atualizado.')
 
 bl = [os.environ.get(k) for k in ('BRICKLINK_CONSUMER_KEY', 'BRICKLINK_CONSUMER_SECRET', 'BRICKLINK_TOKEN', 'BRICKLINK_TOKEN_SECRET')]
-if all(bl) and os.environ.get('VINTEDUO_TOKEN'):
-    saida['bricklink'] = bricklink(nossos_sets(os.environ['VINTEDUO_TOKEN']), *bl)
+if all(bl) and token:
+    nossos = sorted({str(x).strip() for x in rpc_supabase('sets_mercado', token) if str(x).strip()})
+    saida['bricklink'] = bricklink(nossos, *bl)
     saida['bricklink_atualizado'] = HOJE.isoformat()
 else:
     print('Sem segredos da BrickLink: BrickLink não atualizado.')
+
+if os.environ.get('POKEMONPRICETRACKER_API_KEY') and token:
+    saida['pokemon'] = pokemon(rpc_supabase('pokemon_mercado', token) or [], os.environ['POKEMONPRICETRACKER_API_KEY'])
+    saida['pokemon_atualizado'] = HOJE.isoformat()
+else:
+    print('Sem POKEMONPRICETRACKER_API_KEY: Pokémon não atualizado.')
 
 for destino in DESTINOS:
     os.makedirs(os.path.dirname(destino) or '.', exist_ok=True)

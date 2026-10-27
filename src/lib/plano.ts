@@ -7,13 +7,15 @@
 import { produtoNovo } from './anuncio';
 import { chaveComparacao, custoUnitario, diasEntre, emInventario, somarDias, unidadesDisponiveis, vendaValida } from './calc';
 import { fmtEuro } from './format';
-import { infoMercado } from './investimento';
+import { infoMercado, precoPokemon } from './investimento';
 import type { Mercado } from './investimento';
 import type { Dados, Definicao, Produto } from './types';
 
 export const CHAVE_REGRAS = 'regras_plano';
 export const CHAVE_PLANOS = 'planos';
 export const CHAVE_ADIADAS = 'tarefas_adiadas';
+/** Associação manual dos produtos Pokémon ao TCGplayer: nome em minúsculas → tcgPlayerId. */
+export const CHAVE_POKEMON_IDS = 'pokemon_ids';
 
 export interface RegrasPlano {
   /** Vender já se o lucro previsto for pelo menos isto (sobre o custo). */
@@ -32,6 +34,8 @@ export interface RegrasPlano {
   valorizacaoAVenda: number;
   valorizacaoRetirado: number;
   valorizacaoDepois: number;
+  /** Valorização anual esperada dos produtos Pokémon selados (sem datas de retirada conhecidas). */
+  valorizacaoPokemon: number;
 }
 
 export const REGRAS_PADRAO: RegrasPlano = {
@@ -44,6 +48,7 @@ export const REGRAS_PADRAO: RegrasPlano = {
   valorizacaoAVenda: 0,
   valorizacaoRetirado: 0.2,
   valorizacaoDepois: 0.07,
+  valorizacaoPokemon: 0.15,
 };
 
 /** Decisão tomada por vocês para um produto/set (sobrepõe-se à sugestão). */
@@ -77,7 +82,7 @@ export interface Contexto {
 
 export interface Referencia {
   preco: number; // preço por que se espera vender uma unidade agora
-  fonte: 'vendas' | 'bricklink' | 'pvp';
+  fonte: 'vendas' | 'bricklink' | 'pvp' | 'tcgplayer';
   texto: string;
 }
 
@@ -123,6 +128,9 @@ export function referencia(p: Produto, ctx: Contexto): Referencia | null {
   const m = infoMercado(ctx.mercado, p.set_numero, ctx.hoje);
   const bl = novo ? m?.blNovo : m?.blUsado ?? null;
   if (bl && bl[1] >= 2) return { preco: bl[0], fonte: 'bricklink', texto: `BrickLink: ${Math.round(bl[0])} € (${bl[1]} vendidos em 6 meses)` };
+  // Pokémon: preço do TCGplayer (EUA), convertido para euros. É uma referência fraca (outro mercado).
+  const pk = ehPokemon(p) ? precoPokemon(ctx.mercado, p.nome) : null;
+  if (pk) return { preco: pk.eur, fonte: 'tcgplayer', texto: `TCGplayer (EUA): ~${Math.round(pk.eur)} €` };
   if (m?.pvp && m.retirado === false && novo) return { preco: m.pvp * 0.8, fonte: 'pvp', texto: `ainda à venda (PVP ${Math.round(m.pvp)} €, com desconto ~20%)` };
   return null;
 }
@@ -142,8 +150,9 @@ function taxa(data: string, retirada: string | null, r: RegrasPlano) {
 }
 
 /** Produtos que podem valer a pena guardar: sets LEGO novos com n.º e produtos Pokémon selados. */
+export const ehPokemon = (p: Pick<Produto, 'marca'>) => /pok[eé]mon/i.test(p.marca ?? '');
 export const paraInvestir = (p: Produto) =>
-  produtoNovo(p) && ((!!p.set_numero?.trim() && (!p.marca || /lego/i.test(p.marca))) || /pok[eé]mon/i.test(p.marca ?? ''));
+  produtoNovo(p) && ((!!p.set_numero?.trim() && (!p.marca || /lego/i.test(p.marca))) || ehPokemon(p));
 
 export function sugerirPlano(p: Produto, ctx: Contexto): Plano {
   const r = regrasPlano(ctx.dados.definicoes);
@@ -172,13 +181,15 @@ export function sugerirPlano(p: Produto, ctx: Contexto): Plano {
   if (margemAgora! >= r.margemVender) return vender(`Já dá ~${pct(margemAgora!)} de lucro (${ref.texto}). Vender liberta o dinheiro para reinvestir.`);
 
   // Pouca margem agora: ver se guardar compensa
-  const ret = dataRetirada(p, ctx);
+  // Pokémon não tem datas de retirada: usa uma valorização anual fixa. LEGO: depende da fase do set.
+  const ret = ehPokemon(p) ? null : dataRetirada(p, ctx);
+  const taxaMes = (d: string) => (ehPokemon(p) ? r.valorizacaoPokemon : taxa(d, ret?.data ?? null, r));
   const alvo = custo * (1 + r.margemVender);
   let valor = ref.preco;
   let data = ctx.hoje;
   let meses = 0;
   while (valor < alvo && meses < 60) {
-    valor *= Math.pow(1 + taxa(data, ret?.data ?? null, r), 1 / 12);
+    valor *= Math.pow(1 + taxaMes(data), 1 / 12);
     data = somarDias(data, 30);
     meses++;
   }

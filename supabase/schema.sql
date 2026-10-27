@@ -210,3 +210,36 @@ alter table public.vendas add column if not exists acertada boolean not null def
 
 -- Períodos em que cada produto esteve anunciado (preenchido pela app)
 alter table public.produtos add column if not exists anuncios jsonb not null default '[]'::jsonb;
+
+-- ---------------------------------------------------------------------
+-- Dados de mercado: funções lidas pela GitHub Action "mercado" (scripts/mercado.py).
+-- Só respondem com o código certo (guardado em definicoes.token_mercado e no segredo
+-- VINTEDUO_TOKEN do GitHub) e só devolvem n.º de set / nomes, nunca preços ou pessoas.
+-- "security definer" = correm com as permissões de quem as criou, por isso conseguem ler
+-- as tabelas mesmo sem sessão iniciada — mas só devolvem o que está escrito aqui.
+-- ---------------------------------------------------------------------
+create or replace function public.sets_mercado(token text) returns setof text
+language sql stable security definer set search_path = public as $$
+  select distinct trim(p.set_numero) from public.produtos p
+  where p.set_numero is not null and trim(p.set_numero) <> ''
+    and exists (select 1 from public.definicoes d where d.chave = 'token_mercado' and d.valor #>> '{}' = token);
+$$;
+revoke all on function public.sets_mercado(text) from public;
+grant execute on function public.sets_mercado(text) to anon, authenticated;
+
+create or replace function public.pokemon_mercado(token text) returns json
+language sql stable security definer set search_path = public as $$
+  select coalesce(json_agg(x), '[]'::json) from (
+    select g.chave, g.nome,
+      (select d2.valor ->> g.chave from public.definicoes d2 where d2.chave = 'pokemon_ids') as id_manual
+    from (
+      select lower(trim(p.nome)) as chave, min(p.nome) as nome
+      from public.produtos p
+      where p.marca ilike 'pok%mon' and p.estado in ('por_anunciar','anunciado')
+        and exists (select 1 from public.definicoes d where d.chave = 'token_mercado' and d.valor #>> '{}' = token)
+      group by 1
+    ) g
+  ) x;
+$$;
+revoke all on function public.pokemon_mercado(text) from public;
+grant execute on function public.pokemon_mercado(text) to anon, authenticated;

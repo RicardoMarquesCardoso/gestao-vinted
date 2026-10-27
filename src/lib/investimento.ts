@@ -13,9 +13,27 @@ export interface Mercado {
   brickset: Record<string, LinhaBrickset>;
   /** Vendas dos últimos 6 meses na Europa, em EUR sem IVA: [média, n.º de unidades] */
   bricklink: Record<string, { n?: [number, number]; u?: [number, number] }>;
+  /** Produtos Pokémon selados: chave = o nosso nome em minúsculas. Preço do TCGplayer (EUA). */
+  pokemon?: Record<string, PrecoPokemon>;
   brickset_atualizado?: string | null;
   bricklink_atualizado?: string | null;
+  pokemon_atualizado?: string | null;
 }
+
+export interface PrecoPokemon {
+  id: number | string | null; // tcgPlayerId do produto encontrado
+  nome: string | null; // nome do produto encontrado (para confirmar se é o certo)
+  set: string | null;
+  usd: number;
+  eur: number;
+  auto: boolean; // true = encontrado pela pesquisa por nome; false = associado por nós
+}
+
+/** Chave usada para associar um produto Pokémon: o nome em minúsculas, sem espaços a mais. */
+export const chavePokemon = (nome: string) => nome.trim().toLowerCase();
+
+/** Preço de mercado de um produto Pokémon pelo nosso nome (ou null se não houver). */
+export const precoPokemon = (m: Mercado | null, nome: string): PrecoPokemon | null => m?.pokemon?.[chavePokemon(nome)] ?? null;
 
 const VAZIO: Mercado = { brickset: {}, bricklink: {} };
 let pedido: Promise<Mercado> | null = null;
@@ -92,7 +110,7 @@ export interface LinhaInvestimento {
   custoStock: number;
   diasMedioStock: number | null; // desde a compra, média pesada pelo custo
   valorEstimadoStock: number | null; // pelo preço de mercado (BrickLink) ou pelas nossas vendas
-  fonteValor: 'bricklink' | 'vendas' | null;
+  fonteValor: 'bricklink' | 'tcgplayer' | 'vendas' | null;
   mercado: InfoMercado | null;
 }
 
@@ -133,7 +151,7 @@ export function investimento(d: Pick<Dados, 'produtos' | 'vendas'>, m: Mercado |
     custoStockComData: number;
     valorStock: number;
     custoStockComValor: number;
-    fonte: 'bricklink' | 'vendas' | null;
+    fonte: 'bricklink' | 'tcgplayer' | 'vendas' | null;
     stock: Produto[];
   }
   const grupos = new Map<string, Acum>();
@@ -198,11 +216,12 @@ export function investimento(d: Pick<Dados, 'produtos' | 'vendas'>, m: Mercado |
     for (const p of g.stock) {
       const u = unidadesDisponiveis(p, d.vendas);
       const bl = produtoNovo(p) ? mercado?.blNovo ?? null : mercado?.blUsado ?? mercado?.blNovo ?? null;
-      const unit = bl ? bl[0] : vendaMedia;
+      const pk = precoPokemon(m, p.nome);
+      const unit = bl ? bl[0] : pk ? pk.eur : vendaMedia;
       if (unit === null) continue;
       g.valorStock += unit * u;
       g.custoStockComValor += custoUnitario(p) * u;
-      g.fonte = bl ? 'bricklink' : (g.fonte ?? 'vendas');
+      g.fonte = bl ? 'bricklink' : pk ? 'tcgplayer' : (g.fonte ?? 'vendas');
     }
     linhas.push({
       chave,

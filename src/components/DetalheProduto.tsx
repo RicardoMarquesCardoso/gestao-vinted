@@ -1,4 +1,5 @@
-import { LinhaPlano } from './planos';
+import { LinhaPlano, LinhaPokemon } from './planos';
+import { ehPokemon } from '../lib/plano';
 import { custoTotalProduto, custoUnitario, diasEntre, emInventario, liquidoVenda, lucroVenda, unidadesDisponiveis } from '../lib/calc';
 import { fmtData, fmtEuro, hoje } from '../lib/format';
 import { useDados } from '../state';
@@ -118,6 +119,7 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
       </div>
       {p.descricao && <p>{p.descricao}</p>}
 
+      {emInventario(p) && disponiveis > 0 && ehPokemon(p) && <LinhaPokemon p={p} />}
       {emInventario(p) && disponiveis > 0 && <LinhaPlano p={p} />}
       <dl className="detalhes">
         <div><dt>Quantidade</dt><dd>{p.quantidade} ({disponiveis} {disponiveis === 1 ? 'disponível' : 'disponíveis'})</dd></div>
