@@ -1,5 +1,7 @@
 // Janela de detalhe de um produto: fotografias, imagem oficial, plano (vender/guardar),
-// dados da compra, vendas feitas e botões de ação (Editar, 📷, Anunciar/Retirar, Vendi).
+// dados da compra, vendas feitas e botões de ação (✏️ editar, 📷, Anunciar/Retirar, Vendi).
+// As vendas mostram também as dos outros exemplares do mesmo set (com o valor e o lucro de cada
+// uma), e "Em stock" lista os exemplares desse set que ainda estão por vender.
 
 import { LinhaPlano, LinhaPokemon } from './planos';
 import { ehPokemon } from '../lib/plano';
@@ -22,13 +24,23 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
   const oficial = p.set_numero && (!p.marca || /lego/i.test(p.marca)) ? procurarSet(p.set_numero) : undefined;
   const talvez =
     oficial && compararNomes(p.nome, oficial.nome) === 'diferente' ? procurarSet.parecidos(p.nome, oficial.tema, oficial.ano, oficial.numero) : [];
-  const vendas = dados.vendas.filter((v) => v.produto_id === p.id).sort((a, b) => b.data_venda.localeCompare(a.data_venda));
+  // Vendas só deste produto (para o "Lucro até agora")
+  const vendas = dados.vendas.filter((v) => v.produto_id === p.id);
   const compra = p.compra_id ? dados.compras.find((c) => c.id === p.compra_id) : undefined;
   const disponiveis = unidadesDisponiveis(p, dados.vendas);
   const lucro = vendas.reduce((a, v) => a + lucroVenda(v, p), 0);
   const iguais = p.set_numero
     ? dados.produtos.filter((x) => x.id !== p.id && x.set_numero?.trim().toLowerCase() === p.set_numero?.trim().toLowerCase())
     : [];
+  // Vendas deste produto e dos outros exemplares do mesmo set, das mais recentes para as mais antigas.
+  // Cada venda leva o produto a que pertence, para calcular o lucro com o custo certo.
+  const produtosDoSet = [p, ...iguais];
+  const vendasDoSet = dados.vendas
+    .filter((v) => produtosDoSet.some((x) => x.id === v.produto_id))
+    .map((v) => ({ v, dono: produtosDoSet.find((x) => x.id === v.produto_id)! }))
+    .sort((a, b) => b.v.data_venda.localeCompare(a.v.data_venda));
+  // Outros exemplares que ainda têm unidades por vender (os vendidos já aparecem nas vendas)
+  const emStock = iguais.filter((x) => unidadesDisponiveis(x, dados.vendas) > 0);
 
   // Tirar/escolher uma fotografia e acrescentá-la ao produto
   async function adicionarFoto(ficheiros: FileList | null) {
@@ -53,8 +65,8 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
       larga
       rodape={
         <>
-          <button className="btn" onClick={() => abrir({ tipo: 'produto', id: p.id })}>
-            Editar
+          <button className="btn" title="Editar" aria-label="Editar" onClick={() => abrir({ tipo: 'produto', id: p.id })}>
+            ✏️
           </button>
           <label className="btn">
             <input type="file" accept="image/*" capture="environment" hidden onChange={(e) => adicionarFoto(e.target.files)} />
@@ -144,19 +156,20 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
       {p.notas && <p className="nota">{p.notas}</p>}
 
       <h4 className="secao-form">Vendas</h4>
-      {vendas.length === 0 ? (
+      {vendasDoSet.length === 0 ? (
         <p className="mudo">Ainda sem vendas.</p>
       ) : (
         <ul className="lista-simples">
-          {vendas.map((v) => (
+          {vendasDoSet.map(({ v, dono }) => (
             <li key={v.id}>
               <button className="linha-botao" onClick={() => abrir({ tipo: 'venda', id: v.id })}>
                 <span>
                   {fmtData(v.data_venda)} · {nomeConta(v.conta_id)}
                   {v.quantidade > 1 ? ` · ${v.quantidade} un.` : ''}
+                  {dono.id !== p.id ? <span className="mudo"> · outro exemplar</span> : null}
                 </span>
                 <span className="linha-direita">
-                  <EtiquetaVenda estado={v.estado} /> {fmtEuro(liquidoVenda(v))} <Valor n={lucroVenda(v, p)} sinal />
+                  <EtiquetaVenda estado={v.estado} /> {fmtEuro(liquidoVenda(v))} <Valor n={lucroVenda(v, dono)} sinal />
                 </span>
               </button>
             </li>
@@ -164,11 +177,11 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
         </ul>
       )}
 
-      {iguais.length > 0 && (
+      {emStock.length > 0 && (
         <>
-          <h4 className="secao-form">Outros exemplares do set {p.set_numero}</h4>
+          <h4 className="secao-form">Em stock</h4>
           <ul className="lista-simples">
-            {iguais.map((x) => (
+            {emStock.map((x) => (
               <li key={x.id}>
                 <button className="linha-botao" onClick={() => abrir({ tipo: 'detalhe', id: x.id })}>
                   <span>{x.nome} · {fmtData(x.data_compra)}</span>
