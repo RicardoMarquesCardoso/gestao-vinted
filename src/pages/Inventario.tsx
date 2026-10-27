@@ -5,6 +5,7 @@ import { CabecalhoProdutos } from '../components/CabecalhoProdutos';
 import type { VerProdutos } from '../components/CabecalhoProdutos';
 import { EtiquetaProduto, Foto, ImagemReferencia, Valor, Vazio, iconeMarca, urlReferencia } from '../components/ui';
 import { chaveComparacao, custoTotalProduto, custoUnitario, diasEntre, emInventario, liquidoVenda, lucroVenda, unidadesDisponiveis, vendaValida } from '../lib/calc';
+import { diasAnunciado } from '../lib/anuncios';
 import { descarregar, paraCsv } from '../lib/csv';
 import { fmtData, fmtEuro, hoje, plural } from '../lib/format';
 import type { Produto, Venda } from '../lib/types';
@@ -112,6 +113,7 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
         { titulo: 'Quem pagou', valor: (p) => nomePagador(p) },
         { titulo: 'Conta', valor: (p) => nomeConta(p.conta_id) },
         { titulo: 'Anunciado em', valor: (p) => p.data_anuncio },
+        { titulo: 'Dias anunciado', valor: (p) => diasAnunciado(p, h) },
         { titulo: 'Preço anunciado', valor: (p) => p.preco_anuncio },
         { titulo: 'Data de venda', valor: (p) => vendasDe.get(p.id)?.[0]?.data_venda },
         { titulo: 'Conta da venda', valor: (p) => (vendasDe.get(p.id)?.[0] ? nomeConta(vendasDe.get(p.id)![0].conta_id) : null) },

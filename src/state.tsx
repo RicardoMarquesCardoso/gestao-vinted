@@ -1,9 +1,10 @@
+import { atualizarPeriodos } from './lib/anuncios';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { chaveDe, dadosVazios } from './lib/store';
 import type { Store, TabelaDados } from './lib/store';
 import { SessaoExpirada } from './lib/supabase';
-import type { Dados, Historico, TipoPagamento } from './lib/types';
+import type { Dados, Historico, Produto, TipoPagamento } from './lib/types';
 import { LISTAS_PADRAO } from './lib/types';
 
 interface Estado {
@@ -101,6 +102,14 @@ export function DadosProvider(props: { store: Store; aoExpirar(): void; children
       const atuais = dadosRef.current[tabela] as unknown as Record<string, unknown>[];
       const agora = new Date().toISOString();
       const historico: Historico[] = [];
+      // Produtos: registar automaticamente os períodos em que estiveram anunciados
+      if (tabela === 'produtos') {
+        linhas = (linhas as Partial<Produto>[]).map((l) => {
+          const antes = (atuais as unknown as Produto[]).find((x) => x.id === l.id);
+          const anuncios = atualizarPeriodos(antes, l, agora);
+          return anuncios ? { ...l, anuncios } : l;
+        });
+      }
       for (const l of linhas as Record<string, unknown>[]) {
         const antes = atuais.find((x) => x[chave] === l[chave]);
         if (antes && iguais(antes, l)) continue;

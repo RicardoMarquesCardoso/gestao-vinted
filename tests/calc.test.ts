@@ -183,3 +183,20 @@ test('texto do anúncio', () => {
   assert.equal(b.titulo, 'Lego Carro');
   assert.match(b.descricao, /^Used/);
 });
+
+import { atualizarPeriodos, diasAnunciado } from '../src/lib/anuncios.ts';
+
+test('períodos de anúncio', () => {
+  const p = produto({ estado: 'por_anunciar' });
+  const a1 = atualizarPeriodos(p, { ...p, estado: 'anunciado', preco_anuncio: 50 }, '2026-10-01T10:00:00Z')!;
+  assert.equal(a1.length, 1);
+  assert.equal(a1[0].preco, 50);
+  const p2 = { ...p, estado: 'anunciado' as const, preco_anuncio: 50, anuncios: a1 };
+  const a2 = atualizarPeriodos(p2, { ...p2, preco_anuncio: 45 }, '2026-10-05T10:00:00Z')!;
+  assert.deepEqual(a2[0].precos, [{ quando: '2026-10-05T10:00:00Z', preco: 45 }]);
+  const p3 = { ...p2, anuncios: a2 };
+  const a3 = atualizarPeriodos(p3, { ...p3, estado: 'vendido' }, '2026-10-11T09:00:00Z')!;
+  assert.equal(a3[0].motivo, 'vendido');
+  assert.equal(diasAnunciado({ anuncios: a3 }, '2026-12-01'), 10);
+  assert.equal(atualizarPeriodos(p3, { id: 'p1', nome: 'x' }, 'agora'), undefined);
+});

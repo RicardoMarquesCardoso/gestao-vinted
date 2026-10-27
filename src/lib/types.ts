@@ -69,7 +69,20 @@ export interface Produto {
   preco_anuncio: number | null;
   notas: string | null;
   fotos: string[];
+  /** Períodos em que esteve anunciado (guardado automaticamente). */
+  anuncios?: PeriodoAnuncio[];
   criado_em?: string;
+}
+
+/** Um período em que o produto esteve anunciado na Vinted. */
+export interface PeriodoAnuncio {
+  inicio: string; // data ou data e hora (ISO)
+  fim?: string | null; // vazio enquanto continua anunciado
+  motivo?: 'vendido' | 'retirado' | 'outro';
+  conta_id?: string | null;
+  preco?: number | null; // preço com que foi anunciado
+  precos?: { quando: string; preco: number | null }[]; // mudanças de preço durante o anúncio
+  aproximado?: boolean; // reconstruído a partir da data de anúncio (sem hora)
 }
 
 export interface Venda {

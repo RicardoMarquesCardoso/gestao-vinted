@@ -207,3 +207,6 @@ create policy "membros" on public.acertos for all to authenticated
 
 -- Vendas cujo dinheiro já foi distribuído fora da app (não entram nos acertos)
 alter table public.vendas add column if not exists acertada boolean not null default false;
+
+-- Períodos em que cada produto esteve anunciado (preenchido pela app)
+alter table public.produtos add column if not exists anuncios jsonb not null default '[]'::jsonb;
