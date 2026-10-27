@@ -1,3 +1,10 @@
+// Interface dos planos e tarefas (a lógica está em lib/plano.ts):
+//   - CartaoTarefas: lista "O que fazer" no Painel (anunciar, baixar preço, rever).
+//   - EtiquetaPlano: etiqueta "vender" / "guardar até …" nos cartões de produto.
+//   - LinhaPlano: plano, preço sugerido e porquê, no detalhe do produto.
+//   - FormPlano: mudar o plano à mão (vender / guardar até / seguir a sugestão).
+//   - LinhaPokemon: preço de mercado de produtos Pokémon e associação ao produto certo.
+
 import { useMemo, useState } from 'react';
 import { fmtData, fmtEuro, hoje, plural } from '../lib/format';
 import { chavePokemon, precoPokemon, useMercado } from '../lib/investimento';

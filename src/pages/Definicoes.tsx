@@ -1,3 +1,6 @@
+// Ecrã "Definições": sessão, instalar no telemóvel, rever nomes, texto dos anúncios, regras das
+// sugestões, pessoas, exportar/cópia de segurança, listas, dados de exemplo e histórico.
+
 import { useEffect, useState } from 'react';
 import { Cartao, useConfirmar } from '../components/ui';
 import { descarregar } from '../lib/csv';
@@ -47,6 +50,7 @@ export function Definicoes(props: { aoSair(): void }) {
     if (ok) await apagar('pessoas', id);
   }
 
+  // Acrescenta os dados de exemplo (com ids especiais, para se poderem apagar depois)
   async function carregarExemplo() {
     const ok = await confirmar({
       titulo: 'Carregar dados de exemplo',
@@ -69,6 +73,7 @@ export function Definicoes(props: { aoSair(): void }) {
     }
   }
 
+  // Apaga só os registos de exemplo (pelos ids), nunca os vossos
   async function apagarExemplo() {
     const ok = await confirmar({
       titulo: 'Apagar dados de exemplo',
@@ -171,6 +176,7 @@ export function Definicoes(props: { aoSair(): void }) {
   );
 }
 
+/** Editar uma lista de opções (condições, temas, métodos de pagamento…). */
 function EditorLista(props: { nome: string; valores: string[]; guardar(v: string[]): Promise<void> }) {
   const [texto, setTexto] = useState(props.valores.join('\n'));
   useEffect(() => setTexto(props.valores.join('\n')), [props.valores]);
@@ -194,6 +200,7 @@ function EditorLista(props: { nome: string; valores: string[]; guardar(v: string
   );
 }
 
+/** Lista das últimas alterações (quem, quando, o quê), lida da tabela historico. */
 function HistoricoAlteracoes() {
   const { store, dados, ultimaAtualizacao } = useDados();
   const [itens, setItens] = useState<Historico[] | null>(null);
@@ -263,6 +270,7 @@ function HistoricoAlteracoes() {
 
 const formatar = (v: unknown) => (v === null || v === undefined || v === '' ? '(vazio)' : Array.isArray(v) ? `${v.length} item(s)` : String(v));
 
+/** Atalho para o ecrã "Rever nomes", com o n.º de casos a rever. */
 function CartaoReverNomes() {
   const { casos, pronto } = useCasosNomes();
   const alertas = casos.filter((c) => c.tipo === 'diferente' || c.tipo === 'desconhecido').length;
@@ -282,6 +290,7 @@ function CartaoReverNomes() {
   );
 }
 
+/** Editar o modelo do texto dos anúncios (título e descrições). */
 function CartaoTextoAnuncios() {
   const { dados, guardar, aviso } = useDados();
   const guardado = modeloAnuncio(dados.definicoes);
@@ -331,6 +340,7 @@ const CAMPOS_REGRAS: { k: keyof RegrasPlano; nome: string; ajuda: string; pct: b
   { k: 'valorizacaoPokemon', nome: 'Valorização dos produtos Pokémon selados', ajuda: 'por ano', pct: true },
 ];
 
+/** Editar as regras que decidem "vender já" ou "guardar" e os preços sugeridos. */
 function CartaoRegrasPlano() {
   const { dados, guardar, aviso } = useDados();
   const guardado = regrasPlano(dados.definicoes);

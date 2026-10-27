@@ -1,3 +1,5 @@
+// Ecrã "Compras": lista das compras com total, quem pagou e produtos; exportação para CSV.
+
 import { useMemo, useState } from 'react';
 import { useAbrir } from '../components/acoes';
 import { Vazio , BotaoTopo } from '../components/ui';

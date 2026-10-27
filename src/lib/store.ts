@@ -1,9 +1,19 @@
 // Camada de dados: o mesmo interface serve para o Supabase (dados reais,
 // sincronizados) e para o modo de demonstração (dados guardados só neste browser).
+//
+// CONCEITO: "Store" é um contrato (interface) com as operações básicas — carregar tudo,
+// guardar linhas, apagar, histórico e fotografias. Há duas implementações:
+//   - storeSupabase: fala com a base de dados na nuvem (ver supabase.ts).
+//   - storeDemo: guarda tudo no localStorage do browser (só neste dispositivo).
+// O resto da app (state.tsx e os ecrãs) só conhece o contrato, por isso funciona igual nos dois.
+//
+// A app carrega TODOS os dados de uma vez (são poucos milhares de linhas no máximo) e faz as
+// contas no próprio browser (lib/calc.ts). É simples e rápido para este volume.
 
 import * as sb from './supabase';
 import type { Dados, Historico, Tabela } from './types';
 
+/** Tabelas com dados normais (o histórico é especial: só se acrescenta, nunca se altera). */
 export type TabelaDados = Exclude<Tabela, 'historico'>;
 
 export interface Store {
@@ -19,6 +29,7 @@ export interface Store {
   apagarFoto(ref: string): Promise<void>;
 }
 
+/** Nome da coluna que identifica cada linha (as definições usam a "chave" em vez de um id). */
 export const chaveDe = (tabela: TabelaDados) => (tabela === 'definicoes' ? 'chave' : 'id');
 
 export const dadosVazios = (): Dados => ({
@@ -38,6 +49,8 @@ export function storeSupabase(email: string): Store {
     modo: 'supabase',
     utilizador: email,
     async carregar() {
+      // Primeiro confirma que este email está na lista de membros (senão as regras RLS escondiam tudo
+      // e a app parecia vazia sem explicação). Depois carrega as 7 tabelas em paralelo.
       const autorizado = await sb.rpc<boolean>('e_membro');
       if (!autorizado)
         throw new Error(`O email ${email} não está autorizado. Acrescenta-o à tabela "membros" no Supabase (ver supabase/schema.sql).`);
@@ -73,6 +86,7 @@ export function storeSupabase(email: string): Store {
     async registar(h) {
       if (h.length) await sb.inserir('historico', h);
     },
+    // As fotografias vão para o Storage do Supabase (bucket "fotos"); no produto fica só o caminho.
     async enviarFoto(produtoId, ficheiro) {
       const caminho = `${produtoId}/${crypto.randomUUID()}.jpg`;
       await sb.enviarFoto(caminho, ficheiro);
@@ -129,6 +143,7 @@ export function demoTemDados() {
   return g.dados.produtos.length > 0 || g.dados.compras.length > 0;
 }
 
+/** Modo demonstração: igual ao Supabase, mas tudo fica no localStorage deste browser. */
 export function storeDemo(): Store {
   let g = lerDemo();
   return {
@@ -165,6 +180,7 @@ export function storeDemo(): Store {
       if (g.historico.length > 2000) g.historico = g.historico.slice(-2000);
       gravarDemo(g);
     },
+    // Sem servidor, a fotografia fica guardada dentro do próprio texto ("data URL")
     async enviarFoto(_produtoId, ficheiro) {
       return await new Promise<string>((ok, falha) => {
         const r = new FileReader();

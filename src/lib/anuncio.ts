@@ -1,3 +1,9 @@
+// Texto pronto a copiar para a Vinted ao anunciar (título e descrição).
+//
+// O modelo tem "marcadores" — {numero}, {nome}, {tema} — que são trocados pelos dados do
+// produto. Há uma descrição para produtos novos e outra para usados. O modelo pode ser
+// alterado em Definições → Texto dos anúncios (guardado em definicoes.modelo_anuncio).
+
 import type { Definicao, Produto } from './types';
 
 export const CHAVE_MODELO_ANUNCIO = 'modelo_anuncio';
@@ -8,12 +14,14 @@ export interface ModeloAnuncio {
   usado: string;
 }
 
+/** O texto original da Cass (com "sent" corrigido). */
 export const MODELO_PADRAO: ModeloAnuncio = {
   titulo: 'Lego {numero} {nome}',
   novo: 'New, sealed and in perfect conditions\n\nNew and sealed Legos\nCarefully sent in box ✨\n\nI have other Lego items on my page',
   usado: 'Used, complete and in great condition\n\nCarefully sent in box ✨\n\nI have other Lego items on my page',
 };
 
+/** O modelo guardado, com os campos em falta preenchidos pelo original. */
 export function modeloAnuncio(definicoes: Definicao[]): ModeloAnuncio {
   const v = definicoes.find((d) => d.chave === CHAVE_MODELO_ANUNCIO)?.valor as Partial<ModeloAnuncio> | undefined;
   return { ...MODELO_PADRAO, ...(v && typeof v === 'object' && !Array.isArray(v) ? v : {}) };
@@ -31,6 +39,7 @@ const preencher = (modelo: string, p: Pick<Produto, 'nome' | 'set_numero' | 'tem
     .replace(/\{tema\}/g, (p.tema ?? '').trim());
 };
 
+/** Título e descrição finais para um produto. */
 export function textoAnuncio(p: Pick<Produto, 'nome' | 'set_numero' | 'tema' | 'condicao'>, m: ModeloAnuncio) {
   return {
     titulo: preencher(m.titulo, p).replace(/[ \t]+/g, ' ').trim(),

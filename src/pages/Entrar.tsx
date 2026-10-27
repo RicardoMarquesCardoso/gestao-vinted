@@ -1,3 +1,5 @@
+// Ecrã de entrada: email + palavra-passe (Supabase Auth) ou modo demonstração.
+
 import { Logo } from '../components/ui';
 import { useState } from 'react';
 import { entrar } from '../lib/supabase';

@@ -1,3 +1,6 @@
+// Gráficos simples feitos à mão com HTML/CSS (sem bibliotecas), para as Análises.
+// Tocar numa barra mostra o valor exato.
+
 import { useState } from 'react';
 import { fmtEuro, fmtMes } from '../lib/format';
 

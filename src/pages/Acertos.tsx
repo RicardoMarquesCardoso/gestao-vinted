@@ -1,3 +1,7 @@
+// Ecrã "Acertos" (tipo Splitwise): quanto cada parte tem a receber/pagar, as transferências
+// sugeridas (simplificadas ao mínimo) e o histórico das transferências feitas.
+// A lógica está em lib/acertos.ts. Registar uma transferência abate aos saldos.
+
 import { useMemo, useState } from 'react';
 import { useAbrir } from '../components/acoes';
 import { Campo, Cartao, Dinheiro, Janela, Valor, useConfirmar } from '../components/ui';
@@ -18,6 +22,7 @@ export function Acertos() {
   const partes = [...dados.pessoas.map((p) => p.id), CONJUNTA];
   const historico = [...dados.acertos].sort((a, b) => b.data.localeCompare(a.data) || (b.criado_em ?? '').localeCompare(a.criado_em ?? ''));
 
+  // Registar que uma transferência sugerida foi feita (abate aos saldos)
   async function marcarFeita(de: string, para: string, valor: number) {
     const ok = await confirmar({
       titulo: 'Transferência feita?',
@@ -33,6 +38,7 @@ export function Acertos() {
     }
   }
 
+  // Anular uma transferência registada por engano
   async function anular(a: Acerto) {
     const ok = await confirmar({
       titulo: 'Anular transferência',
@@ -199,6 +205,7 @@ export function Acertos() {
   );
 }
 
+/** Registar uma transferência manual entre duas partes. */
 function FormAcerto({ partes, aoFechar }: { partes: string[]; aoFechar(): void }) {
   const { guardar, aviso, nomeParte } = useDados();
   const [de, setDe] = useState(partes[0] ?? '');

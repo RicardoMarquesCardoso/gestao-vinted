@@ -1,3 +1,19 @@
+// Estado global da app: os dados carregados e as funções para os alterar.
+//
+// CONCEITO: em React, cada componente pode ter o seu "estado" (useState). Mas os dados
+// (produtos, vendas, contas…) são precisos em quase todos os ecrãs. Em vez de os passar
+// de componente em componente, usamos um "Contexto": o <DadosProvider> guarda os dados
+// uma vez, e qualquer componente lá dentro chama useDados() para os ler.
+//
+// FLUXO DE UMA ALTERAÇÃO (ex.: registar uma venda):
+//   1. O formulário chama guardar('vendas', [venda]).
+//   2. guardar() compara com o que já existia e prepara o registo do histórico.
+//   3. Envia para a base de dados (store.guardar) e grava o histórico (store.registar).
+//   4. Atualiza logo a memória (setDados), para o ecrã mudar sem esperar por novo carregamento.
+//
+// SINCRONIZAÇÃO ENTRE OS DOIS: os dados voltam a ser carregados ao regressar à app
+// e de minuto a minuto, para verem o que a outra pessoa registou.
+
 import { atualizarPeriodos } from './lib/anuncios';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -7,6 +23,7 @@ import { SessaoExpirada } from './lib/supabase';
 import type { Dados, Historico, Produto, TipoPagamento } from './lib/types';
 import { LISTAS_PADRAO } from './lib/types';
 
+/** Tudo o que useDados() disponibiliza aos componentes. */
 interface Estado {
   store: Store;
   dados: Dados;
@@ -30,12 +47,14 @@ interface Estado {
 
 const Contexto = createContext<Estado | null>(null);
 
+/** Acesso aos dados e às funções de guardar/apagar, em qualquer componente. */
 export function useDados(): Estado {
   const c = useContext(Contexto);
   if (!c) throw new Error('useDados fora do DadosProvider');
   return c;
 }
 
+/** Mensagem curta que aparece em baixo ("Venda registada.") e desaparece sozinha. */
 interface Aviso {
   id: number;
   texto: string;
@@ -49,6 +68,8 @@ export function DadosProvider(props: { store: Store; aoExpirar(): void; children
   const [erro, setErro] = useState<string | null>(null);
   const [ultimaAtualizacao, setUltima] = useState<Date | null>(null);
   const [avisos, setAvisos] = useState<Aviso[]>([]);
+  // Referência sempre atualizada aos dados, para as funções abaixo lerem o valor mais recente
+  // sem terem de ser recriadas a cada alteração.
   const dadosRef = useRef(dados);
   dadosRef.current = dados;
 
@@ -58,6 +79,7 @@ export function DadosProvider(props: { store: Store; aoExpirar(): void; children
     setTimeout(() => setAvisos((a) => a.filter((x) => x.id !== id)), tipo === 'erro' ? 7000 : 3000);
   }, []);
 
+  // Se a sessão expirou (a palavra-passe tem de ser pedida outra vez), volta ao ecrã de entrar.
   const tratarErro = useCallback(
     (e: unknown) => {
       if (e instanceof SessaoExpirada) {
@@ -69,6 +91,7 @@ export function DadosProvider(props: { store: Store; aoExpirar(): void; children
     [aoExpirar],
   );
 
+  // Ir buscar todos os dados à base de dados (ou ao modo demonstração).
   const recarregar = useCallback(async () => {
     try {
       const d = await store.carregar();
@@ -110,9 +133,10 @@ export function DadosProvider(props: { store: Store; aoExpirar(): void; children
           return anuncios ? { ...l, anuncios } : l;
         });
       }
+      // Histórico: para cada linha, guardar só os campos que mudaram (antes → depois)
       for (const l of linhas as Record<string, unknown>[]) {
         const antes = atuais.find((x) => x[chave] === l[chave]);
-        if (antes && iguais(antes, l)) continue;
+        if (antes && iguais(antes, l)) continue; // nada mudou
         historico.push({
           id: crypto.randomUUID(),
           quando: agora,
@@ -145,6 +169,7 @@ export function DadosProvider(props: { store: Store; aoExpirar(): void; children
     [store, tratarErro],
   );
 
+  // Apagar um registo. O histórico guarda o registo completo, para se poder recuperar.
   const apagar = useCallback(
     async (tabela: TabelaDados, id: string) => {
       const chave = chaveDe(tabela);
@@ -168,6 +193,7 @@ export function DadosProvider(props: { store: Store; aoExpirar(): void; children
     [store, tratarErro],
   );
 
+  // O que fica disponível em useDados(). useMemo evita recriar o objeto sem necessidade.
   const valor = useMemo<Estado>(
     () => ({
       store,
@@ -210,10 +236,12 @@ export function DadosProvider(props: { store: Store; aoExpirar(): void; children
   );
 }
 
+/** true se todos os campos de b já têm o mesmo valor em a. */
 function iguais(a: Record<string, unknown>, b: Record<string, unknown>) {
   return Object.keys(b).every((k) => JSON.stringify(a[k] ?? null) === JSON.stringify(b[k] ?? null));
 }
 
+/** Só os campos que mudaram, com o valor de antes ou de depois. */
 function diferencas(antes: Record<string, unknown>, depois: Record<string, unknown>, lado: 'antes' | 'depois') {
   const r: Record<string, unknown> = {};
   for (const k of Object.keys(depois)) {

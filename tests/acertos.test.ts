@@ -1,3 +1,7 @@
+// Testes automáticos (correm com: npx tsx --test tests/*.test.ts).
+// Cada test() monta um pequeno cenário e confirma (assert) que os cálculos dão o esperado.
+// Servem para garantir que uma alteração nova não estraga contas que já funcionavam.
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { calcularAcertos, simplificar } from '../src/lib/acertos.ts';

@@ -1,3 +1,6 @@
+// Formulário de edição de um produto já registado (nome, set, categoria, condição,
+// quantidade, custos, estado, conta, fotografias). Os produtos novos entram por "Registar compra".
+
 import { useState } from 'react';
 import { custoTotalProduto } from '../lib/calc';
 import { fmtData, fmtEuro, hoje, lerNumero } from '../lib/format';
@@ -42,6 +45,7 @@ export function FormProduto({ id, aoFechar }: { id?: string; aoFechar(): void })
   const [aGuardar, setAGuardar] = useState(false);
   const mudar = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((x) => ({ ...x, [k]: v }));
 
+  // Reduz cada fotografia (até 1280 px) e envia para o Storage
   async function adicionarFotos(ficheiros: FileList | null) {
     if (!ficheiros?.length) return;
     setAEnviar(true);
@@ -58,12 +62,14 @@ export function FormProduto({ id, aoFechar }: { id?: string; aoFechar(): void })
     }
   }
 
+  // Apagar uma fotografia (do produto e do Storage)
   async function removerFoto(ref: string) {
     if (!(await confirmar({ titulo: 'Remover fotografia', texto: 'A fotografia vai ser apagada.', botao: 'Remover', perigo: true }))) return;
     setFotos((x) => x.filter((r) => r !== ref));
     store.apagarFoto(ref).catch(() => undefined);
   }
 
+  // Validar e guardar as alterações do produto
   async function submeter() {
     if (!f.nome.trim()) return aviso('Indica o nome do produto.', 'erro');
     const quantidade = Math.max(Math.round(lerNumero(f.quantidade)) || 1, 1);
@@ -100,6 +106,7 @@ export function FormProduto({ id, aoFechar }: { id?: string; aoFechar(): void })
     }
   }
 
+  // Apagar o produto (com confirmação)
   async function eliminar() {
     if (temVendas) return aviso('Este produto tem vendas registadas. Apaga primeiro as vendas, ou muda o estado para "Cancelado".', 'erro');
     const ok = await confirmar({

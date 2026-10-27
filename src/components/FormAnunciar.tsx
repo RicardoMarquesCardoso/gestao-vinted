@@ -1,3 +1,7 @@
+// Janela "Anunciar" (ou "Retirar anúncio"): escolhe a conta da Vinted, quantas unidades e o preço,
+// e mostra o título e a descrição prontos a copiar para a Vinted (ver lib/anuncio.ts).
+// Ao marcar como anunciado, o registo do tempo anunciado começa sozinho (lib/anuncios.ts).
+
 import { useState } from 'react';
 import { fmtEuro, hoje, lerNumero } from '../lib/format';
 import type { Produto } from '../lib/types';

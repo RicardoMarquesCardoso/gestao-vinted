@@ -1,3 +1,6 @@
+// Formulário de uma conta da Vinted: nome, utilizador, titular (quem recebe o dinheiro)
+// e limites a acompanhar (por defeito 30 vendas / 2000 € por ano civil, por causa do DAC7).
+
 import { useState } from 'react';
 import { lerNumero } from '../lib/format';
 import type { Conta, TipoPeriodo } from '../lib/types';
@@ -30,6 +33,7 @@ export function FormConta({ id, aoFechar }: { id?: string; aoFechar(): void }) {
   const mudar = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((x) => ({ ...x, [k]: v }));
   const nOuNull = (s: string) => (s.trim() === '' ? null : lerNumero(s));
 
+  // Validar e guardar a conta
   async function submeter() {
     if (!f.nome.trim()) return aviso('Dá um nome à conta.', 'erro');
     if (f.periodo === 'personalizado' && (!f.periodo_inicio || !f.periodo_fim))
@@ -59,6 +63,7 @@ export function FormConta({ id, aoFechar }: { id?: string; aoFechar(): void }) {
     }
   }
 
+  // Apagar a conta (as vendas ficam, mas sem conta)
   async function eliminar() {
     if (!existente) return;
     const usada = dados.vendas.some((v) => v.conta_id === existente.id) || dados.produtos.some((p) => p.conta_id === existente.id);

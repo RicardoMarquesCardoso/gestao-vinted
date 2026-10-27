@@ -1,3 +1,9 @@
+// Ecrã "Produtos": stock e vendidos num só sítio, com os filtros Por vender / Anunciados /
+// Pendentes / Vendidos, pesquisa e ordenação.
+//
+// Produtos iguais (mesmo n.º de set ou mesmo nome) aparecem agrupados num só cartão com o
+// custo médio; tocar abre o grupo com cada unidade.
+
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useAbrir } from '../components/acoes';
@@ -266,6 +272,7 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
   );
 }
 
+/** Fotografia do produto, ou a imagem oficial do set, ou um ícone. */
 function ImagemProduto({ p }: { p: Produto }) {
   return p.fotos[0] ? (
     <Foto refFoto={p.fotos[0]} alt="" className="produto-foto" />
@@ -292,6 +299,7 @@ interface Grupo {
   max: number;
 }
 
+/** Cartão de um grupo de produtos iguais; aberto mostra cada unidade e ações para o grupo. */
 function GrupoProdutos(props: { grupo: Grupo; aberto: boolean; alternar(): void; linha(p: Produto): ReactNode; anunciar(ids: string[], retirar?: boolean): void; vendi(ids: string[]): void; plano?: ReactNode }) {
   const { grupo: g } = props;
   const p = g.itens[0];

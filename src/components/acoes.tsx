@@ -1,3 +1,12 @@
+// Abrir janelas (formulários, detalhe de produto, …) a partir de qualquer ecrã.
+//
+// Em vez de cada ecrã ter as suas janelas, há uma "pilha" central: useAbrir() devolve uma
+// função abrir({ tipo: 'venda', … }) que põe uma janela no topo da pilha. Só a do topo aparece;
+// ao fechar, volta a que estava por baixo (ex.: detalhe do produto → "Vendi" → fecha → detalhe).
+//
+// BOTÃO "VOLTAR" DO TELEMÓVEL: cada janela aberta acrescenta uma entrada ao histórico do browser
+// (history.pushState). Assim, o gesto de voltar fecha a janela em vez de sair da app.
+
 import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { FormCompra } from './FormCompra';

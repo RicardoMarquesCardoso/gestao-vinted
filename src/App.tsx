@@ -19,6 +19,20 @@ import { ReverNomes } from './pages/ReverNomes';
 import { navegar, useRota } from './router';
 import { DadosProvider, useDados } from './state';
 
+// Componente principal: decide se mostra o ecrã de entrar ou a app, e monta a estrutura
+// (menu lateral no computador, barra de baixo no telemóvel) com o ecrã da rota atual.
+//
+// "Store" = onde os dados vivem. Há dois:
+//   - storeSupabase: a base de dados real, partilhada entre os dois (precisa de sessão).
+//   - storeDemo: dados de exemplo guardados só neste browser (localStorage), para experimentar.
+// O resto da app não sabe qual dos dois está a usar: fala sempre com a mesma interface (ver lib/store.ts).
+//
+// Os "Providers" à volta da estrutura disponibilizam coisas a todos os componentes lá dentro:
+//   - DadosProvider (state.tsx): os dados carregados e as funções guardar/apagar.
+//   - ConfirmarProvider (ui.tsx): janelas de confirmação ("Apagar mesmo?").
+//   - AcoesProvider (acoes.tsx): abrir formulários/janelas a partir de qualquer ecrã.
+
+// Lembrar no browser se a última sessão foi em modo demonstração
 const CHAVE_MODO = 'gv.modo';
 const lerModo = () => {
   try {
@@ -37,6 +51,7 @@ const gravarModo = (m: string | null) => {
 };
 
 export function App() {
+  // Ao abrir: modo demo, sessão guardada do Supabase, ou nada (mostra o ecrã de entrar)
   const [store, setStore] = useState<Store | null>(() => {
     if (lerModo() === 'demo') return storeDemo();
     const s = sessaoGuardada();
@@ -57,6 +72,7 @@ export function App() {
     setStore(null);
   }, []);
 
+  // Modo demonstração: na primeira vez, carrega os dados de exemplo (lib/sample.ts)
   async function entrarDemo() {
     const s = storeDemo();
     if (!demoTemDados()) {
@@ -92,6 +108,7 @@ export function App() {
   );
 }
 
+// Entradas do menu. As "principais" aparecem na barra de baixo do telemóvel; as outras em "Mais".
 const MENU: { rota: string; nome: string; icone: ReactNode; principal?: boolean }[] = [
   { rota: '/', nome: 'Painel', principal: true, icone: <path d="M3 13h8V3H3zm0 8h8v-6H3zm10 0h8V11h-8zm0-18v6h8V3z" /> },
   { rota: '/produtos', nome: 'Produtos', principal: true, icone: <path d="M4 7h16v13H4zM2 3h20v4H2zm7 7h6v2H9z" /> },
@@ -102,6 +119,7 @@ const MENU: { rota: string; nome: string; icone: ReactNode; principal?: boolean 
   { rota: '/definicoes', nome: 'Definições', icone: <path d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.3 7.3 0 0 0-1.7-1L15 3h-4l-.4 2.7a7.3 7.3 0 0 0-1.7 1l-2.5-1-2 3.5L6.5 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1c.5.4 1.1.7 1.7 1L11 21h4l.4-2.7c.6-.3 1.2-.6 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" /> },
 ];
 
+/** Ícone SVG simples (os desenhos dos ícones estão no MENU, como "paths" de 24×24). */
 function Icone({ children }: { children: ReactNode }) {
   return (
     <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
@@ -110,12 +128,18 @@ function Icone({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * Estrutura visível depois de entrar: menu lateral (computador), barra de cima e de baixo
+ * (telemóvel) e, no meio, o ecrã correspondente à rota atual.
+ */
 function Estrutura({ aoSair }: { aoSair(): void }) {
   const rota = useRota();
   const { store, carregando, erro, recarregar, ultimaAtualizacao } = useDados();
   const [aAtualizar, setAAtualizar] = useState(false);
   const base = '/' + (rota.split('/')[1] ?? '');
 
+  // Escolher o ecrã pela rota. Algumas rotas antigas (/inventario, /vendas) continuam a funcionar.
+  // O "key" obriga o React a recriar o ecrã quando a rota muda (para repor filtros iniciais).
   const pagina = useMemo(() => {
     switch (base) {
       case '/produtos': return <Inventario key={rota} inicial={rota.startsWith('/produtos/vendidos') ? 'vendidos' : 'por_vender'} />;
@@ -132,6 +156,7 @@ function Estrutura({ aoSair }: { aoSair(): void }) {
     }
   }, [base, rota, aoSair]);
 
+  // Voltar a ir buscar os dados à base de dados (ex.: para ver o que a outra pessoa registou)
   async function atualizar() {
     setAAtualizar(true);
     await recarregar();

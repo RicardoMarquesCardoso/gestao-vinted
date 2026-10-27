@@ -1,3 +1,6 @@
+// Janela rápida "Vendi": só pede o preço e a conta. Cria a venda como concluída, com data de hoje
+// e quem recebeu = titular da conta. Para os restantes campos, há "Mais opções" (FormVenda).
+
 import { useState } from 'react';
 import { arred, custoUnitario, estadoAposVendas, unidadesDisponiveis } from '../lib/calc';
 import { fmtEuro, hoje, lerNumero } from '../lib/format';
@@ -39,6 +42,7 @@ export function FormVendi({ ids, aoFechar, abrirCompleto }: { ids: string[]; aoF
   const valor = lerNumero(preco);
   const lucro = arred(valor - custoUnitario(escolhido));
 
+  // Escolhe a unidade mais antiga disponível, cria a venda concluída e atualiza o produto
   async function submeter() {
     if (!(valor > 0)) return aviso('Indica o preço de venda.', 'erro');
     if (!conta) return aviso('Escolhe a conta onde vendeste.', 'erro');
@@ -121,6 +125,7 @@ export function FormVendi({ ids, aoFechar, abrirCompleto }: { ids: string[]; aoF
   );
 }
 
+/** Última conta usada neste dispositivo, ou a primeira. */
 function contaHabitual(contas: { id: string }[]): string {
   try {
     const c = localStorage.getItem('gv.ultimaConta');

@@ -1,3 +1,10 @@
+// Formulário "Registar compra": a única forma de entrar produtos na app.
+//
+// Uma compra tem data, quem pagou, valor, portes e uma ou mais linhas de produtos.
+// O custo de cada produto é calculado por distribuirCompra (lib/calc.ts): divide o valor
+// em partes iguais ou usa o preço de cada linha, e reparte os portes proporcionalmente.
+// Escrever o n.º do set preenche o nome e o tema a partir do catálogo.
+
 import { useState } from 'react';
 import { arred, distribuirCompra, estadoAposVendas } from '../lib/calc';
 import { fmtEuro, hoje, lerNumero } from '../lib/format';
@@ -78,6 +85,7 @@ export function FormCompra({ id, aoFechar }: { id?: string; aoFechar(): void }) 
   };
   const total = arred(base.valor_artigos + base.portes + base.outros_custos);
 
+  // Retirar uma linha de produto (se já tiver vendas, pede confirmação)
   async function removerItem(i: number) {
     const item = itens[i];
     if (!item.novo && dados.vendas.some((v) => v.produto_id === item.id))
@@ -85,6 +93,7 @@ export function FormCompra({ id, aoFechar }: { id?: string; aoFechar(): void }) 
     setItens((xs) => (xs.length === 1 ? [itemVazio()] : xs.filter((_, j) => j !== i)));
   }
 
+  // Guardar a compra e criar/atualizar os produtos, com o custo de cada um repartido
   async function submeter() {
     if (!validos.length) return aviso('Acrescenta pelo menos um produto com nome.', 'erro');
     const compra: Compra = {
@@ -147,6 +156,7 @@ export function FormCompra({ id, aoFechar }: { id?: string; aoFechar(): void }) 
     }
   }
 
+  // Apagar a compra e os seus produtos (só se nenhum tiver vendas)
   async function eliminar() {
     if (!existente) return;
     if (produtosAtuais.some((p) => dados.vendas.some((v) => v.produto_id === p.id)))

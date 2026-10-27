@@ -1,3 +1,6 @@
+// Ecrã inicial ("Painel"): Registar venda/compra, "O que fazer", números do período,
+// alertas de limites, acertos por fazer e vendas recentes.
+
 import { useMemo, useState } from 'react';
 import { useAbrir } from '../components/acoes';
 import { CartaoTarefas } from '../components/planos';

@@ -1,3 +1,7 @@
+// Formulário completo de uma venda: produto, quantidade, preço, conta, quem recebeu, estado
+// e, em "Mais detalhes", comissões, portes, notas e a opção de não contar para os limites.
+// Ao guardar, atualiza também o estado do produto (vendido / ainda anunciado).
+
 import { useMemo, useState } from 'react';
 import { CHAVE_FORA_LIMITES, arred, chaveComparacao, custoUnitario, estadoAposVendas, unidadesVendidas, vendasForaLimites } from '../lib/calc';
 import { fmtEuro, hoje, lerNumero } from '../lib/format';
@@ -75,6 +79,7 @@ export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?
   const custo = produto ? arred(custoUnitario(produto) * qtd) : 0;
   const lucro = arred(liquido - custo);
 
+  // Ao escolher o produto, sugere o preço anunciado e a conta onde está anunciado
   function escolherProduto(pid: string) {
     const p = dados.produtos.find((x) => x.id === pid);
     setF((x) => ({
@@ -85,6 +90,7 @@ export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?
     }));
   }
 
+  // Validar, guardar a venda e atualizar o estado do(s) produto(s) afetado(s)
   async function submeter() {
     if (!produto) return aviso('Escolhe o produto vendido.', 'erro');
     if ((f.estado === 'pendente' || f.estado === 'concluida') && qtd > disponiveis)
@@ -136,6 +142,7 @@ export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?
     if (alterados.length) await guardar('produtos', alterados);
   }
 
+  // Apagar a venda (com confirmação) e repor o estado do produto
   async function eliminar() {
     if (!existente) return;
     const ok = await confirmar({

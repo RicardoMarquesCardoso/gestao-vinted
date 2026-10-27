@@ -1,34 +1,52 @@
 // Todos os cálculos de custos, lucro, limites e estatísticas.
 // Funções puras, sem acesso à interface, para poderem ser testadas.
+//
+// CONCEITO "função pura": recebe dados e devolve um resultado, sem ler nem alterar mais nada
+// (nem ecrã, nem base de dados). Por isso é fácil de testar (tests/calc.test.ts) e de confiar.
+//
+// FÓRMULAS PRINCIPAIS
+//   custo unitário  = (preço de compra + custos adicionais) ÷ quantidade
+//   líquido         = preço de venda − comissão − portes − outros custos
+//   lucro da venda  = líquido − custo unitário × unidades vendidas
+//   Só contam vendas "pendentes" ou "concluídas" (as canceladas/devolvidas valem 0).
 
 import { dataLocal } from './format';
 import type { Compra, Conta, Dados, EstadoProduto, Produto, Venda } from './types';
 
+/** Arredondar a cêntimos (o EPSILON evita erros como 1.005 → 1.00). */
 export const arred = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 const soma = (xs: number[]) => arred(xs.reduce((a, b) => a + b, 0));
 
 // ---------- Produtos e vendas ----------
 
+/** Quanto custou o produto, com portes e outros custos (todas as unidades). */
 export const custoTotalProduto = (p: Produto) => arred((p.preco_compra || 0) + (p.custos_adicionais || 0));
+/** Custo de uma unidade. */
 export const custoUnitario = (p: Produto) => custoTotalProduto(p) / Math.max(p.quantidade || 1, 1);
 
+/** Uma venda conta para o lucro se estiver pendente ou concluída. */
 export const vendaValida = (v: Venda) => v.estado === 'pendente' || v.estado === 'concluida';
 
+/** O que fica da venda depois dos custos da própria venda. */
 export const liquidoVenda = (v: Venda) =>
   arred((v.preco_venda || 0) - (v.comissao || 0) - (v.portes || 0) - (v.outros_custos || 0));
 
+/** Custo das unidades vendidas nesta venda. */
 export const custoVenda = (v: Venda, p: Produto | undefined) =>
   p ? arred(custoUnitario(p) * (v.quantidade || 1)) : 0;
 
+/** Lucro de uma venda (0 se cancelada ou devolvida). */
 export const lucroVenda = (v: Venda, p: Produto | undefined) =>
   vendaValida(v) ? arred(liquidoVenda(v) - custoVenda(v, p)) : 0;
 
+/** Quantas unidades de um produto já foram vendidas (opcionalmente sem contar uma venda, ao editá-la). */
 export function unidadesVendidas(produtoId: string, vendas: Venda[], ignorarVendaId?: string) {
   return vendas
     .filter((v) => v.produto_id === produtoId && vendaValida(v) && v.id !== ignorarVendaId)
     .reduce((a, v) => a + (v.quantidade || 1), 0);
 }
 
+/** Quantas unidades ainda há para vender. */
 export function unidadesDisponiveis(p: Produto, vendas: Venda[]) {
   if (p.estado === 'devolvido' || p.estado === 'cancelado') return 0;
   return Math.max((p.quantidade || 1) - unidadesVendidas(p.id, vendas), 0);
@@ -43,6 +61,7 @@ export function estadoAposVendas(p: Produto, vendas: Venda[]): EstadoProduto {
   return p.estado;
 }
 
+/** Está em stock (por anunciar ou anunciado). */
 export const emInventario = (p: Produto) => p.estado === 'por_anunciar' || p.estado === 'anunciado';
 
 /** Chave para comparar produtos iguais: número do set ou, se não houver, o nome. */
@@ -54,6 +73,7 @@ export function chaveComparacao(p: Pick<Produto, 'set_numero' | 'nome'>) {
 
 // ---------- Compras ----------
 
+/** Total pago numa compra. */
 export const totalCompra = (c: Compra) => arred((c.valor_artigos || 0) + (c.portes || 0) + (c.outros_custos || 0));
 
 export interface ItemCompra {
@@ -104,20 +124,24 @@ export function diasEntre(de: string, ate: string) {
   return Math.round((b - a) / 86400000);
 }
 
+/** Data AAAA-MM-DD mais n dias. */
 export function somarDias(d: string, n: number) {
   const x = new Date(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10));
   x.setDate(x.getDate() + n);
   return dataLocal(x);
 }
 
+/** Intervalo de datas; null = sem limite desse lado. */
 export interface Intervalo {
   inicio: string | null; // inclusivo
   fim: string | null; // inclusivo
 }
 
+/** A data está dentro do intervalo? (Um intervalo vazio aceita tudo, até datas em falta.) */
 export const dentro = (d: string | null | undefined, i: Intervalo) =>
   (!i.inicio && !i.fim) || (!!d && (!i.inicio || d.slice(0, 10) >= i.inicio) && (!i.fim || d.slice(0, 10) <= i.fim));
 
+/** Períodos rápidos dos filtros ("Este mês", "Este ano", …). */
 export type Predefinicao = 'mes' | 'mes_anterior' | '30d' | '90d' | 'ano' | 'tudo';
 
 export const PREDEFINICOES: { valor: Predefinicao; nome: string }[] = [
@@ -129,6 +153,7 @@ export const PREDEFINICOES: { valor: Predefinicao; nome: string }[] = [
   { valor: 'tudo', nome: 'Sempre' },
 ];
 
+/** Converte um período rápido em datas concretas, a partir de hoje. */
 export function intervaloDe(p: Predefinicao, hoje: string): Intervalo {
   const a = hoje.slice(0, 4);
   const m = hoje.slice(5, 7);
@@ -189,6 +214,7 @@ export interface UsoLimite {
   dinheiro: boolean;
 }
 
+/** Calcula quanto de um limite já foi usado e o nível (ok / aviso / excedido). */
 function uso(nome: string, usado: number, limite: number | null, alertaPct: number, dinheiro = false): UsoLimite {
   if (limite === null || limite === undefined || limite <= 0) {
     return { nome, usado, limite: null, restante: null, pct: 0, nivel: 'sem_limite', dinheiro };
@@ -198,6 +224,7 @@ function uso(nome: string, usado: number, limite: number | null, alertaPct: numb
   return { nome, usado, limite, restante: arred(Math.max(limite - usado, 0)), pct, nivel, dinheiro };
 }
 
+/** Resumo do uso dos limites de uma conta. */
 export interface UsoConta {
   conta: Conta;
   periodo: Intervalo & { descricao: string };
@@ -232,6 +259,11 @@ export function vendasExternas(d: Pick<Dados, 'definicoes'>): VendaExterna[] {
   return Array.isArray(v) ? (v as VendaExterna[]) : [];
 }
 
+/**
+ * Uso dos limites de uma conta no período atual: anúncios ativos, n.º de vendas e valor vendido.
+ * Conta as vendas da app nessa conta + as vendas fora da app (vendas_externas),
+ * e ignora as que a Vinted não conta (vendas_fora_limites).
+ */
 export function usoConta(c: Conta, d: Pick<Dados, 'produtos' | 'vendas'> & Partial<Pick<Dados, 'definicoes'>>, hoje: string): UsoConta {
   const periodo = periodoConta(c, hoje);
   const anunciosAtivos = d.produtos.filter((p) => p.conta_id === c.id && p.estado === 'anunciado').length;
@@ -290,6 +322,7 @@ export interface LinhaCategoria {
   roi: number | null; // lucro / custo
 }
 
+/** Tudo o que o Painel e as Análises mostram. */
 export interface Estatisticas {
   gasto: number;
   recebido: number;
@@ -312,6 +345,7 @@ export interface Estatisticas {
   parados: { produto: Produto; dias: number; desde: string }[];
 }
 
+/** O produto corresponde ao texto de pesquisa? (nome, set, tema, marca, descrição) */
 function correspondeTexto(p: Produto | undefined, texto?: string) {
   if (!texto) return true;
   if (!p) return false;
@@ -319,6 +353,11 @@ function correspondeTexto(p: Produto | undefined, texto?: string) {
   return [p.nome, p.set_numero, p.tema, p.marca, p.descricao].some((x) => (x || '').toLowerCase().includes(t));
 }
 
+/**
+ * Calcula todas as estatísticas para um período e filtros.
+ * Lucro e recebido contam só vendas concluídas; as pendentes aparecem como "a receber".
+ * O inventário é sempre o estado atual (não depende do período).
+ */
 export function estatisticas(d: Dados, f: Filtro, hoje: string): Estatisticas {
   const produtoPorId = new Map(d.produtos.map((p) => [p.id, p]));
   const compraPorId = new Map(d.compras.map((c) => [c.id, c]));
@@ -543,6 +582,7 @@ export interface Lote {
   porVenderCusto: number;
 }
 
+/** Agrupa os produtos pelo mês de compra: gasto, vendido, lucro e o que ainda está por vender. */
 export function lotes(d: Pick<Dados, 'produtos' | 'vendas'>): Lote[] {
   const m = new Map<string, Lote>();
   const vendasDe = new Map<string, Venda[]>();
@@ -572,11 +612,13 @@ export interface FaixaIdade {
   custo: number;
 }
 
+/** Há quanto tempo o stock está parado, por faixas. */
 export interface IdadeStock {
   faixas: FaixaIdade[];
   antigos: { produto: Produto; dias: number | null; unidades: number }[];
 }
 
+/** Distribui o stock atual por faixas de idade (desde a compra) e lista os mais antigos. */
 export function idadeStock(d: Pick<Dados, 'produtos' | 'vendas'>, hoje: string): IdadeStock {
   const faixas: FaixaIdade[] = [
     { nome: 'Menos de 3 meses', unidades: 0, custo: 0 },

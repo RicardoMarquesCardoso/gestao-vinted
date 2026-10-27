@@ -1,3 +1,6 @@
+// Janela de detalhe de um produto: fotografias, imagem oficial, plano (vender/guardar),
+// dados da compra, vendas feitas e botões de ação (Editar, 📷, Anunciar/Retirar, Vendi).
+
 import { LinhaPlano, LinhaPokemon } from './planos';
 import { ehPokemon } from '../lib/plano';
 import { custoTotalProduto, custoUnitario, diasEntre, emInventario, liquidoVenda, lucroVenda, unidadesDisponiveis } from '../lib/calc';
@@ -27,6 +30,7 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
     ? dados.produtos.filter((x) => x.id !== p.id && x.set_numero?.trim().toLowerCase() === p.set_numero?.trim().toLowerCase())
     : [];
 
+  // Tirar/escolher uma fotografia e acrescentá-la ao produto
   async function adicionarFoto(ficheiros: FileList | null) {
     if (!ficheiros?.length || !p) return;
     setAEnviar(true);

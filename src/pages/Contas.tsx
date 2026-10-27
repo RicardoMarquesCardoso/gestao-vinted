@@ -1,3 +1,6 @@
+// Ecrã "Contas da Vinted": cada conta com as barras dos limites do período, as vendas fora
+// da app (contam só para os limites) e a atividade recente.
+
 import { useMemo, useState } from 'react';
 import { useAbrir } from '../components/acoes';
 import { BarraLimite, Campo, Cartao, Dinheiro, Janela, Vazio, Valor } from '../components/ui';

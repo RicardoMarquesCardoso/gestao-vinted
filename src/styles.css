@@ -1,3 +1,11 @@
+/*
+ * Estilos de toda a app (um só ficheiro, sem bibliotecas).
+ *
+ * - As cores e medidas estão em variáveis no :root (ex.: --primario) e são redefinidas para o
+ *   modo escuro em @media (prefers-color-scheme: dark), conforme o telemóvel/computador.
+ * - Até 860 px de largura (telemóvel) o menu lateral desaparece e aparece a barra de baixo.
+ * - As classes estão agrupadas por zona: estrutura, formulários, cartões, produtos, janelas, …
+ */
 :root {
   --fundo: #f6f4ef;
   --superficie: #ffffff;

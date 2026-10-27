@@ -1,6 +1,17 @@
+// Registo automático do tempo em que cada produto esteve anunciado.
+//
+// PORQUÊ: para o lado de investimento interessa saber quanto tempo um produto demora a vender
+// depois de anunciado (diferente do tempo desde a compra) e se baixar o preço ajudou.
+//
+// COMO: sempre que um produto é guardado (state.tsx → guardar), comparamos o estado antes e
+// depois. Passou a "anunciado" → abre um período. Deixou de estar → fecha-o, com o motivo
+// (vendido/retirado). Mudou o preço enquanto anunciado → regista a mudança dentro do período.
+// Fica tudo em produtos.anuncios (JSON), sem ser preciso fazer nada na interface.
+
 import { diasEntre } from './calc';
 import type { PeriodoAnuncio, Produto } from './types';
 
+/** Um produto completo ou só alguns campos (há gravações parciais). */
 type Linha = Partial<Produto> & { id?: string };
 
 /**

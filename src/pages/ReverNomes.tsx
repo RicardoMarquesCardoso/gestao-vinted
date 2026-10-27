@@ -1,3 +1,6 @@
+// Ecrã "Rever nomes": compara os nossos nomes com os nomes oficiais dos sets e alerta quando
+// o n.º do set parece errado (o nosso nome corresponde a outro set do mesmo tema).
+
 import { useMemo, useState } from 'react';
 import { useAbrir } from '../components/acoes';
 import { compararNomes, mesmoTema, useCatalogoSets } from '../components/catalogo';

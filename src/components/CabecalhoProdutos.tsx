@@ -1,3 +1,6 @@
+// Topo do ecrã Produtos: título, botões (exportar, registar compra) e os 4 filtros
+// Por vender / Anunciados / Pendentes / Vendidos, que se podem ligar ao mesmo tempo.
+
 import { BotaoTopo } from './ui';
 
 export interface VerProdutos {

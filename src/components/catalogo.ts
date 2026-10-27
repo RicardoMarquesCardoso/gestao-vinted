@@ -1,3 +1,12 @@
+// Sugestões e catálogo oficial de sets.
+//
+// - useCatalogo(): sugestões a partir dos produtos que já registámos (nomes, marcas, temas),
+//   para preencher formulários mais depressa e escrever sempre da mesma forma.
+// - useCatalogoSets(): o catálogo oficial de sets LEGO (public/catalogo-sets.json, ~26 mil sets,
+//   gerado todos os meses a partir do Rebrickable pela GitHub Action "catalogo"). Só é
+//   descarregado quando é preciso. Escrever o n.º do set preenche o nome e o tema.
+// - compararNomes(): compara o nosso nome com o oficial (para o ecrã "Rever nomes").
+
 import { useEffect, useMemo, useState } from 'react';
 import { chaveComparacao, custoUnitario, emInventario, unidadesDisponiveis } from '../lib/calc';
 import { fmtEuro } from '../lib/format';

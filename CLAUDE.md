@@ -23,6 +23,7 @@ Guardar os dados que permitam estas análises desde já, mesmo que ainda não ap
 - Dados de mercado em `public/mercado-sets.json`, gerados todas as semanas por `scripts/mercado.py` (`.github/workflows/mercado.yml`):
   - **Brickset**: lançamento, retirada, PVP e disponibilidade de todos os sets desde 2005.
   - **BrickLink**: preço médio de venda dos últimos 6 meses na Europa (EUR, sem IVA), novo e usado, só para os nossos sets.
+  - **Pokémon** (PokemonPriceTracker, plano grátis): preço TCGplayer (EUA) dos produtos Pokémon selados em stock, pesquisados pelo nome (função `pokemon_mercado`). As associações manuais ficam em `definicoes.pokemon_ids`.
   - A lista dos nossos sets vem da função `sets_mercado(token)` no Supabase, protegida pelo `token_mercado` (em `definicoes`) e pelo segredo `VINTEDUO_TOKEN`.
   - As chaves ficam só nos segredos do GitHub, nunca no código, porque o repositório é público.
 - Cálculos de investimento em `src/lib/investimento.ts`: rentabilidade anualizada = lucro ÷ (custo × dias ÷ 365). Contam os vendidos e o stock.
@@ -42,10 +43,15 @@ Guardar os dados que permitam estas análises desde já, mesmo que ainda não ap
   - Não contam as vendas listadas em `definicoes.vendas_fora_limites`.
 - **Interface:** o mais simples possível. Qualquer janela tem de se poder fechar, e o gesto de voltar fecha-a.
 
+## Documentação (pedido do Ricardo)
+
+- **Comentar todo o código** de forma didática, para quem não é programador perceber: um comentário no topo de cada ficheiro (para que serve e como funciona) e comentários nas funções e na lógica menos óbvia.
+- **Manter o `README.md` atualizado** a cada mudança relevante: arquitetura, fluxo de dados, modelo de dados, fórmulas, dados externos, segurança e mapa dos ficheiros.
+
 ## Técnico
 
 - React + TypeScript, compilado com esbuild (`node scripts/build.mjs`) para `docs/`, que é a pasta publicada no GitHub Pages.
   - Se `node_modules` não existir: `ln -s /opt/npm-tools/node_modules node_modules`.
 - Testes: `npx tsx --test tests/*.test.ts`.
 - Supabase: no código só vai a chave publishable. **Nunca pedir nem usar a palavra-passe da base de dados nem a chave service_role.**
-- Dados guardados em `definicoes` (chave → jsonb), para não precisar de migrações: `listas`, `nomes_mantidos`, `vendas_externas`, `vendas_fora_limites`, `modelo_anuncio`, `regras_plano`, `planos`, `tarefas_adiadas`, `token_mercado`.
+- Dados guardados em `definicoes` (chave → jsonb), para não precisar de migrações: `listas`, `nomes_mantidos`, `vendas_externas`, `vendas_fora_limites`, `modelo_anuncio`, `regras_plano`, `planos`, `tarefas_adiadas`, `pokemon_ids`, `token_mercado`.

@@ -1,3 +1,18 @@
+// Peças de interface reutilizadas em toda a app (o nosso pequeno "design system").
+//
+// CONCEITO "componente": uma função que recebe "props" (parâmetros) e devolve o que desenhar
+// (JSX, o HTML dentro do JavaScript). Ex.: <Campo rotulo="Preço">…</Campo>.
+// Os estilos estão todos em src/styles.css (as classes className="…").
+//
+// Principais:
+//   Janela            janela por cima do ecrã (formulários, detalhes), fecha com ✕, Esc ou "voltar"
+//   ConfirmarProvider "Tens a certeza?" antes de apagar
+//   Campo, Dinheiro   campos de formulário
+//   Selecionar…       listas de pessoas, contas, quem pagou
+//   Cartao, Vazio     blocos de conteúdo e estados vazios
+//   ProcurarLista, EscolherOuEscrever, NomeComSugestoes   campos com pesquisa e sugestões
+//   Foto, ImagemReferencia   fotografias nossas e imagens oficiais dos sets
+
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { UsoLimite } from '../lib/calc';
@@ -51,6 +66,7 @@ interface PedidoConfirmacao {
 
 const ContextoConfirmar = createContext<(p: Omit<PedidoConfirmacao, 'resolver'>) => Promise<boolean>>(async () => false);
 
+/** Disponibiliza useConfirmar(): abre uma janela "Tens a certeza?" e devolve true/false. */
 export function ConfirmarProvider(props: { children: ReactNode }) {
   const [pedido, setPedido] = useState<PedidoConfirmacao | null>(null);
   const pedir = (p: Omit<PedidoConfirmacao, 'resolver'>) => new Promise<boolean>((resolver) => setPedido({ ...p, resolver }));
@@ -111,6 +127,7 @@ export function TextoSugerido(props: { valor: string; mudar(v: string): void; su
   );
 }
 
+/** Campo de valor em euros (aceita vírgula decimal, teclado numérico no telemóvel). */
 export function Dinheiro(props: { valor: string; mudar(v: string): void; placeholder?: string; disabled?: boolean }) {
   return (
     <div className="dinheiro">
@@ -126,6 +143,7 @@ export function Dinheiro(props: { valor: string; mudar(v: string): void; placeho
   );
 }
 
+/** Lista para escolher uma pessoa. */
 export function SelecionarPessoa(props: { valor: string; mudar(v: string): void; vazio?: string }) {
   const { dados } = useDados();
   return (
@@ -146,6 +164,7 @@ export const valorPagador = (x: { tipo_pagamento: TipoPagamento; pessoa_id: stri
 export const lerPagador = (v: string): { tipo_pagamento: TipoPagamento; pessoa_id: string | null } =>
   v === 'conjunta' || v === 'dividido' ? { tipo_pagamento: v, pessoa_id: null } : { tipo_pagamento: 'pessoa', pessoa_id: v || null };
 
+/** "Quem pagou": uma pessoa, a conta conjunta, ou dividido. */
 export function SelecionarPagador(props: { valor: string; mudar(v: string): void }) {
   const { dados } = useDados();
   return (
@@ -162,6 +181,7 @@ export function SelecionarPagador(props: { valor: string; mudar(v: string): void
   );
 }
 
+/** Lista para escolher uma conta da Vinted (só as ativas). */
 export function SelecionarConta(props: { valor: string; mudar(v: string): void; vazio?: string }) {
   const { dados } = useDados();
   return (
@@ -184,10 +204,12 @@ export function EtiquetaProduto({ estado }: { estado: EstadoProduto }) {
   return <span className={`etiqueta et-${estado}`}>{ESTADOS_PRODUTO.find((e) => e.valor === estado)?.nome ?? estado}</span>;
 }
 
+/** Etiqueta colorida com o estado da venda. */
 export function EtiquetaVenda({ estado }: { estado: EstadoVenda }) {
   return <span className={`etiqueta et-v-${estado}`}>{ESTADOS_VENDA.find((e) => e.valor === estado)?.nome ?? estado}</span>;
 }
 
+/** Valor em euros a verde (positivo) ou vermelho (negativo). */
 export function Valor({ n, sinal }: { n: number; sinal?: boolean }) {
   const cls = sinal ? (n > 0 ? 'positivo' : n < 0 ? 'negativo' : '') : '';
   return <span className={`valor ${cls}`}>{sinal && n > 0 ? '+' : ''}{fmtEuro(n)}</span>;
@@ -197,6 +219,7 @@ export function Valor({ n, sinal }: { n: number; sinal?: boolean }) {
 
 const NOMES_NIVEL = { ok: 'Dentro do limite', aviso: 'Perto do limite', excedido: 'Limite atingido', sem_limite: 'Sem limite' };
 
+/** Barra de progresso de um limite da conta (ex.: 23 de 30 vendas). */
 export function BarraLimite({ l }: { l: UsoLimite }) {
   const fmt = (n: number) => (l.dinheiro ? fmtEuro(n) : fmtNum(n));
   if (l.limite === null) {
@@ -242,6 +265,7 @@ export function Vazio(props: { titulo: string; texto?: string; acao?: ReactNode 
   );
 }
 
+/** Mostra uma fotografia guardada (descarrega-a com a sessão, porque o bucket é privado). */
 export function Foto({ refFoto, alt, className }: { refFoto: string; alt: string; className?: string }) {
   const { store } = useDados();
   const [url, setUrl] = useState<string | null>(null);
@@ -269,6 +293,7 @@ export async function reduzirFoto(ficheiro: File, max = 1280): Promise<Blob> {
   return await new Promise<Blob>((ok, falha) => canvas.toBlob((b) => (b ? ok(b) : falha(new Error('Fotografia inválida'))), 'image/jpeg', 0.82));
 }
 
+/** Bloco com título, ação à direita e conteúdo. */
 export function Cartao(props: { titulo?: ReactNode; acao?: ReactNode; children: ReactNode; className?: string }) {
   return (
     <section className={`cartao ${props.className ?? ''}`}>
@@ -383,6 +408,7 @@ export function urlReferencia(p: { marca: string | null; set_numero: string | nu
   return `https://images.brickset.com/sets/${grande ? 'images' : 'small'}/${set}-1.jpg`;
 }
 
+/** Imagem oficial do set (Brickset, com alternativa no Rebrickable); se falhar, mostra o "vazio". */
 export function ImagemReferencia({ url, className, alt = '', vazio }: { url: string | null; className?: string; alt?: string; vazio?: ReactNode }) {
   const [tentativa, setTentativa] = useState(0);
   useEffect(() => setTentativa(0), [url]);

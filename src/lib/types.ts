@@ -1,4 +1,18 @@
 // Tipos de dados da app. Os nomes dos campos são iguais às colunas da base de dados.
+//
+// CONCEITO: em TypeScript, um "tipo" (interface/type) descreve a forma de um objeto — que
+// campos tem e de que tipo é cada um. Não existe quando a app corre; serve para o editor e o
+// compilador apanharem erros (ex.: escrever "preco" em vez de "preco_venda").
+//
+// MODELO DE DADOS (resumo):
+//   Compra ──< Produto ──< Venda >── Conta (Vinted)
+//   - Uma compra pode ter vários produtos (os portes repartem-se por eles).
+//   - Um produto pode ter várias unidades (quantidade) e várias vendas.
+//   - Cada venda é feita numa conta da Vinted.
+//   Pessoa: Ricardo e Cass (quem paga as compras e quem recebe as vendas).
+//   Acerto: transferências já feitas entre as pessoas e a conta conjunta.
+//   Definicao: configurações e listas guardadas como chave → valor (JSON).
+//   Historico: registo de todas as alterações (nunca se apaga).
 
 export type EstadoProduto = 'por_anunciar' | 'anunciado' | 'vendido' | 'devolvido' | 'cancelado';
 export type EstadoVenda = 'pendente' | 'concluida' | 'cancelada' | 'devolvida';
@@ -9,12 +23,14 @@ export type TipoPagamento = 'pessoa' | 'conjunta' | 'dividido';
 /** Uma "parte" nos acertos: o id de uma pessoa ou a conta conjunta. */
 export const CONJUNTA = 'conjunta';
 
+/** Uma das pessoas do negócio. */
 export interface Pessoa {
   id: string;
   nome: string;
   criado_em?: string;
 }
 
+/** Uma conta da Vinted, com os limites que queremos acompanhar. */
 export interface Conta {
   id: string;
   nome: string;
@@ -33,6 +49,7 @@ export interface Conta {
   criado_em?: string;
 }
 
+/** Uma compra (pode trazer vários produtos). Os valores são totais da compra. */
 export interface Compra {
   id: string;
   data: string; // AAAA-MM-DD
@@ -48,6 +65,7 @@ export interface Compra {
   criado_em?: string;
 }
 
+/** Um produto em stock ou já vendido. Os valores de compra são o total de todas as unidades. */
 export interface Produto {
   id: string;
   compra_id: string | null;
@@ -85,6 +103,7 @@ export interface PeriodoAnuncio {
   aproximado?: boolean; // reconstruído a partir da data de anúncio (sem hora)
 }
 
+/** Uma venda de uma ou mais unidades de um produto. preco_venda é o total recebido antes de custos. */
 export interface Venda {
   id: string;
   produto_id: string;
@@ -104,6 +123,7 @@ export interface Venda {
   criado_em?: string;
 }
 
+/** Uma alteração registada: quem, quando, em que tabela, e os valores antes/depois. */
 export interface Historico {
   id: string;
   quando: string;
@@ -115,6 +135,7 @@ export interface Historico {
   depois: unknown;
 }
 
+/** Uma transferência de dinheiro já feita entre duas "partes" (pessoa ou conta conjunta). */
 export interface Acerto {
   id: string;
   data: string;
@@ -125,11 +146,13 @@ export interface Acerto {
   criado_em?: string;
 }
 
+/** Configuração guardada como chave → valor JSON (listas, regras, planos, …). */
 export interface Definicao {
   chave: string;
   valor: string[];
 }
 
+/** Todos os dados carregados na app, por tabela. */
 export interface Dados {
   pessoas: Pessoa[];
   contas: Conta[];
@@ -142,6 +165,7 @@ export interface Dados {
 
 export type Tabela = keyof Dados | 'historico';
 
+// Nomes para mostrar de cada estado/opção
 export const ESTADOS_PRODUTO: { valor: EstadoProduto; nome: string }[] = [
   { valor: 'por_anunciar', nome: 'Por anunciar' },
   { valor: 'anunciado', nome: 'Anunciado' },
@@ -165,6 +189,7 @@ export const PERIODOS: { valor: TipoPeriodo; nome: string }[] = [
   { valor: 'personalizado', nome: 'Datas definidas por nós' },
 ];
 
+/** Listas de opções predefinidas (podem ser alteradas em Definições). */
 export const LISTAS_PADRAO: Record<string, { nome: string; valores: string[] }> = {
   condicoes: {
     nome: 'Condições',

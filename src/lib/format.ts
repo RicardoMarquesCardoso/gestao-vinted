@@ -1,9 +1,13 @@
+// Formatação para mostrar no ecrã, à portuguesa: 1 234,50 €, 27/10/2026, "out 26".
+// Intl.NumberFormat é a forma nativa do browser de formatar números conforme o país.
+
 const euro = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' });
 const numero = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 1 });
 
 export const fmtEuro = (n: number | null | undefined) => euro.format(n ?? 0);
 export const fmtNum = (n: number) => numero.format(n);
 
+/** '2026-10-27' → '27/10/2026' */
 export function fmtData(d: string | null | undefined): string {
   if (!d) return '—';
   const [a, m, dia] = d.slice(0, 10).split('-');

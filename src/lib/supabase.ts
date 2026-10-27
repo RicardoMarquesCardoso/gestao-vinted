@@ -1,5 +1,17 @@
 // Cliente mínimo para o Supabase (autenticação, base de dados e fotografias),
 // feito só com fetch, sem dependências externas.
+//
+// O QUE É O SUPABASE: uma base de dados PostgreSQL na nuvem que já traz:
+//   - Auth: contas de utilizador (email + palavra-passe) e "tokens" de sessão.
+//   - PostgREST: cada tabela fica acessível por HTTP (GET para ler, POST para criar, …).
+//   - Storage: guardar ficheiros (as fotografias dos produtos).
+//
+// SEGURANÇA: cada pedido leva o token da sessão ("Authorization: Bearer …"). A base de dados
+// tem regras RLS (Row Level Security, em supabase/schema.sql) que só deixam ler/escrever a quem
+// tem sessão iniciada E está na tabela "membros". Sem isso, a chave pública não serve para nada.
+//
+// SESSÃO: ao entrar recebemos um access_token (válido ~1 hora) e um refresh_token (para pedir
+// um novo sem voltar a pedir a palavra-passe). Ficam no localStorage para não ter de entrar sempre.
 
 import { SUPABASE_KEY, SUPABASE_URL } from '../config';
 
@@ -11,8 +23,10 @@ export interface Sessao {
   user_id: string;
 }
 
+/** Onde a sessão fica guardada no browser. */
 const CHAVE_SESSAO = 'gv.sessao';
 let sessaoAtual: Sessao | null = lerSessaoGuardada();
+// Se vários pedidos precisarem de renovar a sessão ao mesmo tempo, renovam uma só vez
 let refrescamento: Promise<Sessao | null> | null = null;
 
 function lerSessaoGuardada(): Sessao | null {
@@ -45,6 +59,7 @@ interface RespostaToken {
   user: { id: string; email: string };
 }
 
+/** Converte a resposta do Supabase Auth na nossa Sessao (com a hora de expiração absoluta). */
 function paraSessao(r: RespostaToken): Sessao {
   return {
     access_token: r.access_token,
@@ -55,6 +70,7 @@ function paraSessao(r: RespostaToken): Sessao {
   };
 }
 
+/** Transforma uma resposta de erro numa mensagem legível (em português). */
 async function erroDe(res: Response): Promise<Error> {
   let msg = `${res.status} ${res.statusText}`;
   try {
@@ -75,6 +91,7 @@ function traduzirErro(msg: string): string {
   return msg;
 }
 
+/** Iniciar sessão com email e palavra-passe. */
 export async function entrar(email: string, password: string): Promise<Sessao> {
   const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
     method: 'POST',
@@ -87,6 +104,7 @@ export async function entrar(email: string, password: string): Promise<Sessao> {
   return s;
 }
 
+/** Terminar sessão (aqui e no servidor). */
 export async function sair() {
   const s = sessaoAtual;
   guardarSessao(null);
@@ -98,6 +116,7 @@ export async function sair() {
   }
 }
 
+/** Pedir um token novo com o refresh_token. Se falhar, a sessão acabou. */
 async function refrescar(): Promise<Sessao | null> {
   const s = sessaoAtual;
   if (!s) return null;
@@ -127,12 +146,14 @@ export async function tokenValido(): Promise<string> {
   return s.access_token;
 }
 
+/** Erro especial: a app volta ao ecrã de entrar quando o recebe (ver state.tsx). */
 export class SessaoExpirada extends Error {
   constructor() {
     super('A sessão terminou. Volta a entrar.');
   }
 }
 
+/** Cabeçalhos de todos os pedidos: a chave pública e o token da sessão. */
 async function cabecalhos(extra: Record<string, string> = {}) {
   return {
     apikey: SUPABASE_KEY,
@@ -143,8 +164,10 @@ async function cabecalhos(extra: Record<string, string> = {}) {
 
 // ---------- Base de dados (PostgREST) ----------
 
+// O PostgREST devolve no máximo 1000 linhas por pedido: pedimos por páginas até acabar.
 const PAGINA = 1000;
 
+/** Ler todas as linhas de uma tabela, ordenadas (ex.: 'data_venda.desc'). */
 export async function listar<T>(tabela: string, ordem = 'id'): Promise<T[]> {
   const todos: T[] = [];
   for (let inicio = 0; ; inicio += PAGINA) {
@@ -158,6 +181,7 @@ export async function listar<T>(tabela: string, ordem = 'id'): Promise<T[]> {
   }
 }
 
+/** Acrescentar linhas novas (usado no histórico, que nunca se altera). */
 export async function inserir<T>(tabela: string, linhas: T | T[]): Promise<void> {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${tabela}`, {
     method: 'POST',
@@ -167,6 +191,7 @@ export async function inserir<T>(tabela: string, linhas: T | T[]): Promise<void>
   if (!res.ok) throw await erroDe(res);
 }
 
+/** Alterar alguns campos de uma linha. */
 export async function atualizar(tabela: string, chave: string, valor: string, alteracoes: object): Promise<void> {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${tabela}?${chave}=eq.${encodeURIComponent(valor)}`, {
     method: 'PATCH',
@@ -176,6 +201,10 @@ export async function atualizar(tabela: string, chave: string, valor: string, al
   if (!res.ok) throw await erroDe(res);
 }
 
+/**
+ * "Upsert" = insert ou update: se a linha (pelo id) já existe, atualiza; senão cria.
+ * É o que a app usa para guardar quase tudo.
+ */
 export async function upsert(tabela: string, linhas: object | object[]): Promise<void> {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${tabela}`, {
     method: 'POST',
@@ -188,6 +217,7 @@ export async function upsert(tabela: string, linhas: object | object[]): Promise
   if (!res.ok) throw await erroDe(res);
 }
 
+/** Apagar uma linha pela chave. */
 export async function apagar(tabela: string, chave: string, valor: string): Promise<void> {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${tabela}?${chave}=eq.${encodeURIComponent(valor)}`, {
     method: 'DELETE',
@@ -196,6 +226,7 @@ export async function apagar(tabela: string, chave: string, valor: string): Prom
   if (!res.ok) throw await erroDe(res);
 }
 
+/** Chamar uma função SQL da base de dados (ex.: e_membro, que diz se o email está autorizado). */
 export async function rpc<T>(funcao: string, args: object = {}): Promise<T> {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${funcao}`, {
     method: 'POST',
@@ -210,6 +241,7 @@ export async function rpc<T>(funcao: string, args: object = {}): Promise<T> {
 
 const BUCKET = 'fotos';
 
+/** Enviar uma fotografia para o bucket privado "fotos". */
 export async function enviarFoto(caminho: string, ficheiro: Blob): Promise<void> {
   const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${caminho}`, {
     method: 'POST',
@@ -219,6 +251,7 @@ export async function enviarFoto(caminho: string, ficheiro: Blob): Promise<void>
   if (!res.ok) throw await erroDe(res);
 }
 
+// Cada fotografia só é descarregada uma vez por sessão
 const cacheFotos = new Map<string, Promise<string>>();
 
 /** Descarrega uma fotografia privada e devolve um URL local para a mostrar. */
@@ -238,6 +271,7 @@ export function urlFoto(caminho: string): Promise<string> {
   return p;
 }
 
+/** Apagar uma fotografia do Storage. */
 export async function apagarFoto(caminho: string): Promise<void> {
   const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}`, {
     method: 'DELETE',

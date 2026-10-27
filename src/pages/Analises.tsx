@@ -1,3 +1,7 @@
+// Ecrã "Análises": lucro e gastos por período, conta, categoria; investimento (rentabilidade
+// por ano, dinheiro parado, valor estimado do stock); tabela por set; lotes de compra;
+// idade do stock; tempo até vender. Os cálculos estão em lib/calc.ts e lib/investimento.ts.
+
 import { useMemo, useState } from 'react';
 import { useAbrir } from '../components/acoes';
 import { BarrasHorizontais, BarrasMensais } from '../components/Graficos';
@@ -203,6 +207,7 @@ export function Analises() {
   );
 }
 
+/** Lista de produtos com os dias que demoraram a vender. */
 function ListaTempos(props: { itens: { produto: { id: string; nome: string }; dias: number }[]; abrir(id: string): void }) {
   if (!props.itens.length) return <p className="mudo">Sem vendas concluídas no período.</p>;
   return (

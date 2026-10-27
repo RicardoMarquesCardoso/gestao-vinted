@@ -1,3 +1,7 @@
+# GitHub Action: corre nos servidores do GitHub, não no telemóvel.
+# Todos os meses (e quando o script muda) descarrega o catálogo de sets do Rebrickable,
+# gera public/catalogo-sets.json e docs/catalogo-sets.json e grava-os no repositório
+# (o que publica automaticamente o site atualizado).
 name: Atualizar catálogo de sets LEGO
 
 on:
