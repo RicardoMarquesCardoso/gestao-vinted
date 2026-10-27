@@ -264,7 +264,7 @@ test('plano: vender já quando o lucro compensa, guardar quando ainda vai valori
 
 test('plano: Pokémon usa o preço do TCGplayer e valoriza a taxa fixa', () => {
   const p = produto({ id: 'k', nome: '30th Celebration ETB', marca: 'Pokémon', set_numero: null, preco_compra: 50, estado: 'por_anunciar' });
-  const merc = { brickset: {}, bricklink: {}, pokemon: { '30th celebration etb': { id: 1, nome: 'x', set: null, usd: 100, eur: 90, auto: true } } };
+  const merc = { brickset: {}, bricklink: {}, pokemon: { '30th celebration etb': { id: '1', nome: 'x', set: null, usd: 100, eur: 90, auto: true } } };
   const pl = sugerirPlano(p, { dados: { produtos: [p], vendas: [], definicoes: [] }, mercado: merc, hoje: '2026-10-27' });
   assert.equal(pl.referencia?.fonte, 'tcgplayer');
   assert.equal(pl.acao, 'vender'); // +80%
@@ -283,4 +283,19 @@ test('tarefas: só se anuncia 1 unidade de cada produto de cada vez', () => {
   assert.match(t[0].titulo, /^Anunciar Set a/); // sem "2×"
   const c = { ...b, id: 'c', estado: 'anunciado' as const, preco_anuncio: 108, data_anuncio: '2026-10-20' };
   assert.equal(tarefas(ctx([a, c])).filter((x) => x.tipo === 'anunciar').length, 0);
+});
+
+import { precoPokemon } from '../src/lib/investimento.ts';
+
+test('Pokémon: candidatos escolhidos à mão e preços absurdos ignorados', () => {
+  const m = {
+    brickset: {}, bricklink: {},
+    pokemon: {
+      etb: { auto: true, candidatos: [{ id: '1', nome: 'Roaring Skies ETB', set: null, usd: 4900, eur: 4400 }, { id: '2', nome: 'Paldea ETB', set: null, usd: 60, eur: 54 }] },
+      velha: { id: '9', nome: 'Muito cara', set: null, usd: 5000, eur: 4500, auto: true },
+    },
+  };
+  assert.equal(precoPokemon(m, 'ETB'), null); // sem escolha, sem preço
+  assert.equal(precoPokemon(m, 'ETB', { etb: '2' })?.eur, 54); // escolhido entre os candidatos
+  assert.equal(precoPokemon(m, 'Velha', {}, 56), null); // 4500 € para um custo de 56 € → ignorado
 });

@@ -20,20 +20,55 @@ export interface Mercado {
   pokemon_atualizado?: string | null;
 }
 
-export interface PrecoPokemon {
-  id: number | string | null; // tcgPlayerId do produto encontrado
-  nome: string | null; // nome do produto encontrado (para confirmar se é o certo)
+/** Um produto Pokémon encontrado no TCGplayer (preço em dólares e convertido para euros). */
+export interface ProdutoTcg {
+  id: string;
+  nome: string | null;
   set: string | null;
-  usd: number;
-  eur: number;
-  auto: boolean; // true = encontrado pela pesquisa por nome; false = associado por nós
+  usd: number | null;
+  eur: number | null;
+}
+
+/**
+ * O que a tarefa semanal encontrou para um produto nosso:
+ * - com preço (usd/eur) quando a associação é certa (feita por nós, ou pesquisa inequívoca);
+ * - só "candidatos" quando a pesquisa encontrou vários parecidos e falta escolher.
+ */
+export interface PrecoPokemon extends Partial<ProdutoTcg> {
+  auto: boolean; // true = pela pesquisa por nome; false = associação nossa
+  candidatos?: ProdutoTcg[];
 }
 
 /** Chave usada para associar um produto Pokémon: o nome em minúsculas, sem espaços a mais. */
 export const chavePokemon = (nome: string) => nome.trim().toLowerCase();
 
-/** Preço de mercado de um produto Pokémon pelo nosso nome (ou null se não houver). */
-export const precoPokemon = (m: Mercado | null, nome: string): PrecoPokemon | null => m?.pokemon?.[chavePokemon(nome)] ?? null;
+/** O que a tarefa semanal guardou para este produto (com ou sem preço). */
+export const entradaPokemon = (m: Mercado | null, nome: string): PrecoPokemon | null => m?.pokemon?.[chavePokemon(nome)] ?? null;
+
+/**
+ * Preço utilizável de um produto Pokémon, ou null.
+ * - Se escolhemos um produto (definicoes.pokemon_ids) que está entre os candidatos, usa-o logo
+ *   (sem esperar pela próxima atualização).
+ * - Uma associação automática com um preço absurdo face ao custo (mais de 4× ou menos de ¼) é
+ *   ignorada: quase de certeza é o produto errado.
+ */
+export function precoPokemon(m: Mercado | null, nome: string, ids: Record<string, string> = {}, custo?: number): (ProdutoTcg & { auto: boolean }) | null {
+  const e = entradaPokemon(m, nome);
+  if (!e) return null;
+  const escolhido = ids[chavePokemon(nome)];
+  if (escolhido) {
+    if (e.id === escolhido && e.eur) return { ...(e as ProdutoTcg), auto: false };
+    const c = e.candidatos?.find((x) => x.id === escolhido);
+    return c?.eur ? { ...c, auto: false } : null;
+  }
+  if (!e.eur || !e.id) return null;
+  if (custo && custo > 0 && (e.eur > custo * 4 || e.eur < custo / 4)) return null;
+  return { ...(e as ProdutoTcg), auto: e.auto };
+}
+
+/** Associações manuais dos produtos Pokémon (nome em minúsculas → tcgPlayerId). */
+export const idsPokemon = (defs: { chave: string; valor: unknown }[] | undefined): Record<string, string> =>
+  ((defs ?? []).find((d) => d.chave === 'pokemon_ids')?.valor ?? {}) as Record<string, string>;
 
 const VAZIO: Mercado = { brickset: {}, bricklink: {} };
 let pedido: Promise<Mercado> | null = null;
@@ -132,7 +167,7 @@ export interface ResumoInvestimento {
 
 const semDataVenda = (notas: string | null) => !!notas?.includes('data de venda desconhecida');
 
-export function investimento(d: Pick<Dados, 'produtos' | 'vendas'>, m: Mercado | null, hoje: string): ResumoInvestimento {
+export function investimento(d: Pick<Dados, 'produtos' | 'vendas'> & Partial<Pick<Dados, 'definicoes'>>, m: Mercado | null, hoje: string): ResumoInvestimento {
   const produtoPorId = new Map(d.produtos.map((p) => [p.id, p]));
   interface Acum {
     nome: string;
@@ -216,7 +251,7 @@ export function investimento(d: Pick<Dados, 'produtos' | 'vendas'>, m: Mercado |
     for (const p of g.stock) {
       const u = unidadesDisponiveis(p, d.vendas);
       const bl = produtoNovo(p) ? mercado?.blNovo ?? null : mercado?.blUsado ?? mercado?.blNovo ?? null;
-      const pk = precoPokemon(m, p.nome);
+      const pk = precoPokemon(m, p.nome, idsPokemon(d.definicoes), custoUnitario(p));
       const unit = bl ? bl[0] : pk ? pk.eur : vendaMedia;
       if (unit === null) continue;
       g.valorStock += unit * u;

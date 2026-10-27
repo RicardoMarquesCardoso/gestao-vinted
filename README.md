@@ -61,8 +61,8 @@ flowchart LR
   end
   subgraph Serviços externos
     RB[Rebrickable<br/>catálogo LEGO]
-    BS[Brickset<br/>datas e PVP]
-    BL[BrickLink<br/>preços LEGO]
+    BS[Brickset<br/>datas e PVP<br/><i>sem acesso</i>]
+    BL[BrickLink<br/>preços LEGO<br/><i>sem acesso</i>]
     PT[PokemonPriceTracker<br/>preços Pokémon]
   end
 
@@ -277,7 +277,7 @@ flowchart TD
 - **Valorização esperada:**
   - **LEGO:** ~0% enquanto a LEGO ainda o vende; ~20%/ano nos 2 anos depois de ser retirado; ~7%/ano depois disso.
   - **Pokémon selado:** ~15%/ano.
-  - A data de retirada vem da Brickset. Se não houver, estima-se como lançamento + 2,5 anos.
+  - A data de retirada viria da Brickset (sem acesso, ver secção 8). Por agora estima-se como ano de lançamento (catálogo Rebrickable) + 2,5 anos.
 - **Preço sugerido** = referência + 8% (margem para negociar), nunca abaixo de custo + 5%.
 - **Baixar o preço:** ao fim de **60 dias** anunciado sem mudar de preço, sugere baixar 7%.
 
@@ -305,13 +305,19 @@ Ficam em **GitHub → Settings → Secrets and variables → Actions**. Se uma f
 | Segredo | Para quê |
 |---|---|
 | `VINTEDUO_TOKEN` | Deixa a tarefa pedir ao Supabase **só** a lista dos nossos n.º de set e nomes Pokémon, através das funções `sets_mercado` e `pokemon_mercado`. Não dá acesso a mais nada. |
-| `BRICKSET_API_KEY` | Brickset (grátis). |
-| `BRICKLINK_CONSUMER_KEY`, `BRICKLINK_CONSUMER_SECRET`, `BRICKLINK_TOKEN`, `BRICKLINK_TOKEN_SECRET` | BrickLink (grátis, com conta BrickLink; IP `0.0.0.0`). |
+| `BRICKSET_API_KEY` | Brickset. **Sem acesso:** só dão chaves a projetos que contribuem para a Brickset. O código fica preparado caso isso mude. |
+| `BRICKLINK_CONSUMER_KEY`, `BRICKLINK_CONSUMER_SECRET`, `BRICKLINK_TOKEN`, `BRICKLINK_TOKEN_SECRET` | BrickLink. **Sem acesso:** a API só está disponível para vendedores com loja na BrickLink. |
 | `POKEMONPRICETRACKER_API_KEY` | PokemonPriceTracker (plano grátis: 100 pedidos por dia). |
 
 Para correr a tarefa à mão: **Actions → "Atualizar dados de mercado" → Run workflow**.
 
-**Pokémon:** os nossos nomes são curtos ("ETB"), por isso a pesquisa pode escolher o produto errado. No detalhe de um produto Pokémon aparece o produto encontrado. Se não for o certo, em *"Não é este produto?"* cola-se o endereço da página do produto no TCGplayer. A correção fica guardada em `pokemon_ids` e entra na atualização seguinte.
+**Pokémon:** os nossos nomes são curtos ("ETB"), por isso a pesquisa por nome pode encontrar o produto errado. Para evitar isso:
+
+- O resultado só é aceite automaticamente se for **inequívoco**: todas as palavras que identificam o nosso produto aparecem no nome encontrado (palavras genéricas como "box" ou "elite" não contam) e nenhum outro resultado empata.
+- Se houver dúvida, a tarefa guarda até 5 **candidatos**, e no detalhe do produto aparece **"Qual destes é?"**. A escolha fica em `pokemon_ids` e o preço passa a contar logo.
+- Se não for nenhum, em *"Não é nenhum destes"* cola-se o endereço da página do produto no TCGplayer.
+- Um preço automático absurdo face ao custo (mais de 4× ou menos de ¼) é ignorado.
+- Produtos em espanhol ou português não existem no TCGplayer, que é só inglês. Associar à versão inglesa dá uma referência aproximada.
 
 ---
 
@@ -440,5 +446,5 @@ No ecrã de entrada: **Experimentar com dados de exemplo**. Os dados ficam só n
 
 - **Sincronização:** não é instantânea. A app atualiza de minuto a minuto e ao voltar a ela.
 - **Preços Pokémon:** vêm do TCGplayer, que é o mercado dos EUA. A API do Cardmarket não aceita novos pedidos, e um plano pago da PokemonPriceTracker daria preços do Cardmarket.
-- **Sugestões:** são tão boas quanto os dados. Sem Brickset e BrickLink ligados, a maior parte dos produtos fica com "vender, custo + margem". Os valores das regras devem ser afinados com os dados reais de tempo anunciado.
+- **Sugestões LEGO:** não há acesso à Brickset nem à BrickLink, por isso, para os LEGO, a referência de preço são as nossas vendas anteriores do mesmo set e a data de retirada é estimada. Muitos produtos ficam com "vender, custo + margem". Os valores das regras devem ser afinados com os dados reais de tempo anunciado.
 - **Próximo passo planeado:** sugerir **compras** a partir das promoções do dia, comparando o preço da promoção com o histórico de vendas, a valorização esperada e o tempo até vender.

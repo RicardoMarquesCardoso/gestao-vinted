@@ -7,7 +7,7 @@
 import { produtoNovo } from './anuncio';
 import { chaveComparacao, custoUnitario, diasEntre, emInventario, somarDias, unidadesDisponiveis, vendaValida } from './calc';
 import { fmtEuro } from './format';
-import { infoMercado, precoPokemon } from './investimento';
+import { idsPokemon, infoMercado, precoPokemon } from './investimento';
 import type { Mercado } from './investimento';
 import type { Dados, Definicao, Produto } from './types';
 
@@ -129,8 +129,8 @@ export function referencia(p: Produto, ctx: Contexto): Referencia | null {
   const bl = novo ? m?.blNovo : m?.blUsado ?? null;
   if (bl && bl[1] >= 2) return { preco: bl[0], fonte: 'bricklink', texto: `BrickLink: ${Math.round(bl[0])} € (${bl[1]} vendidos em 6 meses)` };
   // Pokémon: preço do TCGplayer (EUA), convertido para euros. É uma referência fraca (outro mercado).
-  const pk = ehPokemon(p) ? precoPokemon(ctx.mercado, p.nome) : null;
-  if (pk) return { preco: pk.eur, fonte: 'tcgplayer', texto: `TCGplayer (EUA): ~${Math.round(pk.eur)} €` };
+  const pk = ehPokemon(p) ? precoPokemon(ctx.mercado, p.nome, idsPokemon(ctx.dados.definicoes), custoUnitario(p)) : null;
+  if (pk?.eur) return { preco: pk.eur, fonte: 'tcgplayer', texto: `TCGplayer (EUA): ~${Math.round(pk.eur)} €` };
   if (m?.pvp && m.retirado === false && novo) return { preco: m.pvp * 0.8, fonte: 'pvp', texto: `ainda à venda (PVP ${Math.round(m.pvp)} €, com desconto ~20%)` };
   return null;
 }

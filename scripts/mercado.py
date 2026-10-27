@@ -193,50 +193,88 @@ def _preco(item):
 
 def _expandir(nome):
     """As nossas abreviaturas → nomes oficiais, para a pesquisa encontrar o produto certo."""
+    nome = re.sub(r'(\d+)\s+(th|st|nd|rd)\b', r'\1\2', nome, flags=re.I)  # "30 th" → "30th"
     for curto, longo in ((r'\betb\b', 'Elite Trainer Box'), (r'\bbb\b', 'Booster Box'), (r'\bupc\b', 'Ultra Premium Collection')):
         nome = re.sub(curto, longo, nome, flags=re.I)
-    return nome
+    # O idioma não faz parte do nome no TCGplayer (que só tem produtos em inglês)
+    return re.sub(r'\b(espanol|español|spanish|portugues|português|en|es|pt)\b', ' ', nome, flags=re.I).strip()
+
+
+# Palavras que aparecem em muitos produtos e por isso não identificam nenhum
+GENERICAS = {'elite', 'trainer', 'box', 'booster', 'collection', 'premium', 'pack', 'blister', 'ex', 'pokemon',
+             'the', 'of', 'card', 'cards', 'promo', 'tin', 'bundle', 'figure', 'figurine', 'sticker', 'tech', '1'}
 
 
 def _palavras(s):
-    return {w for w in re.sub(r'[^a-z0-9]+', ' ', (s or '').lower()).split() if len(w) > 1}
+    return {w for w in re.sub(r'[^a-z0-9]+', ' ', (s or '').lower()).split() if len(w) > 1 or w.isdigit()}
+
+
+def _resumo(item, taxa):
+    """Os campos que guardamos de um produto encontrado."""
+    usd = _preco(item)
+    return {
+        'id': str(item.get('tcgPlayerId') or item.get('id') or ''),
+        'nome': item.get('name'),
+        'set': item.get('setName') or ((item.get('set') or {}).get('name') if isinstance(item.get('set'), dict) else item.get('set')),
+        'usd': round(usd, 2) if usd else None,
+        'eur': round(usd * taxa, 2) if usd else None,
+    }
 
 
 def pokemon(produtos, chave):
+    """Preço de cada produto Pokémon.
+
+    - Com associação manual (id_manual): pede esse produto e o preço é fiável.
+    - Sem associação: pesquisa pelo nome. Só aceita o resultado se for inequívoco — todas as
+      palavras "distintivas" do nosso nome (não genéricas como "box" ou "elite") aparecem nele
+      e nenhum outro resultado empata. Caso contrário guarda até 5 "candidatos", e a app
+      pergunta qual é o certo (fica em definicoes.pokemon_ids e entra na atualização seguinte).
+    """
     taxa = taxa_usd_eur()
     cab = {'Authorization': f'Bearer {chave}'}
+    procurar = lambda q: _lista(pedir(f"{PPT}?{urllib.parse.urlencode({'search': q, 'limit': 5})}", headers=cab, tentativas=2))  # noqa: E731
     res, mostrou = {}, False
     for p in produtos:
         try:
-            if p.get('id_manual'):  # associação escolhida por nós na app
+            if p.get('id_manual'):
                 itens = _lista(pedir(f"{PPT}?{urllib.parse.urlencode({'tcgPlayerId': p['id_manual']})}", headers=cab, tentativas=2))
-            else:  # pesquisa pelo nome e escolhe o resultado com mais palavras em comum
-                nome = _expandir(p['nome'])
-                itens = _lista(pedir(f"{PPT}?{urllib.parse.urlencode({'search': nome, 'limit': 5})}", headers=cab, tentativas=2))
-                nossas = _palavras(nome)
-                itens.sort(key=lambda i: -len(nossas & _palavras(i.get('name'))))
+                item = next((i for i in itens if _preco(i)), None)
+                if item:
+                    res[p['chave']] = {**_resumo(item, taxa), 'auto': False}
+                    print(f"  {p['nome']} → {item.get('name')} (associado)")
+                continue
+            nome = _expandir(p['nome'])
+            distintivas = _palavras(nome) - GENERICAS
+            itens = procurar(nome)
+            if not itens and distintivas:  # pesquisa mais larga, só com as palavras que identificam
+                time.sleep(1.1)
+                itens = procurar(' '.join(sorted(distintivas)))
         except Exception as e:  # noqa: BLE001
             print(f"  Pokémon '{p['nome']}': {e}")
             continue
+        finally:
+            time.sleep(1.1)  # o plano grátis permite 60 pedidos por minuto
         if itens and not mostrou:  # ajuda a perceber o formato da resposta nos registos da Action
             print('  Campos da resposta:', sorted(itens[0].keys()))
             mostrou = True
-        item = next((i for i in itens if _preco(i)), None)
-        if not item:
+        itens = [i for i in itens if _preco(i)]
+        if not itens:
             print(f"  Pokémon '{p['nome']}': sem resultado")
             continue
-        usd = _preco(item)
-        res[p['chave']] = {
-            'id': item.get('tcgPlayerId') or item.get('id'),
-            'nome': item.get('name'),
-            'set': item.get('setName') or ((item.get('set') or {}).get('name') if isinstance(item.get('set'), dict) else item.get('set')),
-            'usd': round(usd, 2),
-            'eur': round(usd * taxa, 2),
-            'auto': not p.get('id_manual'),
-        }
-        print(f"  {p['nome']} → {res[p['chave']]['nome']} ({usd} $)")
-        time.sleep(1.1)  # o plano grátis permite 60 pedidos por minuto
-    print(f'Pokémon: {len(res)} de {len(produtos)} produtos com preço (1 $ = {taxa:.3f} €)')
+        pontos = lambda i: len(_palavras(_expandir(nome)) & _palavras(i.get('name')))  # noqa: E731
+        itens.sort(key=lambda i: -pontos(i))
+        topo = itens[0]
+        inequivoco = (
+            distintivas and distintivas <= _palavras(topo.get('name'))
+            and (len(itens) == 1 or pontos(itens[1]) < pontos(topo))
+        )
+        if inequivoco:
+            res[p['chave']] = {**_resumo(topo, taxa), 'auto': True}
+            print(f"  {p['nome']} → {topo.get('name')}")
+        else:
+            res[p['chave']] = {'auto': True, 'candidatos': [_resumo(i, taxa) for i in itens[:5]]}
+            print(f"  {p['nome']}: {len(itens[:5])} candidatos, falta escolher")
+    print(f'Pokémon: {sum(1 for r in res.values() if r.get("usd"))} de {len(produtos)} com preço (1 $ = {taxa:.3f} €)')
     return res
 
 

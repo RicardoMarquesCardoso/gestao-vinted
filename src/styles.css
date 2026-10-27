@@ -700,3 +700,4 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .campo-unidade { display: flex; align-items: center; gap: 8px; }
 .campo-unidade input { width: 90px; flex: none; }
 .opcao input[type='radio'] { width: auto; flex: none; margin-top: 3px; }
+.candidatos-tcg { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; } .candidatos-tcg p { margin: 4px 0 0; } .candidatos-tcg .btn { text-align: left; white-space: normal; }

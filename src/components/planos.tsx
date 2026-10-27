@@ -7,7 +7,9 @@
 
 import { useMemo, useState } from 'react';
 import { fmtData, fmtEuro, hoje, plural } from '../lib/format';
-import { chavePokemon, precoPokemon, useMercado } from '../lib/investimento';
+import { chavePokemon, entradaPokemon, idsPokemon, precoPokemon, useMercado } from '../lib/investimento';
+import type { ProdutoTcg } from '../lib/investimento';
+import { custoUnitario } from '../lib/calc';
 import { CHAVE_ADIADAS, CHAVE_PLANOS, CHAVE_POKEMON_IDS, chavePlano, mesAno, planosManuais, sugerirPlano, tarefas, tarefasAdiadas } from '../lib/plano';
 import type { Contexto, Plano, PlanoManual, Tarefa } from '../lib/plano';
 import type { Produto } from '../lib/types';
@@ -200,9 +202,12 @@ export function LinhaPokemon({ p }: { p: Produto }) {
   const mercado = useMercado();
   const [editar, setEditar] = useState(false);
   const chave = chavePokemon(p.nome);
-  const ids = (dados.definicoes.find((d) => d.chave === CHAVE_POKEMON_IDS)?.valor ?? {}) as unknown as Record<string, string>;
+  const ids = idsPokemon(dados.definicoes);
   const [id, setId] = useState(ids[chave] ?? '');
-  const pk = precoPokemon(mercado, p.nome);
+  const entrada = entradaPokemon(mercado, p.nome); // o que a pesquisa encontrou (com ou sem preço)
+  const pk = precoPokemon(mercado, p.nome, ids, custoUnitario(p)); // o preço que a app usa
+  // Candidatos por escolher: a pesquisa não teve a certeza, ou encontrou um preço absurdo
+  const candidatos = !ids[chave] ? entrada?.candidatos ?? (entrada?.id && !pk ? [entrada as ProdutoTcg] : []) : [];
 
   async function gravar(novo: string) {
     const limpo = novo.trim().match(/\d+/)?.[0] ?? ''; // aceita o n.º ou o endereço completo
@@ -210,7 +215,7 @@ export function LinhaPokemon({ p }: { p: Produto }) {
     if (limpo) valor[chave] = limpo;
     else delete valor[chave];
     await guardar('definicoes', [{ chave: CHAVE_POKEMON_IDS, valor: valor as never }]);
-    aviso(limpo ? 'Associado. O preço atualiza na próxima atualização semanal.' : 'Associação removida.');
+    aviso(limpo ? 'Associado.' : 'Associação removida.');
     setEditar(false);
   }
 
@@ -218,12 +223,12 @@ export function LinhaPokemon({ p }: { p: Produto }) {
     <div className="linha-plano">
       <div>
         <strong>Mercado (TCGplayer, EUA):</strong>{' '}
-        {pk ? (
+        {pk?.eur ? (
           <>
             {fmtEuro(pk.eur)} <span className="mudo">({pk.usd} $)</span>
           </>
         ) : (
-          <span className="mudo">ainda sem preço</span>
+          <span className="mudo">{ids[chave] ? 'o preço chega na próxima atualização' : 'ainda sem preço'}</span>
         )}
       </div>
       {pk?.nome && (
@@ -231,8 +236,18 @@ export function LinhaPokemon({ p }: { p: Produto }) {
           {pk.auto ? 'Encontrado pela pesquisa: ' : 'Associado: '}
           {pk.nome}
           {pk.set ? ` · ${pk.set}` : ''}
-          {pk.auto && ids[chave] ? ' (a vossa associação entra na próxima atualização)' : ''}
         </p>
+      )}
+      {candidatos.length > 0 && (
+        <div className="candidatos-tcg">
+          <p className="pequeno">Qual destes é?</p>
+          {candidatos.map((c) => (
+            <button key={c.id} className="btn btn-pequeno" onClick={() => gravar(c.id)}>
+              {c.nome}
+              {c.eur ? ` · ${fmtEuro(c.eur)}` : ''}
+            </button>
+          ))}
+        </div>
       )}
       {editar ? (
         <div className="linha-botoes">
@@ -241,7 +256,9 @@ export function LinhaPokemon({ p }: { p: Produto }) {
           {ids[chave] && <button className="btn btn-pequeno" onClick={() => gravar('')}>Remover</button>}
         </div>
       ) : (
-        <button className="link" onClick={() => setEditar(true)}>{pk?.auto !== false ? 'Não é este produto?' : 'Mudar associação'}</button>
+        <button className="link" onClick={() => setEditar(true)}>
+          {candidatos.length ? 'Não é nenhum destes' : pk && !pk.auto ? 'Mudar associação' : 'Não é este produto?'}
+        </button>
       )}
     </div>
   );
