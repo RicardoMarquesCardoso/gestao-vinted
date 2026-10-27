@@ -61,7 +61,7 @@ flowchart LR
   end
   subgraph Serviços externos
     RB[Rebrickable<br/>catálogo LEGO]
-    BS[Brickset<br/>datas e PVP<br/><i>sem acesso</i>]
+    BS[Brickset<br/>datas e PVP]
     BL[BrickLink<br/>preços LEGO<br/><i>sem acesso</i>]
     PT[PokemonPriceTracker<br/>preços Pokémon]
     EB[eBay Europa<br/>preços pedidos LEGO]
@@ -278,7 +278,7 @@ flowchart TD
 - **Valorização esperada:**
   - **LEGO:** ~0% enquanto a LEGO ainda o vende; ~20%/ano nos 2 anos depois de ser retirado; ~7%/ano depois disso.
   - **Pokémon selado:** ~15%/ano.
-  - A data de retirada viria da Brickset (sem acesso, ver secção 8). Por agora estima-se como ano de lançamento (catálogo Rebrickable) + 2,5 anos.
+  - A data de retirada vem da Brickset (real, ou prevista para os sets ainda à venda). Sem ela, estima-se como ano de lançamento + 2,5 anos.
 - **Preço sugerido** = referência + 8% (margem para negociar), nunca abaixo de custo + 5%.
 - **Baixar o preço:** ao fim de **60 dias** anunciado sem mudar de preço, sugere baixar 7%.
 
@@ -297,7 +297,7 @@ Estes dados são preparados por **GitHub Actions** (pasta `.github/workflows/`).
 | Ficheiro | Gerado por | Quando | Conteúdo |
 |---|---|---|---|
 | `public/catalogo-sets.json` | `scripts/catalogo.py` | Mensal | ~26 mil sets LEGO (Rebrickable): nome, ano, tema. Preenche o formulário ao escrever o n.º do set. |
-| `public/mercado-sets.json` | `scripts/mercado.py` | Diário (5h43 UTC) | **eBay**: mediana dos preços pedidos por cada set nosso, novo, nas lojas eBay da Alemanha, França, Espanha e Itália. **PokemonPriceTracker**: preço dos produtos Pokémon selados (TCGplayer, EUA). **Brickset/BrickLink**: preparados, sem acesso. |
+| `public/mercado-sets.json` | `scripts/mercado.py` | Diário (5h43 UTC) | **eBay**: mediana dos preços pedidos por cada set nosso, novo, nas lojas eBay da Alemanha, França, Espanha e Itália. **PokemonPriceTracker**: preço dos produtos Pokémon selados (TCGplayer, EUA). **Brickset**: lançamento, retirada (real ou prevista), PVP. **BrickLink**: preparado, sem acesso. |
 
 ### As chaves (segredos)
 
@@ -306,7 +306,7 @@ Ficam em **GitHub → Settings → Secrets and variables → Actions**. Se uma f
 | Segredo | Para quê |
 |---|---|
 | `VINTEDUO_TOKEN` | Deixa a tarefa pedir ao Supabase **só** a lista dos nossos n.º de set e nomes Pokémon, através das funções `sets_mercado` e `pokemon_mercado`. Não dá acesso a mais nada. |
-| `BRICKSET_API_KEY` | Brickset. **Sem acesso:** só dão chaves a projetos que contribuem para a Brickset. O código fica preparado caso isso mude. |
+| `BRICKSET_API_KEY` | Brickset (grátis, pedida em brickset.com). |
 | `BRICKLINK_CONSUMER_KEY`, `BRICKLINK_CONSUMER_SECRET`, `BRICKLINK_TOKEN`, `BRICKLINK_TOKEN_SECRET` | BrickLink. **Sem acesso:** a API só está disponível para vendedores com loja na BrickLink. |
 | `POKEMONPRICETRACKER_API_KEY` | PokemonPriceTracker (plano grátis: 100 pedidos por dia). |
 | `EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET` | eBay Browse API: o *App ID* e o *Cert ID* do "Production keyset" de uma conta grátis em developer.ebay.com. |
@@ -448,5 +448,5 @@ No ecrã de entrada: **Experimentar com dados de exemplo**. Os dados ficam só n
 
 - **Sincronização:** não é instantânea. A app atualiza de minuto a minuto e ao voltar a ela.
 - **Preços Pokémon:** vêm do TCGplayer, que é o mercado dos EUA. A API do Cardmarket não aceita novos pedidos, e um plano pago da PokemonPriceTracker daria preços do Cardmarket.
-- **Sugestões LEGO:** não há acesso à Brickset nem à BrickLink. A referência de preço são as nossas vendas e os anúncios do eBay (preços pedidos, não de venda), e a data de retirada é estimada pelo ano de lançamento. Só a BrickEconomy Premium (paga) daria datas de retirada automáticas. Os valores das regras devem ser afinados com os dados reais de tempo anunciado.
+- **Sugestões LEGO:** sem a BrickLink, não há preços de **venda** reais de mercado. A referência são as nossas vendas, os anúncios do eBay (preços pedidos) e o PVP da Brickset (valorizado se o set já foi retirado). Os valores das regras devem ser afinados com os dados reais de tempo anunciado.
 - **Próximo passo planeado:** sugerir **compras** a partir das promoções do dia, comparando o preço da promoção com o histórico de vendas, a valorização esperada e o tempo até vender.
