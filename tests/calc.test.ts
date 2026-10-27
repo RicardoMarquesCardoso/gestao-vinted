@@ -171,3 +171,15 @@ test('vendas marcadas como fora dos limites não contam', () => {
   assert.equal(u.vendasPeriodo, 1);
   assert.equal(u.valorPeriodo, 30);
 });
+
+import { textoAnuncio, MODELO_PADRAO } from '../src/lib/anuncio.ts';
+
+test('texto do anúncio', () => {
+  const a = textoAnuncio({ nome: 'LEGO Millennium Falcon', set_numero: '75192', tema: 'Star Wars', condicao: 'Novo e selado' }, MODELO_PADRAO);
+  assert.equal(a.titulo, 'Lego 75192 Millennium Falcon');
+  assert.match(a.descricao, /^New, sealed/);
+  assert.match(a.descricao, /Carefully sent in box/);
+  const b = textoAnuncio({ nome: 'Carro', set_numero: null, tema: null, condicao: 'Usado completo' }, MODELO_PADRAO);
+  assert.equal(b.titulo, 'Lego Carro');
+  assert.match(b.descricao, /^Used/);
+});

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { fmtEuro, hoje, lerNumero } from '../lib/format';
 import type { Produto } from '../lib/types';
 import { useDados } from '../state';
+import { modeloAnuncio, textoAnuncio } from '../lib/anuncio';
 import { Campo, Dinheiro, Janela, SelecionarConta } from './ui';
 
 const CHAVE_CONTA = 'gv.ultimaConta';
@@ -99,6 +100,41 @@ export function FormAnunciar({ ids, retirar, aoFechar }: { ids: string[]; retira
           </Campo>
         )}
       </div>
+      {!retirar && <TextoVinted produto={candidatos[0]} />}
     </Janela>
+  );
+}
+
+/** Título e descrição prontos a copiar para a Vinted. */
+function TextoVinted({ produto }: { produto: Produto }) {
+  const { dados, aviso } = useDados();
+  const t = textoAnuncio(produto, modeloAnuncio(dados.definicoes));
+  async function copiar(texto: string, o: string) {
+    try {
+      await navigator.clipboard.writeText(texto);
+      aviso(`${o} copiado.`);
+    } catch {
+      aviso('Não foi possível copiar. Seleciona o texto e copia à mão.', 'erro');
+    }
+  }
+  return (
+    <div className="texto-vinted">
+      <h4>Texto para a Vinted</h4>
+      <div className="texto-vinted-bloco">
+        <div className="texto-vinted-topo">
+          <span className="campo-rotulo">Título</span>
+          <button type="button" className="btn btn-pequeno" onClick={() => copiar(t.titulo, 'Título')}>Copiar</button>
+        </div>
+        <p className="texto-vinted-titulo">{t.titulo}</p>
+      </div>
+      <div className="texto-vinted-bloco">
+        <div className="texto-vinted-topo">
+          <span className="campo-rotulo">Descrição</span>
+          <button type="button" className="btn btn-pequeno" onClick={() => copiar(t.descricao, 'Descrição')}>Copiar</button>
+        </div>
+        <p className="texto-vinted-descricao">{t.descricao}</p>
+      </div>
+      <p className="mudo pequeno">O texto muda-se em Definições → Texto dos anúncios.</p>
+    </div>
   );
 }

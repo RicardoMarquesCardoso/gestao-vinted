@@ -118,7 +118,7 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
       {p.descricao && <p>{p.descricao}</p>}
 
       <dl className="detalhes">
-        <div><dt>Quantidade</dt><dd>{p.quantidade} ({disponiveis} disponível{disponiveis === 1 ? '' : 'eis'})</dd></div>
+        <div><dt>Quantidade</dt><dd>{p.quantidade} ({disponiveis} {disponiveis === 1 ? 'disponível' : 'disponíveis'})</dd></div>
         <div><dt>Custo total</dt><dd>{fmtEuro(custoTotalProduto(p))}{p.quantidade > 1 ? ` · ${fmtEuro(custoUnitario(p))}/un.` : ''}</dd></div>
         <div><dt>Compra</dt><dd>{fmtEuro(p.preco_compra)} + {fmtEuro(p.custos_adicionais)} de custos</dd></div>
         <div><dt>Comprado em</dt><dd>{fmtData(p.data_compra)}{compra?.vendedor ? ` · ${compra.vendedor}` : ''}</dd></div>

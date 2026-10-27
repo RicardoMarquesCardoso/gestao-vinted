@@ -9,6 +9,8 @@ import { LISTAS_PADRAO } from '../lib/types';
 import { useDados } from '../state';
 import { navegar } from '../router';
 import { useCasosNomes } from './ReverNomes';
+import { CHAVE_MODELO_ANUNCIO, MODELO_PADRAO, modeloAnuncio } from '../lib/anuncio';
+import type { ModeloAnuncio } from '../lib/anuncio';
 
 const NOMES_TABELA: Record<string, string> = {
   pessoas: 'Pessoa', contas: 'Conta', compras: 'Compra', produtos: 'Produto', vendas: 'Venda', definicoes: 'Lista',
@@ -109,6 +111,8 @@ export function Definicoes(props: { aoSair(): void }) {
       </Cartao>
 
       <CartaoReverNomes />
+
+      <CartaoTextoAnuncios />
 
       <Cartao titulo="Pessoas">
         <p className="nota">Quem paga as compras e quem faz as vendas.</p>
@@ -270,6 +274,42 @@ function CartaoReverNomes() {
       <button className="btn" onClick={() => navegar('/rever-nomes')} disabled={!pronto}>
         Rever nomes
       </button>
+    </Cartao>
+  );
+}
+
+function CartaoTextoAnuncios() {
+  const { dados, guardar, aviso } = useDados();
+  const guardado = modeloAnuncio(dados.definicoes);
+  const [m, setM] = useState<ModeloAnuncio>(guardado);
+  const chaveGuardado = JSON.stringify(guardado);
+  useEffect(() => setM(JSON.parse(chaveGuardado) as ModeloAnuncio), [chaveGuardado]);
+  const mudou = JSON.stringify(m) !== chaveGuardado;
+  async function gravar(novo: ModeloAnuncio) {
+    await guardar('definicoes', [{ chave: CHAVE_MODELO_ANUNCIO, valor: novo as never }]);
+    aviso('Texto dos anúncios guardado.');
+  }
+  return (
+    <Cartao titulo="Texto dos anúncios">
+      <p className="mudo">
+        Aparece ao anunciar, pronto a copiar para a Vinted. Podes usar <code>{'{numero}'}</code>, <code>{'{nome}'}</code> e <code>{'{tema}'}</code>.
+      </p>
+      <label className="campo">
+        <span className="campo-rotulo">Título</span>
+        <input value={m.titulo} onChange={(e) => setM({ ...m, titulo: e.target.value })} />
+      </label>
+      <label className="campo">
+        <span className="campo-rotulo">Descrição para produtos novos</span>
+        <textarea rows={6} value={m.novo} onChange={(e) => setM({ ...m, novo: e.target.value })} />
+      </label>
+      <label className="campo">
+        <span className="campo-rotulo">Descrição para produtos usados</span>
+        <textarea rows={5} value={m.usado} onChange={(e) => setM({ ...m, usado: e.target.value })} />
+      </label>
+      <div className="linha-botoes">
+        <button className="btn btn-primario" disabled={!mudou} onClick={() => gravar(m)}>Guardar</button>
+        <button className="btn" onClick={() => setM(MODELO_PADRAO)}>Repor o texto original</button>
+      </div>
     </Cartao>
   );
 }

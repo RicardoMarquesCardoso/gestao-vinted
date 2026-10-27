@@ -647,3 +647,13 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .segmentos-mini button { padding: 5px 10px; font-size: 0.8rem; }
 @media (max-width: 640px) { .col-opcional { display: none; } }
 .conta-externas { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.82rem; margin-top: 8px; }
+
+/* Texto pronto a copiar para a Vinted */
+.texto-vinted { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--linha, #e6e2d8); display: grid; gap: 10px; }
+.texto-vinted h4 { margin: 0; }
+.texto-vinted-bloco { display: grid; gap: 4px; }
+.texto-vinted-topo { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.texto-vinted-titulo, .texto-vinted-descricao { margin: 0; white-space: pre-wrap; user-select: text; padding: 8px 10px; border-radius: 8px; background: color-mix(in srgb, currentColor 6%, transparent); }
+.texto-vinted-titulo { font-weight: 600; }
+.pequeno { font-size: 0.85rem; }
+.linha-botoes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
