@@ -60,13 +60,33 @@ export function LinhaPlano({ p }: { p: Produto }) {
   );
 }
 
-/** Lista "O que fazer" do Painel. */
+/** Onde se lembra, neste dispositivo, se a lista de tarefas está minimizada. */
+const CHAVE_MINIMIZADO = 'gv.tarefasMinimizadas';
+
+/** Lista "O que fazer" do Painel. Toca no título para minimizar ou maximizar. */
 export function CartaoTarefas() {
   const { dados, guardar, aviso } = useDados();
   const abrir = useAbrir();
   const ctx = useContextoPlano();
   const lista = useMemo(() => tarefas(ctx), [ctx]);
   const [todas, setTodas] = useState(false);
+  // Minimizar/maximizar: a escolha fica guardada neste dispositivo (localStorage)
+  const [minimizado, setMinimizado] = useState(() => {
+    try {
+      return localStorage.getItem(CHAVE_MINIMIZADO) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const alternar = () =>
+    setMinimizado((m) => {
+      try {
+        localStorage.setItem(CHAVE_MINIMIZADO, m ? '0' : '1');
+      } catch {
+        /* sem armazenamento: fica só até fechar a app */
+      }
+      return !m;
+    });
   if (!lista.length) return null;
   const visiveis = todas ? lista : lista.slice(0, 5);
 
@@ -83,7 +103,21 @@ export function CartaoTarefas() {
   }
 
   return (
-    <Cartao titulo="O que fazer" acao={<span className="mudo">{plural(lista.length, 'tarefa', 'tarefas')}</span>}>
+    <Cartao
+      className={minimizado ? 'cartao-minimizado' : ''}
+      titulo={
+        <button className="cartao-alternar" onClick={alternar} aria-expanded={!minimizado}>
+          O que fazer
+        </button>
+      }
+      acao={
+        <button className="cartao-alternar mudo" onClick={alternar} aria-label={minimizado ? 'Mostrar tarefas' : 'Minimizar tarefas'}>
+          {plural(lista.length, 'tarefa', 'tarefas')} <span aria-hidden="true">{minimizado ? '▾' : '▴'}</span>
+        </button>
+      }
+    >
+      {!minimizado && (
+      <>
       <ul className="lista-tarefas">
         {visiveis.map((t) => (
           <li key={t.id} className={`tarefa tarefa-${t.tipo}`}>
@@ -118,6 +152,8 @@ export function CartaoTarefas() {
         <button className="link" onClick={() => setTodas((x) => !x)}>
           {todas ? 'Mostrar menos' : `Mostrar todas (${lista.length})`}
         </button>
+      )}
+      </>
       )}
     </Cartao>
   );
