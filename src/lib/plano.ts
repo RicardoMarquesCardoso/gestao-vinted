@@ -110,12 +110,15 @@ export function referencia(p: Produto, ctx: Contexto): Referencia | null {
     const q = produtos.get(v.produto_id);
     return (
       q && vendaValida(v) && chaveComparacao(q) === chave && produtoNovo(q) === novo && v.preco_venda > 0 &&
-      !v.notas?.includes('data de venda desconhecida') && diasEntre(v.data_venda, ctx.hoje) <= 365
+      !v.notas?.includes('data de venda desconhecida') && diasEntre(v.data_venda, ctx.hoje) <= 730
     );
   });
   if (recentes.length) {
-    const preco = recentes.reduce((a, v) => a + v.preco_venda / (v.quantidade || 1), 0) / recentes.length;
-    return { preco, fonte: 'vendas', texto: `vendemos a ${Math.round(preco)} € em média no último ano` };
+    // As vendas mais recentes pesam mais
+    const peso = (d: string) => (diasEntre(d, ctx.hoje) <= 365 ? 2 : 1);
+    const total = recentes.reduce((a, v) => a + peso(v.data_venda), 0);
+    const preco = recentes.reduce((a, v) => a + (peso(v.data_venda) * v.preco_venda) / (v.quantidade || 1), 0) / total;
+    return { preco, fonte: 'vendas', texto: `já vendemos a ${Math.round(preco)} € (${recentes.length === 1 ? '1 venda' : `${recentes.length} vendas`})` };
   }
   const m = infoMercado(ctx.mercado, p.set_numero, ctx.hoje);
   const bl = novo ? m?.blNovo : m?.blUsado ?? null;
@@ -138,8 +141,9 @@ function taxa(data: string, retirada: string | null, r: RegrasPlano) {
   return diasEntre(retirada, data) <= 730 ? r.valorizacaoRetirado : r.valorizacaoDepois;
 }
 
-/** É um set novo com n.º (o tipo de produto que pode valer a pena guardar). */
-export const paraInvestir = (p: Produto) => !!p.set_numero?.trim() && produtoNovo(p) && (!p.marca || /lego/i.test(p.marca));
+/** Produtos que podem valer a pena guardar: sets LEGO novos com n.º e produtos Pokémon selados. */
+export const paraInvestir = (p: Produto) =>
+  produtoNovo(p) && ((!!p.set_numero?.trim() && (!p.marca || /lego/i.test(p.marca))) || /pok[eé]mon/i.test(p.marca ?? ''));
 
 export function sugerirPlano(p: Produto, ctx: Contexto): Plano {
   const r = regrasPlano(ctx.dados.definicoes);
