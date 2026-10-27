@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { arred, chaveComparacao, custoUnitario, estadoAposVendas, unidadesVendidas } from '../lib/calc';
+import { CHAVE_FORA_LIMITES, arred, chaveComparacao, custoUnitario, estadoAposVendas, unidadesVendidas, vendasForaLimites } from '../lib/calc';
 import { fmtEuro, hoje, lerNumero } from '../lib/format';
 import type { EstadoVenda, Venda } from '../lib/types';
 import { ESTADOS_VENDA } from '../lib/types';
@@ -27,11 +27,12 @@ export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?
     estado: (existente?.estado ?? 'concluida') as EstadoVenda,
     notas: existente?.notas ?? '',
     acertada: existente?.acertada ?? false,
+    foraLimites: existente ? vendasForaLimites(dados).has(existente.id) : false,
   }));
   const [aGuardar, setAGuardar] = useState(false);
   // Os detalhes abrem sozinhos só quando já têm alguma coisa preenchida
   const [detalhesAbertos] = useState(
-    () => !!existente && (existente.estado !== 'concluida' || !!existente.comissao || !!existente.portes || !!existente.outros_custos || !!existente.notas),
+    () => !!existente && (existente.estado !== 'concluida' || !!existente.comissao || !!existente.portes || !!existente.outros_custos || !!existente.notas || vendasForaLimites(dados).has(existente.id)),
   );
   const mudar = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((x) => ({ ...x, [k]: v }));
 
@@ -108,6 +109,12 @@ export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?
     setAGuardar(true);
     try {
       await guardar('vendas', [v]);
+      const fora = vendasForaLimites(dados);
+      if (fora.has(v.id) !== f.foraLimites) {
+        if (f.foraLimites) fora.add(v.id);
+        else fora.delete(v.id);
+        await guardar('definicoes', [{ chave: CHAVE_FORA_LIMITES, valor: [...fora] }]);
+      }
       await atualizarProdutos([v.produto_id, existente?.produto_id], [...dados.vendas.filter((x) => x.id !== v.id), v]);
       aviso(existente ? 'Venda atualizada.' : 'Venda registada.');
       aoFechar();
@@ -237,6 +244,10 @@ export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?
           <Campo rotulo="Notas" largo>
             <textarea rows={2} value={f.notas} onChange={(e) => mudar('notas', e.target.value)} />
           </Campo>
+          <label className="caixa campo-largo">
+            <input type="checkbox" checked={f.foraLimites} onChange={(e) => mudar('foraLimites', e.target.checked)} /> Não conta para os limites da
+            conta (ex.: cancelada na Vinted)
+          </label>
           <label className="caixa campo-largo">
             <input type="checkbox" checked={f.acertada} onChange={(e) => mudar('acertada', e.target.checked)} /> Já acertada fora da app (não entra em
             Acertos)

@@ -219,6 +219,13 @@ export interface VendaExterna {
 }
 
 export const CHAVE_EXTERNAS = 'vendas_externas';
+/** Vendas da app que a Vinted não conta (ex.: canceladas lá mas pagas por fora). */
+export const CHAVE_FORA_LIMITES = 'vendas_fora_limites';
+
+export function vendasForaLimites(d: Pick<Dados, 'definicoes'>): Set<string> {
+  const v = d.definicoes?.find((x) => x.chave === CHAVE_FORA_LIMITES)?.valor as unknown;
+  return new Set(Array.isArray(v) ? (v as string[]) : []);
+}
 
 export function vendasExternas(d: Pick<Dados, 'definicoes'>): VendaExterna[] {
   const v = d.definicoes?.find((x) => x.chave === CHAVE_EXTERNAS)?.valor as unknown;
@@ -228,7 +235,8 @@ export function vendasExternas(d: Pick<Dados, 'definicoes'>): VendaExterna[] {
 export function usoConta(c: Conta, d: Pick<Dados, 'produtos' | 'vendas'> & Partial<Pick<Dados, 'definicoes'>>, hoje: string): UsoConta {
   const periodo = periodoConta(c, hoje);
   const anunciosAtivos = d.produtos.filter((p) => p.conta_id === c.id && p.estado === 'anunciado').length;
-  const vendas = d.vendas.filter((v) => v.conta_id === c.id && vendaValida(v) && dentro(v.data_venda, periodo));
+  const fora = vendasForaLimites({ definicoes: d.definicoes ?? [] });
+  const vendas = d.vendas.filter((v) => v.conta_id === c.id && vendaValida(v) && dentro(v.data_venda, periodo) && !fora.has(v.id));
   const externas = vendasExternas({ definicoes: d.definicoes ?? [] }).filter((x) => x.conta_id === c.id && dentro(x.data, periodo));
   const externasValor = soma(externas.map((x) => x.valor));
   const vendasPeriodo = vendas.length + externas.length;

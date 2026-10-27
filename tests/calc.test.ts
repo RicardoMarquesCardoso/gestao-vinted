@@ -160,3 +160,14 @@ test('vendas fora da app contam para os limites', () => {
   assert.equal(u.valorPeriodo, 180);
   assert.equal(u.externas, 1);
 });
+
+test('vendas marcadas como fora dos limites não contam', () => {
+  const c = conta({ periodo: 'anual', limite_vendas: 30 });
+  const u = usoConta(
+    c,
+    { produtos: [], vendas: [venda({ id: 'x', data_venda: '2026-01-16', preco_venda: 100 }), venda({ id: 'y', data_venda: '2026-02-01' })], definicoes: [{ chave: 'vendas_fora_limites', valor: ['x'] }] },
+    '2026-10-27',
+  );
+  assert.equal(u.vendasPeriodo, 1);
+  assert.equal(u.valorPeriodo, 30);
+});
