@@ -1,5 +1,5 @@
 // Ecrã "Produtos": stock e vendidos num só sítio, com os filtros Por anunciar / Anunciados /
-// Pendentes / Vendidos, pesquisa e ordenação.
+// Pendentes / Vendidos, pesquisa com sugestões (produtos e categorias/subcategorias) e ordenação.
 //
 // Produtos iguais (mesmo n.º de set ou mesmo nome) aparecem agrupados num só cartão com o
 // custo médio; tocar abre o grupo com cada unidade.
@@ -9,6 +9,8 @@ import type { ReactNode } from 'react';
 import { useAbrir } from '../components/acoes';
 import { CabecalhoProdutos } from '../components/CabecalhoProdutos';
 import { EtiquetaPlano, useContextoPlano } from '../components/planos';
+import { PesquisaProdutos, naCategoria, normalizar } from '../components/PesquisaProdutos';
+import type { FiltroCategoria } from '../components/PesquisaProdutos';
 import type { VerProdutos } from '../components/CabecalhoProdutos';
 import { EtiquetaProduto, Foto, ImagemReferencia, Valor, Vazio, iconeMarca, urlReferencia } from '../components/ui';
 import { chaveComparacao, custoTotalProduto, custoUnitario, diasEntre, emInventario, liquidoVenda, lucroVenda, unidadesDisponiveis, vendaValida } from '../lib/calc';
@@ -25,6 +27,7 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
   const { dados, nomeConta, nomePagador } = useDados();
   const abrir = useAbrir();
   const [texto, setTexto] = useState('');
+  const [categoriaFiltro, setCategoriaFiltro] = useState<FiltroCategoria | null>(null);
   const [verOutros, setVerOutros] = useState(false);
   const [ordem, setOrdem] = useState<Ordem>('recentes');
   const [aberto, setAberto] = useState<string | null>(null);
@@ -40,8 +43,6 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
   const h = hoje();
   const ctxPlano = useContextoPlano();
   const temVenda = (p: Produto, estado: 'pendente' | 'concluida') => (vendasDe.get(p.id) ?? []).some((v) => v.estado === estado);
-  // A venda conta para a lista se o filtro do seu estado estiver ligado
-  const vendaVisivel = (v: Venda) => (v.estado === 'pendente' ? ver.pendentes : ver.vendidos);
   const contagens = useMemo(
     () => ({
       porAnunciar: dados.produtos.filter((p) => p.estado === 'por_anunciar').length,
@@ -53,14 +54,26 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
     [dados.produtos, vendasDe],
   );
 
+  // Produtos que os filtros de estado deixam ver (antes da pesquisa); também alimentam as sugestões
+  const visiveis = useMemo(
+    () =>
+      dados.produtos.filter(
+        (p) =>
+          (ver.porAnunciar && p.estado === 'por_anunciar') || (ver.anunciados && p.estado === 'anunciado') || (ver.pendentes && temVenda(p, 'pendente')) || (ver.vendidos && temVenda(p, 'concluida')) || (verOutros && (p.estado === 'cancelado' || p.estado === 'devolvido')),
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dados.produtos, ver, verOutros, vendasDe],
+  );
+
   const lista = useMemo(() => {
-    const t = texto.trim().toLowerCase();
-    const r = dados.produtos.filter(
+    // Pesquisa sem ligar a maiúsculas nem acentos, mais o filtro de categoria escolhido nas sugestões
+    const t = normalizar(texto);
+    const r = visiveis.filter(
       (p) =>
-        ((ver.porAnunciar && p.estado === 'por_anunciar') || (ver.anunciados && p.estado === 'anunciado') || (ver.pendentes && temVenda(p, 'pendente')) || (ver.vendidos && temVenda(p, 'concluida')) || (verOutros && (p.estado === 'cancelado' || p.estado === 'devolvido'))) &&
+        naCategoria(p, categoriaFiltro) &&
         (!t ||
           [p.nome, p.set_numero, p.tema, p.marca, p.condicao, p.notas, p.conta_id ? nomeConta(p.conta_id) : '', nomePagador(p)].some((x) =>
-            (x || '').toLowerCase().includes(t),
+            normalizar(x).includes(t),
           )),
     );
     // Data da última atividade: a venda mais recente (se estiver a ver vendidos) ou a compra
@@ -74,7 +87,7 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
             ? data(a).localeCompare(data(b))
             : data(b).localeCompare(data(a)),
     );
-  }, [dados.produtos, texto, verOutros, ordem, nomeConta, nomePagador, ver, vendasDe]);
+  }, [visiveis, texto, categoriaFiltro, ordem, nomeConta, nomePagador, ver, vendasDe]);
 
   // Produtos iguais (mesmo n.º de set ou, sem set, mesmo nome) ficam num só grupo
   const grupos = useMemo(() => {
@@ -94,13 +107,6 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
   }, [lista, dados.vendas, ordem]);
 
   const outros = dados.produtos.filter((p) => p.estado === 'cancelado' || p.estado === 'devolvido').length;
-  // Stock que entra no resumo: o dos filtros de stock ligados (por anunciar e/ou anunciados)
-  const contaStock = (p: Produto) => (ver.porAnunciar && p.estado === 'por_anunciar') || (ver.anunciados && p.estado === 'anunciado');
-  const unidades = lista.reduce((a, p) => a + (contaStock(p) ? unidadesDisponiveis(p, dados.vendas) : 0), 0);
-  const custo = lista.reduce((a, p) => a + (contaStock(p) ? custoUnitario(p) * unidadesDisponiveis(p, dados.vendas) : 0), 0);
-  const vendasLista = lista.flatMap((p) => (vendasDe.get(p.id) ?? []).filter(vendaVisivel).map((v) => ({ v, p })));
-  const recebido = vendasLista.reduce((a, x) => a + liquidoVenda(x.v), 0);
-  const lucroTotal = vendasLista.reduce((a, x) => a + lucroVenda(x.v, x.p), 0);
   const lucroDe = (p: Produto) => (vendasDe.get(p.id) ?? []).reduce((a, v) => a + lucroVenda(v, p), 0);
 
   function exportar() {
@@ -214,9 +220,8 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
     <div className="pagina">
       <CabecalhoProdutos ver={ver} mudar={setVer} contagens={contagens} exportar={exportar} adicionar={() => abrir({ tipo: 'compra' })} />
 
-
       <div className="filtros-inv filtros-inv-1">
-        <input type="search" className="filtro-procura" placeholder="Procurar…" title="Nome, set, categoria, conta ou quem pagou" value={texto} onChange={(e) => setTexto(e.target.value)} />
+        <PesquisaProdutos texto={texto} mudarTexto={setTexto} categoria={categoriaFiltro} mudarCategoria={setCategoriaFiltro} produtos={visiveis} />
         <select value={ordem} onChange={(e) => setOrdem(e.target.value as Ordem)} aria-label="Ordenar">
           <option value="recentes">Mais recentes</option>
           <option value="antigos">Mais antigos</option>
@@ -225,17 +230,6 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
         </select>
       </div>
 
-      <p className="resumo-lista">
-        {grupos.length !== lista.length ? `${plural(grupos.length, 'produto diferente', 'produtos diferentes')} · ` : ''}
-        {plural(lista.length, 'registo', 'registos')}
-        {(ver.porAnunciar || ver.anunciados) && unidades > 0 && ` · ${plural(unidades, 'por vender', 'por vender')} (custo ${fmtEuro(custo)})`}
-        {vendasLista.length > 0 && (
-          <>
-            {` · ${plural(vendasLista.length, 'venda', 'vendas')} (${fmtEuro(recebido)}, lucro `}
-            <Valor n={lucroTotal} sinal />)
-          </>
-        )}
-      </p>
 
       {lista.length === 0 ? (
         <Vazio titulo="Nenhum produto encontrado" texto="Experimenta mudar os filtros, ou regista uma compra." />

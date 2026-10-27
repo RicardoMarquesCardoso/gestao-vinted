@@ -31,7 +31,7 @@ Este README explica **o que a app faz, como está construída e porquê**, para 
 | Ecrã | Para quê |
 |---|---|
 | **Painel** | Botões *Registar venda* e *Registar compra*, a lista **"O que fazer"** (anunciar, baixar preços, rever), os números do período, alertas de limites, acertos por fazer e vendas recentes. |
-| **Produtos** | Stock e vendidos num só sítio. Filtros *Por anunciar / Anunciados / Pendentes / Vendidos* (podem combinar-se à vontade; ao abrir estão ligados Por anunciar e Anunciados). Produtos iguais aparecem agrupados com o custo médio. Cada produto mostra o plano (*vender* ou *guardar até…*). |
+| **Produtos** | Stock e vendidos num só sítio. Filtros *Por anunciar / Anunciados / Pendentes / Vendidos* (podem combinar-se à vontade; ao abrir estão ligados Por anunciar e Anunciados). Produtos iguais aparecem agrupados com o custo médio. Cada produto mostra o plano (*vender* ou *guardar até…*). A pesquisa sugere produtos e categorias/subcategorias (ex.: *LEGO › Speed Champions*) enquanto se escreve; escolher uma categoria liga-a como filtro. |
 | **Detalhe do produto** | Fotografias, imagem oficial do set, plano e preço sugerido, dados da compra, **Vendas** (deste produto e dos outros exemplares do mesmo set, com valor e lucro) e **Em stock** (outros exemplares do set por vender). Botões ✏️ (editar), 📷, *Anunciar/Retirar* e *Vendi*. |
 | **Anunciar** | Escolhe a conta e o preço, e mostra o **título e a descrição prontos a copiar** para a Vinted. |
 | **Vendi** | Venda rápida: só preço e conta. |
@@ -370,6 +370,7 @@ src/
     FormAnunciar.tsx        anunciar/retirar + texto para a Vinted
     FormConta.tsx           conta da Vinted e limites
     DetalheProduto.tsx      detalhe de um produto
+    PesquisaProdutos.tsx    pesquisa de Produtos com sugestões e filtro de categoria
     CabecalhoProdutos.tsx   topo e filtros do ecrã Produtos
     Graficos.tsx            gráficos de barras simples
   pages/                    ecrãs
