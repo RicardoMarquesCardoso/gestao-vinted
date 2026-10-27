@@ -311,7 +311,8 @@ else:
     print('Sem segredos da BrickLink: BrickLink não atualizado.')
 
 if os.environ.get('POKEMONPRICETRACKER_API_KEY') and token:
-    saida['pokemon'] = pokemon(rpc_supabase('pokemon_mercado', token) or [], os.environ['POKEMONPRICETRACKER_API_KEY'])
+    # Junta ao que já havia: se um pedido falhar (ex.: créditos do dia esgotados), mantém-se o valor anterior
+    saida['pokemon'] = {**saida['pokemon'], **pokemon(rpc_supabase('pokemon_mercado', token) or [], os.environ['POKEMONPRICETRACKER_API_KEY'])}
     saida['pokemon_atualizado'] = HOJE.isoformat()
 else:
     print('Sem POKEMONPRICETRACKER_API_KEY: Pokémon não atualizado.')
