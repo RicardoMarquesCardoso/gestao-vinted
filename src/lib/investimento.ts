@@ -4,7 +4,7 @@ import { produtoNovo } from './anuncio';
 import { chaveComparacao, custoUnitario, custoVenda, diasEntre, emInventario, liquidoVenda, unidadesDisponiveis, vendaValida } from './calc';
 import type { Dados, Produto } from './types';
 
-// ---------- Dados de mercado (gerados semanalmente pela GitHub Action "mercado") ----------
+// ---------- Dados de mercado (gerados todos os dias pela GitHub Action "mercado") ----------
 
 /** [lançamento, retirada, PVP Alemanha (EUR), PVP Reino Unido (GBP), disponibilidade] */
 export type LinhaBrickset = [string | null, string | null, number | null, number | null, string | null];
@@ -30,7 +30,7 @@ export interface ProdutoTcg {
 }
 
 /**
- * O que a tarefa semanal encontrou para um produto nosso:
+ * O que a tarefa diária encontrou para um produto nosso:
  * - com preço (usd/eur) quando a associação é certa (feita por nós, ou pesquisa inequívoca);
  * - só "candidatos" quando a pesquisa encontrou vários parecidos e falta escolher.
  */
@@ -42,7 +42,7 @@ export interface PrecoPokemon extends Partial<ProdutoTcg> {
 /** Chave usada para associar um produto Pokémon: o nome em minúsculas, sem espaços a mais. */
 export const chavePokemon = (nome: string) => nome.trim().toLowerCase();
 
-/** O que a tarefa semanal guardou para este produto (com ou sem preço). */
+/** O que a tarefa diária guardou para este produto (com ou sem preço). */
 export const entradaPokemon = (m: Mercado | null, nome: string): PrecoPokemon | null => m?.pokemon?.[chavePokemon(nome)] ?? null;
 
 /**
