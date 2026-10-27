@@ -15,6 +15,7 @@ import { Definicoes } from './pages/Definicoes';
 import { Entrar } from './pages/Entrar';
 import { Inventario } from './pages/Inventario';
 import { Painel } from './pages/Painel';
+import { ReverNomes } from './pages/ReverNomes';
 import { navegar, useRota } from './router';
 import { DadosProvider, useDados } from './state';
 
@@ -126,6 +127,7 @@ function Estrutura({ aoSair }: { aoSair(): void }) {
       case '/analises': return <Analises />;
       case '/definicoes': return <Definicoes aoSair={aoSair} />;
       case '/mais': return <Mais />;
+      case '/rever-nomes': return <ReverNomes />;
       default: return <Painel />;
     }
   }, [base, rota, aoSair]);
@@ -188,7 +190,7 @@ function Estrutura({ aoSair }: { aoSair(): void }) {
             <span>{m.nome}</span>
           </a>
         ))}
-        <a href="#/mais" className={['/mais', '/compras', '/analises', '/definicoes'].includes(base) ? 'ativo' : ''}>
+        <a href="#/mais" className={['/mais', '/compras', '/analises', '/definicoes', '/rever-nomes'].includes(base) ? 'ativo' : ''}>
           <Icone><path d="M4 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm8 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm8 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" /></Icone>
           <span>Mais</span>
         </a>

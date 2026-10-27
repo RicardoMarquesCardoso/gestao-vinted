@@ -7,6 +7,8 @@ import type { TabelaDados } from '../lib/store';
 import type { Historico } from '../lib/types';
 import { LISTAS_PADRAO } from '../lib/types';
 import { useDados } from '../state';
+import { navegar } from '../router';
+import { useCasosNomes } from './ReverNomes';
 
 const NOMES_TABELA: Record<string, string> = {
   pessoas: 'Pessoa', contas: 'Conta', compras: 'Compra', produtos: 'Produto', vendas: 'Venda', definicoes: 'Lista',
@@ -105,6 +107,8 @@ export function Definicoes(props: { aoSair(): void }) {
         <p><strong>iPhone (Safari):</strong> botão Partilhar → "Adicionar ao ecrã principal".</p>
         <p><strong>Android (Chrome):</strong> menu ⋮ → "Instalar app" ou "Adicionar ao ecrã principal".</p>
       </Cartao>
+
+      <CartaoReverNomes />
 
       <Cartao titulo="Pessoas">
         <p className="nota">Quem paga as compras e quem faz as vendas.</p>
@@ -250,3 +254,22 @@ function HistoricoAlteracoes() {
 }
 
 const formatar = (v: unknown) => (v === null || v === undefined || v === '' ? '(vazio)' : Array.isArray(v) ? `${v.length} item(s)` : String(v));
+
+function CartaoReverNomes() {
+  const { casos, pronto } = useCasosNomes();
+  const alertas = casos.filter((c) => c.tipo === 'diferente' || c.tipo === 'desconhecido').length;
+  return (
+    <Cartao titulo="Nomes dos sets">
+      <p className="nota">
+        {!pronto
+          ? 'A comparar com o catálogo oficial…'
+          : casos.length
+            ? `${casos.length} set(s) com nome diferente do oficial${alertas ? `, ${alertas} a confirmar (⚠️)` : ''}.`
+            : 'Os nomes coincidem com os oficiais.'}
+      </p>
+      <button className="btn" onClick={() => navegar('/rever-nomes')} disabled={!pronto}>
+        Rever nomes
+      </button>
+    </Cartao>
+  );
+}

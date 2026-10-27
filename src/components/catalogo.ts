@@ -5,6 +5,15 @@ import { useDados } from '../state';
 import type { SugestaoProduto } from './ui';
 import { urlReferencia } from './ui';
 
+const normalizar = (s: string) =>
+  s
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
+
 const unicos = (xs: (string | null | undefined)[]) => {
   const vistos = new Map<string, string>();
   for (const x of xs) {
@@ -102,12 +111,31 @@ export function useCatalogoSets() {
       ativo = false;
     };
   }, []);
-  return (numero: string): InfoSet | undefined => {
+  const procurar = (numero: string): InfoSet | undefined => {
     const n = numero.trim().replace(/-\d+$/, '');
     const x = n && sets?.[n];
     return x ? { numero: n, nome: x[0], ano: x[1], tema: x[2], subtema: x[3] } : undefined;
   };
+  /** Sets do mesmo tema cujo nome oficial se parece com o nosso (para sugerir o n.º certo). */
+  procurar.parecidos = (nome: string, tema: string | null, ano: number | null, excluir: string): InfoSet[] => {
+    if (!sets || !tema) return [];
+    const palavras = new Set(normalizar(nome).split(' ').filter((w) => w.length > 2 && !GENERICAS.has(w)));
+    if (!palavras.size) return [];
+    const r: { info: InfoSet; pontos: number }[] = [];
+    for (const [n, x] of Object.entries(sets)) {
+      if (n === excluir || x[2] !== tema) continue;
+      const pw = normalizar(x[0]).split(' ');
+      const comuns = [...palavras].filter((w) => pw.some((y) => y === w || (w.length > 4 && y.startsWith(w)))).length;
+      if (!comuns || comuns < Math.min(palavras.size, 2)) continue;
+      r.push({ info: { numero: n, nome: x[0], ano: x[1], tema: x[2], subtema: x[3] }, pontos: comuns * 10 - Math.abs((x[1] ?? 0) - (ano ?? 0)) });
+    }
+    return r.sort((a, b) => b.pontos - a.pontos).slice(0, 2).map((x) => x.info);
+  };
+  return procurar;
 }
+
+// Palavras demasiado comuns para identificar um set
+const GENERICAS = new Set(['lego', 'set', 'the', 'and', 'mf', 'microfighter', 'mech', 'pack', 'box', 'random', 'minifigura', 'minifigure']);
 
 /**
  * Dados a preencher a partir do n.º de set: primeiro o que já registámos (os nossos nomes),
@@ -124,3 +152,19 @@ export function useInfoPorSet() {
     return undefined;
   };
 }
+
+// ---------- Comparar os nossos nomes com os oficiais ----------
+
+/** 'igual' (só muda a escrita), 'parecido' (partilham palavras) ou 'diferente' (talvez o n.º esteja errado). */
+export function compararNomes(nosso: string, oficial: string): 'igual' | 'parecido' | 'diferente' {
+  const a = normalizar(nosso);
+  const b = normalizar(oficial);
+  if (a === b || a.replace(/ /g, '') === b.replace(/ /g, '')) return 'igual';
+  if (a.includes(b) || b.includes(a)) return 'parecido';
+  const pa = new Set(a.split(' ').filter((w) => w.length > 2));
+  const pb = new Set(b.split(' ').filter((w) => w.length > 2));
+  const comuns = [...pa].filter((w) => pb.has(w) || [...pb].some((x) => x.startsWith(w) || w.startsWith(x))).length;
+  return comuns > 0 ? 'parecido' : 'diferente';
+}
+
+export const mesmoTema = (a: string | null, b: string | null) => !!a && !!b && normalizar(a).replace(/ /g, '') === normalizar(b).replace(/ /g, '');

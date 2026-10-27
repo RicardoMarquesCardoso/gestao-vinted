@@ -2,15 +2,21 @@ import { custoTotalProduto, custoUnitario, diasEntre, liquidoVenda, lucroVenda, 
 import { fmtData, fmtEuro, hoje } from '../lib/format';
 import { useDados } from '../state';
 import { useAbrir } from './acoes';
+import { compararNomes, useCatalogoSets } from './catalogo';
+import { CHAVE_MANTIDOS } from '../pages/ReverNomes';
 import { useState } from 'react';
 import { EtiquetaProduto, EtiquetaVenda, Foto, ImagemReferencia, Janela, Valor, reduzirFoto, urlReferencia } from './ui';
 
 export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void }) {
-  const { dados, nomeConta, nomePagador, store, guardar, aviso } = useDados();
+  const { dados, nomeConta, nomePagador, store, guardar, aviso, lista } = useDados();
+  const procurarSet = useCatalogoSets();
   const [aEnviar, setAEnviar] = useState(false);
   const abrir = useAbrir();
   const p = dados.produtos.find((x) => x.id === id);
   if (!p) return null;
+  const oficial = p.set_numero && (!p.marca || /lego/i.test(p.marca)) ? procurarSet(p.set_numero) : undefined;
+  const talvez =
+    oficial && compararNomes(p.nome, oficial.nome) === 'diferente' ? procurarSet.parecidos(p.nome, oficial.tema, oficial.ano, oficial.numero) : [];
   const vendas = dados.vendas.filter((v) => v.produto_id === p.id).sort((a, b) => b.data_venda.localeCompare(a.data_venda));
   const compra = p.compra_id ? dados.compras.find((c) => c.id === p.compra_id) : undefined;
   const disponiveis = unidadesDisponiveis(p, dados.vendas);
@@ -83,6 +89,24 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
             <a href={`https://brickset.com/sets/${encodeURIComponent(p.set_numero ?? '')}-1`} target="_blank" rel="noreferrer">Brickset</a>
           </figcaption>
         </figure>
+      )}
+      {oficial && compararNomes(p.nome, oficial.nome) !== 'igual' && !lista(CHAVE_MANTIDOS).includes((p.set_numero ?? '').trim()) && (
+        <div className={`sugestao-nome ${talvez.length ? 'sugestao-alerta' : ''}`}>
+          <span>
+            {talvez.length ? '⚠️ O set ' + p.set_numero + ' chama-se ' : 'Nome oficial: '}
+            <strong>{oficial.nome}</strong>
+            {talvez.length ? `. Será o ${talvez[0].numero} (${talvez[0].nome})?` : ''}
+          </span>
+          {talvez.length ? (
+            <button className="link" onClick={() => guardar('produtos', [{ ...p, set_numero: talvez[0].numero }])}>
+              Mudar n.º
+            </button>
+          ) : (
+            <button className="link" onClick={() => guardar('produtos', [{ ...p, nome: oficial.nome }])}>
+              Usar
+            </button>
+          )}
+        </div>
       )}
       <div className="detalhe-topo">
         <EtiquetaProduto estado={p.estado} />

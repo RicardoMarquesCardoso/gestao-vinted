@@ -617,3 +617,18 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 }
 .referencia-form { margin-top: 14px; }
 .referencia-form .referencia-img { max-height: 180px; }
+
+/* ---------- Rever nomes ---------- */
+.rever-todos { margin-bottom: 12px; }
+.rever-lista .cartao { margin-bottom: 10px; }
+.rever-diferente, .rever-desconhecido { border-color: var(--aviso); }
+.rever-topo { display: flex; gap: 12px; }
+.rever-img { width: 64px; height: 64px; border-radius: 8px; flex: none; object-fit: contain; }
+.rever-texto { min-width: 0; display: flex; flex-direction: column; gap: 3px; font-size: 0.9rem; }
+.rever-set { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-weight: 600; font-size: 0.82rem; color: var(--texto-2); }
+.rever-acoes { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+.rever-manter { color: var(--texto-2); }
+.sugestao-nome { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: var(--primario-suave); margin-bottom: 12px; font-size: 0.9rem; }
+.sugestao-alerta { background: var(--aviso-fundo); }
+.rever-talvez { color: var(--aviso); font-weight: 600; }
+.rever-acoes { flex-wrap: wrap; }
