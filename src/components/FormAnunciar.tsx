@@ -11,7 +11,7 @@ const CHAVE_CONTA = 'gv.ultimaConta';
  * Marca rapidamente unidades como anunciadas (ou retira o anúncio).
  * Para um grupo de produtos iguais, escolhe-se quantas unidades.
  */
-export function FormAnunciar({ ids, retirar, aoFechar }: { ids: string[]; retirar?: boolean; aoFechar(): void }) {
+export function FormAnunciar({ ids, retirar, precoSugerido, aoFechar }: { ids: string[]; retirar?: boolean; precoSugerido?: number | null; aoFechar(): void }) {
   const { dados, guardar, aviso } = useDados();
   // Candidatos: os que estão no estado certo, os mais antigos primeiro
   const candidatos = ids
@@ -30,7 +30,7 @@ export function FormAnunciar({ ids, retirar, aoFechar }: { ids: string[]; retira
     return dados.contas.find((c) => c.ativa)?.id ?? '';
   });
   const [qtd, setQtd] = useState(String(candidatos.length));
-  const [preco, setPreco] = useState('');
+  const [preco, setPreco] = useState(precoSugerido ? String(precoSugerido).replace('.', ',') : '');
   const [aGuardar, setAGuardar] = useState(false);
 
   async function submeter() {
@@ -95,7 +95,7 @@ export function FormAnunciar({ ids, retirar, aoFechar }: { ids: string[]; retira
           </Campo>
         )}
         {!retirar && (
-          <Campo rotulo="Preço do anúncio" ajuda={candidatos[0].preco_anuncio ? `Atual: ${fmtEuro(candidatos[0].preco_anuncio)}` : 'Opcional'}>
+          <Campo rotulo="Preço do anúncio" ajuda={precoSugerido ? 'Sugerido pela app' : candidatos[0].preco_anuncio ? `Atual: ${fmtEuro(candidatos[0].preco_anuncio)}` : 'Opcional'}>
             <Dinheiro valor={preco} mudar={setPreco} placeholder="" />
           </Campo>
         )}

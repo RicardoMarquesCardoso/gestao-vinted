@@ -26,6 +26,11 @@ Guardar os dados que permitam estas análises desde já, mesmo que ainda não ap
   - A lista dos nossos sets vem da função `sets_mercado(token)` no Supabase, protegida pelo `token_mercado` (em `definicoes`) e pelo segredo `VINTEDUO_TOKEN`.
   - As chaves ficam só nos segredos do GitHub, nunca no código, porque o repositório é público.
 - Cálculos de investimento em `src/lib/investimento.ts`: rentabilidade anualizada = lucro ÷ (custo × dias ÷ 365). Contam os vendidos e o stock.
+- **Planos e tarefas** (`src/lib/plano.ts`): cada produto em stock tem o plano "vender" ou "guardar até X", e o Painel mostra "O que fazer" (anunciar a X €, baixar para Y €, rever).
+  - **Princípio:** vender logo que o lucro previsto compense (`margemVender`), porque o dinheiro volta mais depressa para reinvestir.
+  - Só se guarda quando vender agora dá pouco e a valorização esperada (por fase: à venda / retirado há menos de 2 anos / depois) rende pelo menos `rentabMinGuardar` por ano.
+  - Preço de referência: as nossas vendas do último ano → BrickLink → PVP com desconto.
+  - Regras editáveis em Definições (`regras_plano`). Decisões manuais em `planos` (por set + condição). Tarefas adiadas em `tarefas_adiadas`.
 
 ## Regras do negócio
 
@@ -43,4 +48,4 @@ Guardar os dados que permitam estas análises desde já, mesmo que ainda não ap
   - Se `node_modules` não existir: `ln -s /opt/npm-tools/node_modules node_modules`.
 - Testes: `npx tsx --test tests/*.test.ts`.
 - Supabase: no código só vai a chave publishable. **Nunca pedir nem usar a palavra-passe da base de dados nem a chave service_role.**
-- Dados guardados em `definicoes` (chave → jsonb), para não precisar de migrações: `listas`, `nomes_mantidos`, `vendas_externas`, `vendas_fora_limites`, `modelo_anuncio`.
+- Dados guardados em `definicoes` (chave → jsonb), para não precisar de migrações: `listas`, `nomes_mantidos`, `vendas_externas`, `vendas_fora_limites`, `modelo_anuncio`, `regras_plano`, `planos`, `tarefas_adiadas`, `token_mercado`.

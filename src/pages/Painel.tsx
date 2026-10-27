@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useAbrir } from '../components/acoes';
+import { CartaoTarefas } from '../components/planos';
 import { BarraLimite, Cartao, EtiquetaVenda, Vazio, Valor } from '../components/ui';
 import { calcularAcertos } from '../lib/acertos';
 import { PREDEFINICOES, estatisticas, intervaloDe, liquidoVenda, lucroVenda, usoConta } from '../lib/calc';
@@ -67,6 +68,8 @@ export function Painel() {
           <span>Comprei um ou mais produtos</span>
         </button>
       </div>
+
+      <CartaoTarefas />
 
       <div className="kpis">
         <div className="kpi kpi-destaque">

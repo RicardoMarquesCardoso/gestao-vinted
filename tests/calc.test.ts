@@ -223,3 +223,37 @@ test('investimento: rentabilidade anualizada e stock', () => {
   // sem BrickLink, o valor vem da nossa venda média
   assert.equal(investimento({ produtos: ps, vendas: vs }, null, '2026-10-01').valorEstimadoStock, 150);
 });
+
+import { sugerirPlano, tarefas } from '../src/lib/plano.ts';
+
+test('plano: vender já quando o lucro compensa, guardar quando ainda vai valorizar', () => {
+  const hojeT = '2026-10-27';
+  const merc = {
+    brickset: {
+      '1': ['2025-01-01', '2026-12-31', 100, null, 'Retail'] as never, // sai em breve
+      '2': ['2018-01-01', '2020-12-31', 50, null, 'Retired'] as never, // retirado há muito
+    },
+    bricklink: { '1': { n: [80, 10] as [number, number] }, '2': { n: [55, 10] as [number, number] } },
+  };
+  const ctx = (ps: Produto[]) => ({ dados: { produtos: ps, vendas: [], definicoes: [] }, mercado: merc, hoje: hojeT });
+  // Comprado a 60, mercado a 80 → +33%: vender já
+  const a = produto({ id: 'a', set_numero: '1', preco_compra: 60, estado: 'por_anunciar', condicao: 'Novo e selado' });
+  const pa = sugerirPlano(a, ctx([a]));
+  assert.equal(pa.acao, 'vender');
+  assert.equal(pa.precoSugerido, 86); // 80 × 1,08
+  // Comprado a 75, mercado a 80 (+7%) e sai em dez/26 → guardar
+  const b = produto({ id: 'b', set_numero: '1', preco_compra: 75, estado: 'por_anunciar', condicao: 'Novo e selado' });
+  const pb = sugerirPlano(b, ctx([b]));
+  assert.equal(pb.acao, 'guardar');
+  assert.ok(pb.ate! > hojeT);
+  // Comprado a 52, retirado há anos, mercado 55 (+6%), valoriza 7%/ano → vender para libertar o dinheiro
+  const c = produto({ id: 'c', set_numero: '2', preco_compra: 52, estado: 'por_anunciar', condicao: 'Novo e selado' });
+  assert.equal(sugerirPlano(c, ctx([c])).acao, 'vender');
+  // Tarefas: anunciar a; baixar um anunciado há 90 dias
+  const d = produto({ id: 'd', set_numero: '2', preco_compra: 30, estado: 'anunciado', condicao: 'Novo e selado', preco_anuncio: 70, data_anuncio: '2026-07-01' });
+  const t = tarefas(ctx([a, b, d]));
+  assert.deepEqual(t.map((x) => [x.tipo, x.preco]), [['baixar', 65], ['anunciar', 86]]);
+  // Adiada
+  const t2 = tarefas({ ...ctx([a]), dados: { produtos: [a], vendas: [], definicoes: [{ chave: 'tarefas_adiadas', valor: { [t[1].id]: '2026-11-10' } as never }] } });
+  assert.equal(t2.length, 0);
+});

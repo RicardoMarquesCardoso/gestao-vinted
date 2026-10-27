@@ -670,3 +670,25 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .kpis-cartao .kpi-destaque { border-color: var(--primario); }
 .chip-ok { background: color-mix(in srgb, var(--positivo) 15%, transparent); color: var(--positivo); }
 .estado-set { white-space: nowrap; }
+
+/* Planos e tarefas */
+.chip-plano-guardar { background: color-mix(in srgb, var(--primario) 14%, transparent); color: var(--primario); }
+.chip-plano-vender { background: color-mix(in srgb, var(--positivo) 15%, transparent); color: var(--positivo); }
+.lista-tarefas { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.tarefa { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--linha); }
+.tarefa:last-child { border-bottom: 0; }
+.tarefa-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; text-align: left; background: none; border: 0; padding: 0; cursor: pointer; color: inherit; font: inherit; }
+.tarefa-texto small { font-size: 0.8rem; }
+.tarefa-botoes { display: flex; gap: 6px; flex: none; }
+@media (max-width: 520px) { .tarefa { flex-direction: column; align-items: stretch; } .tarefa-botoes { justify-content: flex-end; } }
+.linha-plano { padding: 10px 12px; border-radius: var(--raio); background: var(--superficie-2); margin-bottom: 12px; display: grid; gap: 4px; }
+.linha-plano p { margin: 0; }
+.linha-plano .chip { margin-left: 6px; }
+.opcoes-plano { display: grid; gap: 10px; }
+.opcao { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--linha); border-radius: var(--raio); cursor: pointer; }
+.opcao > span { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.opcao input[type='month'] { max-width: 200px; }
+.grelha-regras { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px 16px; }
+.campo-unidade { display: flex; align-items: center; gap: 8px; }
+.campo-unidade input { width: 90px; flex: none; }
+.opcao input[type='radio'] { width: auto; flex: none; margin-top: 3px; }

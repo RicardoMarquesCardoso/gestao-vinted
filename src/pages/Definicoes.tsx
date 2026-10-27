@@ -11,6 +11,8 @@ import { navegar } from '../router';
 import { useCasosNomes } from './ReverNomes';
 import { CHAVE_MODELO_ANUNCIO, MODELO_PADRAO, modeloAnuncio } from '../lib/anuncio';
 import type { ModeloAnuncio } from '../lib/anuncio';
+import { CHAVE_REGRAS, REGRAS_PADRAO, regrasPlano } from '../lib/plano';
+import type { RegrasPlano } from '../lib/plano';
 
 const NOMES_TABELA: Record<string, string> = {
   pessoas: 'Pessoa', contas: 'Conta', compras: 'Compra', produtos: 'Produto', vendas: 'Venda', definicoes: 'Lista',
@@ -113,6 +115,8 @@ export function Definicoes(props: { aoSair(): void }) {
       <CartaoReverNomes />
 
       <CartaoTextoAnuncios />
+
+      <CartaoRegrasPlano />
 
       <Cartao titulo="Pessoas">
         <p className="nota">Quem paga as compras e quem faz as vendas.</p>
@@ -309,6 +313,60 @@ function CartaoTextoAnuncios() {
       <div className="linha-botoes">
         <button className="btn btn-primario" disabled={!mudou} onClick={() => gravar(m)}>Guardar</button>
         <button className="btn" onClick={() => setM(MODELO_PADRAO)}>Repor o texto original</button>
+      </div>
+    </Cartao>
+  );
+}
+
+const CAMPOS_REGRAS: { k: keyof RegrasPlano; nome: string; ajuda: string; pct: boolean }[] = [
+  { k: 'margemVender', nome: 'Vender já a partir de', ajuda: 'lucro sobre o custo', pct: true },
+  { k: 'rentabMinGuardar', nome: 'Guardar só se render pelo menos', ajuda: 'por ano', pct: true },
+  { k: 'margemNegociar', nome: 'Anunciar acima do preço de mercado', ajuda: 'margem para negociar', pct: true },
+  { k: 'margemChao', nome: 'Nunca vender abaixo do custo +', ajuda: 'preço mínimo', pct: true },
+  { k: 'diasBaixar', nome: 'Sugerir baixar o preço ao fim de', ajuda: 'dias anunciado', pct: false },
+  { k: 'baixarPct', nome: 'Baixar de cada vez', ajuda: 'do preço', pct: true },
+  { k: 'valorizacaoAVenda', nome: 'Valorização enquanto está à venda na LEGO', ajuda: 'por ano', pct: true },
+  { k: 'valorizacaoRetirado', nome: 'Valorização nos 2 anos depois de retirado', ajuda: 'por ano', pct: true },
+  { k: 'valorizacaoDepois', nome: 'Valorização depois disso', ajuda: 'por ano', pct: true },
+];
+
+function CartaoRegrasPlano() {
+  const { dados, guardar, aviso } = useDados();
+  const guardado = regrasPlano(dados.definicoes);
+  const paraTexto = (r: RegrasPlano) =>
+    Object.fromEntries(CAMPOS_REGRAS.map((c) => [c.k, String(c.pct ? Math.round(r[c.k] * 1000) / 10 : r[c.k]).replace('.', ',')])) as Record<keyof RegrasPlano, string>;
+  const chaveGuardado = JSON.stringify(guardado);
+  const [v, setV] = useState(() => paraTexto(guardado));
+  useEffect(() => setV(paraTexto(JSON.parse(chaveGuardado) as RegrasPlano)), [chaveGuardado]);
+  async function gravar(texto: Record<keyof RegrasPlano, string>) {
+    const r = { ...REGRAS_PADRAO };
+    for (const c of CAMPOS_REGRAS) {
+      const n = Number(texto[c.k].replace(',', '.'));
+      if (!Number.isFinite(n) || n < 0) return aviso(`Valor inválido em "${c.nome}".`, 'erro');
+      r[c.k] = c.pct ? n / 100 : Math.round(n);
+    }
+    await guardar('definicoes', [{ chave: CHAVE_REGRAS, valor: r as never }]);
+    aviso('Regras guardadas.');
+  }
+  return (
+    <Cartao titulo="Regras das sugestões">
+      <p className="mudo">
+        A app sugere vender logo quando o lucro já compensa (o dinheiro volta mais depressa para reinvestir) e só sugere guardar quando vender agora dá pouco e o set ainda deve valorizar.
+      </p>
+      <div className="grelha-regras">
+        {CAMPOS_REGRAS.map((c) => (
+          <label key={c.k} className="campo">
+            <span className="campo-rotulo">{c.nome}</span>
+            <span className="campo-unidade">
+              <input inputMode="decimal" value={v[c.k]} onChange={(e) => setV({ ...v, [c.k]: e.target.value })} />
+              <span className="mudo">{c.pct ? '%' : ''} {c.ajuda}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      <div className="linha-botoes">
+        <button className="btn btn-primario" disabled={JSON.stringify(v) === JSON.stringify(paraTexto(guardado))} onClick={() => gravar(v)}>Guardar</button>
+        <button className="btn" onClick={() => gravar(paraTexto(REGRAS_PADRAO))}>Repor os valores sugeridos</button>
       </div>
     </Cartao>
   );

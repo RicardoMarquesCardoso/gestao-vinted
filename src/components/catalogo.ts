@@ -131,6 +131,7 @@ export function useCatalogoSets() {
     }
     return r.sort((a, b) => b.pontos - a.pontos).slice(0, 2).map((x) => x.info);
   };
+  procurar.carregado = sets !== null;
   return procurar;
 }
 
