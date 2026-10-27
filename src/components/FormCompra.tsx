@@ -4,8 +4,8 @@ import { fmtEuro, hoje, lerNumero } from '../lib/format';
 import type { Compra, Distribuicao, Produto } from '../lib/types';
 import { useDados } from '../state';
 import { paraCampo, vazioANull } from './acoes';
-import { Campo, Dinheiro, Janela, SelecionarPagador, TextoSugerido, lerPagador, useConfirmar, valorPagador , EscolherOuEscrever, NomeComSugestoes } from './ui';
-import { useCatalogo } from './catalogo';
+import { Campo, Dinheiro, Janela, SelecionarPagador, TextoSugerido, lerPagador, useConfirmar, valorPagador , EscolherOuEscrever, ImagemReferencia, NomeComSugestoes, urlReferencia } from './ui';
+import { useCatalogo, useInfoPorSet } from './catalogo';
 
 interface Item {
   id: string;
@@ -15,6 +15,7 @@ interface Item {
   condicao: string;
   marca: string;
   tema: string;
+  auto?: string; // nome preenchido automaticamente pelo n.º de set
   quantidade: string;
   preco: string;
 }
@@ -23,6 +24,7 @@ export function FormCompra({ id, aoFechar }: { id?: string; aoFechar(): void }) 
   const { dados, guardar, apagar, lista, aviso } = useDados();
   const confirmar = useConfirmar();
   const catalogo = useCatalogo();
+  const infoSet = useInfoPorSet();
   const existente = dados.compras.find((c) => c.id === id);
   const produtosAtuais = existente ? dados.produtos.filter((p) => p.compra_id === existente.id) : [];
 
@@ -231,11 +233,18 @@ export function FormCompra({ id, aoFechar }: { id?: string; aoFechar(): void }) 
               <input
                 className="ic-set"
                 value={item.set_numero}
-                onChange={(e) => mudarItem(i, 'set_numero', e.target.value)}
-                onBlur={() => {
-                  const x = catalogo.doSet(item.set_numero);
-                  if (x)
-                    setItens((xs) => xs.map((y, j) => (j === i ? { ...y, nome: y.nome || x.nome, marca: y.marca || (x.marca ?? ''), tema: y.tema || (x.tema ?? '') } : y)));
+                onChange={(e) => {
+                  const v = e.target.value;
+                  const info = infoSet(v);
+                  setItens((xs) =>
+                    xs.map((y, j) => {
+                      if (j !== i) return y;
+                      const automatico = !y.nome || y.nome === y.auto;
+                      if (info && automatico) return { ...y, set_numero: v, nome: info.nome, marca: info.marca, tema: info.tema, auto: info.nome };
+                      if (!info && y.auto && y.nome === y.auto) return { ...y, set_numero: v, nome: '', auto: undefined };
+                      return { ...y, set_numero: v };
+                    }),
+                  );
                 }}
                 placeholder="N.º set"
                 aria-label="Número do set"
@@ -248,6 +257,15 @@ export function FormCompra({ id, aoFechar }: { id?: string; aoFechar(): void }) 
                 </div>
               ) : (
                 <span className="ic-preco ic-calc">{c ? fmtEuro(c.preco_compra) : '—'}</span>
+              )}
+              {urlReferencia({ marca: item.marca, set_numero: item.set_numero }) && item.nome && (
+                <div className="ic-info">
+                  <ImagemReferencia url={urlReferencia({ marca: item.marca, set_numero: item.set_numero })} className="ic-img" />
+                  <span className="mudo truncar">
+                    {item.nome === item.auto ? 'Encontrado: ' : ''}
+                    {item.nome}
+                  </span>
+                </div>
               )}
               <EscolherOuEscrever className="ic-cat" valor={item.marca} mudar={(v) => mudarItem(i, 'marca', v)} opcoes={catalogo.marcas} placeholder="Categoria" ariaLabel="Categoria" />
               <EscolherOuEscrever className="ic-tema" valor={item.tema} mudar={(v) => mudarItem(i, 'tema', v)} opcoes={catalogo.temasDe(item.marca)} placeholder="Subcategoria" ariaLabel="Subcategoria" />

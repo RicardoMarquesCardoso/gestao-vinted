@@ -5,13 +5,15 @@ import type { EstadoProduto, Produto } from '../lib/types';
 import { ESTADOS_PRODUTO } from '../lib/types';
 import { useDados } from '../state';
 import { paraCampo, vazioANull } from './acoes';
-import { Campo, Dinheiro, Foto, Janela, SelecionarConta, SelecionarPagador, TextoSugerido, lerPagador, reduzirFoto, useConfirmar, valorPagador , EscolherOuEscrever, NomeComSugestoes } from './ui';
-import { useCatalogo } from './catalogo';
+import { Campo, Dinheiro, Foto, Janela, SelecionarConta, SelecionarPagador, TextoSugerido, lerPagador, reduzirFoto, useConfirmar, valorPagador , EscolherOuEscrever, ImagemReferencia, NomeComSugestoes, urlReferencia } from './ui';
+import { useCatalogo, useInfoPorSet } from './catalogo';
 
 export function FormProduto({ id, aoFechar }: { id?: string; aoFechar(): void }) {
   const { dados, guardar, apagar, lista, store, aviso } = useDados();
   const confirmar = useConfirmar();
   const catalogo = useCatalogo();
+  const infoSet = useInfoPorSet();
+  const [autoNome, setAutoNome] = useState('');
   const existente = dados.produtos.find((p) => p.id === id);
   const [novoId] = useState(() => id ?? crypto.randomUUID());
   const compra = existente?.compra_id ? dados.compras.find((c) => c.id === existente.compra_id) : undefined;
@@ -158,11 +160,17 @@ export function FormProduto({ id, aoFechar }: { id?: string; aoFechar(): void })
         <Campo rotulo="Número do set">
           <input
             value={f.set_numero}
-            onChange={(e) => mudar('set_numero', e.target.value)}
-            onBlur={() => {
-              // Se o set já existe, preenche o que estiver vazio
-              const x = catalogo.doSet(f.set_numero);
-              if (x) setF((a) => ({ ...a, nome: a.nome || x.nome, marca: a.marca || (x.marca ?? ''), tema: a.tema || (x.tema ?? '') }));
+            onChange={(e) => {
+              const v = e.target.value;
+              const info = infoSet(v);
+              setF((a) => {
+                const automatico = !a.nome || a.nome === autoNome;
+                if (info && automatico) {
+                  setAutoNome(info.nome);
+                  return { ...a, set_numero: v, nome: info.nome, marca: info.marca, tema: info.tema };
+                }
+                return { ...a, set_numero: v };
+              });
             }}
             placeholder="Ex.: 60374"
             inputMode="numeric"
@@ -200,6 +208,12 @@ export function FormProduto({ id, aoFechar }: { id?: string; aoFechar(): void })
         </p>
       )}
 
+      {fotos.length === 0 && urlReferencia({ marca: f.marca, set_numero: f.set_numero }) && (
+        <figure className="referencia referencia-form">
+          <ImagemReferencia url={urlReferencia({ marca: f.marca, set_numero: f.set_numero }, true)} alt={`Set ${f.set_numero}`} className="referencia-img" />
+          <figcaption className="mudo">Imagem de referência do set (usada enquanto não houver fotografia vossa)</figcaption>
+        </figure>
+      )}
       <div className="fotos-edicao fotos-form">
         {fotos.map((r) => (
           <div key={r} className="foto-item">

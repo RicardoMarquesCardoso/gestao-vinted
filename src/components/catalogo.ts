@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { chaveComparacao, custoUnitario, emInventario, unidadesDisponiveis } from '../lib/calc';
 import { fmtEuro } from '../lib/format';
 import { useDados } from '../state';
@@ -67,4 +67,60 @@ export function useCatalogo() {
   };
 
   return { sugestoes, marcas, temasDe, doSet };
+}
+
+// ---------- Catálogo oficial de sets LEGO (gerado mensalmente a partir do Rebrickable) ----------
+
+export interface InfoSet {
+  numero: string;
+  nome: string;
+  ano: number | null;
+  tema: string | null;
+  subtema: string | null;
+}
+
+let catalogoSets: Promise<Record<string, [string, number | null, string | null, string | null]>> | null = null;
+
+function carregarCatalogoSets() {
+  catalogoSets ??= fetch('catalogo-sets.json', { cache: 'force-cache' })
+    .then((r) => (r.ok ? r.json() : { sets: {} }))
+    .then((j) => j.sets ?? {})
+    .catch(() => {
+      catalogoSets = null; // tentar de novo da próxima vez
+      return {};
+    });
+  return catalogoSets;
+}
+
+/** Procura um n.º de set no catálogo (carregado só quando é preciso). */
+export function useCatalogoSets() {
+  const [sets, setSets] = useState<Record<string, [string, number | null, string | null, string | null]> | null>(null);
+  useEffect(() => {
+    let ativo = true;
+    void carregarCatalogoSets().then((s) => ativo && setSets(s));
+    return () => {
+      ativo = false;
+    };
+  }, []);
+  return (numero: string): InfoSet | undefined => {
+    const n = numero.trim().replace(/-\d+$/, '');
+    const x = n && sets?.[n];
+    return x ? { numero: n, nome: x[0], ano: x[1], tema: x[2], subtema: x[3] } : undefined;
+  };
+}
+
+/**
+ * Dados a preencher a partir do n.º de set: primeiro o que já registámos (os nossos nomes),
+ * senão o catálogo oficial.
+ */
+export function useInfoPorSet() {
+  const { doSet } = useCatalogo();
+  const doCatalogo = useCatalogoSets();
+  return (numero: string): { nome: string; marca: string; tema: string; ano?: number | null } | undefined => {
+    const nosso = doSet(numero);
+    if (nosso) return { nome: nosso.nome, marca: nosso.marca ?? 'LEGO', tema: nosso.tema ?? '' };
+    const c = doCatalogo(numero);
+    if (c) return { nome: c.nome, marca: 'LEGO', tema: c.tema ?? '', ano: c.ano };
+    return undefined;
+  };
 }

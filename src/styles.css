@@ -607,3 +607,13 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 /* Painel: só Registar venda e Registar compra, lado a lado */
 .acoes-rapidas { grid-template-columns: 1fr 1fr; }
 @media (max-width: 640px) { .acoes-rapidas .acao-principal { grid-column: auto; } }
+.item-compra .ic-info { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; font-size: 0.85rem; min-width: 0; }
+.ic-img { width: 36px; height: 36px; border-radius: 6px; flex: none; object-fit: contain; }
+@media (min-width: 721px) {
+  .item-compra .ic-info { grid-row: 3; }
+}
+@media (max-width: 720px) {
+  .item-compra .ic-info { grid-row: 5; }
+}
+.referencia-form { margin-top: 14px; }
+.referencia-form .referencia-img { max-height: 180px; }
