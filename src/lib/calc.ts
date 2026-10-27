@@ -116,7 +116,7 @@ export interface Intervalo {
 }
 
 export const dentro = (d: string | null | undefined, i: Intervalo) =>
-  !!d && (!i.inicio || d.slice(0, 10) >= i.inicio) && (!i.fim || d.slice(0, 10) <= i.fim);
+  (!i.inicio && !i.fim) || (!!d && (!i.inicio || d.slice(0, 10) >= i.inicio) && (!i.fim || d.slice(0, 10) <= i.fim));
 
 export type Predefinicao = 'mes' | 'mes_anterior' | '30d' | '90d' | 'ano' | 'tudo';
 
@@ -255,6 +255,14 @@ export interface LinhaSet {
   diasMedios: number | null;
 }
 
+export interface LinhaCategoria {
+  nome: string;
+  vendas: number;
+  custo: number;
+  lucro: number;
+  roi: number | null; // lucro / custo
+}
+
 export interface Estatisticas {
   gasto: number;
   recebido: number;
@@ -270,6 +278,8 @@ export interface Estatisticas {
   porMes: { mes: string; lucro: number; receita: number; gasto: number }[];
   porConta: LinhaGrupo[];
   porPessoa: LinhaGrupo[];
+  porCategoria: LinhaCategoria[];
+  porSubcategoria: LinhaCategoria[];
   porSet: LinhaSet[];
   tempos: { produto: Produto; dias: number; venda: Venda }[];
   parados: { produto: Produto; dias: number; desde: string }[];
@@ -355,6 +365,7 @@ export function estatisticas(d: Dados, f: Filtro, hoje: string): Estatisticas {
     .map((v) => {
       const p = produtoPorId.get(v.produto_id);
       const dataCompra = p?.data_compra || (p?.compra_id ? compraPorId.get(p.compra_id)?.data : null);
+      if (v.notas?.includes('data de venda desconhecida')) return null; // importadas sem data: distorciam a média
       return p && dataCompra ? { produto: p, venda: v, dias: Math.max(diasEntre(dataCompra, v.data_venda), 0) } : null;
     })
     .filter((x): x is { produto: Produto; venda: Venda; dias: number } => !!x)
@@ -397,6 +408,24 @@ export function estatisticas(d: Dados, f: Filtro, hoje: string): Estatisticas {
   const nomePessoa = (id: string) => d.pessoas.find((p) => p.id === id)?.nome ?? 'Pessoa apagada';
   const porConta = agrupar((v) => v.conta_id, nomeConta);
   const porPessoa = agrupar((v) => v.pessoa_id, nomePessoa);
+
+  // Por categoria (marca) e subcategoria (tema), com ROI
+  const porCat = (chave: (p: Produto) => string) => {
+    const g = new Map<string, LinhaCategoria>();
+    for (const v of concluidas) {
+      const p = produtoPorId.get(v.produto_id);
+      if (!p) continue;
+      const k = chave(p);
+      let l = g.get(k);
+      if (!l) g.set(k, (l = { nome: k, vendas: 0, custo: 0, lucro: 0, roi: null }));
+      l.vendas += v.quantidade || 1;
+      l.custo = arred(l.custo + custoVenda(v, p));
+      l.lucro = arred(l.lucro + lucroVenda(v, p));
+    }
+    return [...g.values()].map((l) => ({ ...l, roi: l.custo > 0 ? l.lucro / l.custo : null })).sort((a, b) => b.lucro - a.lucro);
+  };
+  const porCategoria = porCat((p) => p.marca?.trim() || 'Sem categoria');
+  const porSubcategoria = porCat((p) => [p.marca?.trim() || 'Sem categoria', p.tema?.trim()].filter(Boolean).join(' › '));
 
   // Comparação de produtos iguais (todos os produtos que correspondem aos filtros)
   const sets = new Map<
@@ -467,8 +496,79 @@ export function estatisticas(d: Dados, f: Filtro, hoje: string): Estatisticas {
     porMes,
     porConta,
     porPessoa,
+    porCategoria,
+    porSubcategoria,
     porSet,
     tempos,
     parados,
   };
+}
+
+// ---------- Lotes de compra (por mês de compra) ----------
+
+export interface Lote {
+  mes: string | null; // AAAA-MM, ou null sem data
+  unidades: number;
+  vendidas: number;
+  gasto: number;
+  recebido: number; // líquido das vendas concluídas
+  lucro: number; // lucro realizado
+  porVenderCusto: number;
+}
+
+export function lotes(d: Pick<Dados, 'produtos' | 'vendas'>): Lote[] {
+  const m = new Map<string, Lote>();
+  const vendasDe = new Map<string, Venda[]>();
+  for (const v of d.vendas) if (v.estado === 'concluida') vendasDe.set(v.produto_id, [...(vendasDe.get(v.produto_id) ?? []), v]);
+  for (const p of d.produtos) {
+    if (p.estado === 'cancelado') continue;
+    const k = p.data_compra ? p.data_compra.slice(0, 7) : '';
+    let l = m.get(k);
+    if (!l) m.set(k, (l = { mes: k || null, unidades: 0, vendidas: 0, gasto: 0, recebido: 0, lucro: 0, porVenderCusto: 0 }));
+    l.unidades += p.quantidade || 1;
+    l.gasto = arred(l.gasto + custoTotalProduto(p));
+    for (const v of vendasDe.get(p.id) ?? []) {
+      l.vendidas += v.quantidade || 1;
+      l.recebido = arred(l.recebido + liquidoVenda(v));
+      l.lucro = arred(l.lucro + lucroVenda(v, p));
+    }
+    if (emInventario(p)) l.porVenderCusto = arred(l.porVenderCusto + custoUnitario(p) * unidadesDisponiveis(p, d.vendas));
+  }
+  return [...m.values()].sort((a, b) => (b.mes ?? '').localeCompare(a.mes ?? ''));
+}
+
+// ---------- Idade do stock ----------
+
+export interface FaixaIdade {
+  nome: string;
+  unidades: number;
+  custo: number;
+}
+
+export interface IdadeStock {
+  faixas: FaixaIdade[];
+  antigos: { produto: Produto; dias: number | null; unidades: number }[];
+}
+
+export function idadeStock(d: Pick<Dados, 'produtos' | 'vendas'>, hoje: string): IdadeStock {
+  const faixas: FaixaIdade[] = [
+    { nome: 'Menos de 3 meses', unidades: 0, custo: 0 },
+    { nome: '3 a 6 meses', unidades: 0, custo: 0 },
+    { nome: '6 a 12 meses', unidades: 0, custo: 0 },
+    { nome: 'Mais de 1 ano', unidades: 0, custo: 0 },
+    { nome: 'Sem data de compra', unidades: 0, custo: 0 },
+  ];
+  const antigos: IdadeStock['antigos'] = [];
+  for (const p of d.produtos) {
+    if (!emInventario(p)) continue;
+    const u = unidadesDisponiveis(p, d.vendas);
+    if (!u) continue;
+    const dias = p.data_compra ? Math.max(diasEntre(p.data_compra, hoje), 0) : null;
+    const f = dias === null ? 4 : dias < 91 ? 0 : dias < 183 ? 1 : dias < 366 ? 2 : 3;
+    faixas[f].unidades += u;
+    faixas[f].custo = arred(faixas[f].custo + custoUnitario(p) * u);
+    antigos.push({ produto: p, dias, unidades: u });
+  }
+  antigos.sort((a, b) => (b.dias ?? -1) - (a.dias ?? -1));
+  return { faixas: faixas.filter((f) => f.unidades > 0), antigos };
 }

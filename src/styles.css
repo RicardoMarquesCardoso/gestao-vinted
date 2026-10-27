@@ -632,3 +632,15 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .sugestao-alerta { background: var(--aviso-fundo); }
 .rever-talvez { color: var(--aviso); font-weight: 600; }
 .rever-acoes { flex-wrap: wrap; }
+
+/* ---------- Análises ---------- */
+.lotes { list-style: none; margin: 0; padding: 0; }
+.lote { padding: 10px 0; }
+.lote + .lote { border-top: 1px solid var(--linha); }
+.lote-topo, .lote-rodape { display: flex; justify-content: space-between; gap: 10px; font-size: 0.88rem; font-variant-numeric: tabular-nums; flex-wrap: wrap; }
+.lote-rodape { font-size: 0.8rem; margin-top: 4px; }
+.lote-barra { margin-top: 6px; }
+.lote-barra div { background: var(--barra); }
+.segmentos-mini { margin: 0; }
+.segmentos-mini button { padding: 5px 10px; font-size: 0.8rem; }
+@media (max-width: 640px) { .col-opcional { display: none; } }

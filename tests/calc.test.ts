@@ -117,3 +117,30 @@ test('estatísticas básicas', () => {
   assert.equal(e.porSet[0].vendidas, 1);
   assert.equal(chaveComparacao({ set_numero: ' 75192 ', nome: 'x' }), 'set:75192');
 });
+
+import { lotes, idadeStock } from '../src/lib/calc.ts';
+
+test('lotes de compra e idade do stock', () => {
+  const ps = [
+    produto({ id: 'a', data_compra: '2025-11-10', preco_compra: 10, estado: 'vendido' }),
+    produto({ id: 'b', data_compra: '2025-11-20', preco_compra: 20, estado: 'anunciado' }),
+    produto({ id: 'c', data_compra: '2026-10-01', preco_compra: 5, estado: 'por_anunciar' }),
+    produto({ id: 'd', data_compra: null, preco_compra: 3, estado: 'por_anunciar' }),
+  ];
+  const vs = [venda({ produto_id: 'a', preco_venda: 25 })];
+  const l = lotes({ produtos: ps, vendas: vs });
+  const nov = l.find((x) => x.mes === '2025-11')!;
+  assert.equal(nov.unidades, 2);
+  assert.equal(nov.vendidas, 1);
+  assert.equal(nov.gasto, 30);
+  assert.equal(nov.lucro, 15);
+  assert.equal(nov.porVenderCusto, 20);
+  assert.equal(l[l.length - 1].mes, null);
+  const i = idadeStock({ produtos: ps, vendas: vs }, '2026-10-27');
+  assert.deepEqual(i.faixas.map((f) => [f.nome, f.unidades, f.custo]), [
+    ['Menos de 3 meses', 1, 5],
+    ['6 a 12 meses', 1, 20],
+    ['Sem data de compra', 1, 3],
+  ]);
+  assert.equal(i.antigos[0].produto.id, 'b');
+});
