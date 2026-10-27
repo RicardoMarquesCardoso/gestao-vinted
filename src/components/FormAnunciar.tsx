@@ -15,7 +15,7 @@ const CHAVE_CONTA = 'gv.ultimaConta';
  * Marca rapidamente unidades como anunciadas (ou retira o anúncio).
  * Para um grupo de produtos iguais, escolhe-se quantas unidades.
  */
-export function FormAnunciar({ ids, retirar, precoSugerido, aoFechar }: { ids: string[]; retirar?: boolean; precoSugerido?: number | null; aoFechar(): void }) {
+export function FormAnunciar({ ids, retirar, precoSugerido, unidades, aoFechar }: { ids: string[]; retirar?: boolean; precoSugerido?: number | null; unidades?: number; aoFechar(): void }) {
   const { dados, guardar, aviso } = useDados();
   // Candidatos: os que estão no estado certo, os mais antigos primeiro
   const candidatos = ids
@@ -33,7 +33,8 @@ export function FormAnunciar({ ids, retirar, precoSugerido, aoFechar }: { ids: s
     }
     return dados.contas.find((c) => c.ativa)?.id ?? '';
   });
-  const [qtd, setQtd] = useState(String(candidatos.length));
+  // Quantas unidades marcar (vindo das tarefas é 1: anuncia-se uma de cada vez)
+  const [qtd, setQtd] = useState(String(Math.min(unidades ?? candidatos.length, candidatos.length)));
   const [preco, setPreco] = useState(precoSugerido ? String(precoSugerido).replace('.', ',') : '');
   const [aGuardar, setAGuardar] = useState(false);
 

@@ -239,6 +239,11 @@ export function tarefas(ctx: Contexto): Tarefa[] {
   const r = regrasPlano(ctx.dados.definicoes);
   const adiadas = tarefasAdiadas(ctx.dados.definicoes);
   const grupos = new Map<string, { tipo: Tarefa['tipo']; produtos: Produto[]; plano: Plano; extra?: string; preco: number | null }>();
+  // Anuncia-se 1 unidade de cada produto de cada vez: se já há um anunciado (mesmo set ou nome),
+  // as outras unidades não geram a tarefa "Anunciar" até essa ser vendida.
+  const jaAnunciados = new Set(
+    ctx.dados.produtos.filter((p) => p.estado === 'anunciado' && unidadesDisponiveis(p, ctx.dados.vendas) > 0).map(chaveComparacao),
+  );
   for (const p of ctx.dados.produtos) {
     if (!emInventario(p) || !unidadesDisponiveis(p, ctx.dados.vendas)) continue;
     const plano = sugerirPlano(p, ctx);
@@ -247,7 +252,7 @@ export function tarefas(ctx: Contexto): Tarefa[] {
     let extra: string | undefined;
     if (plano.manual && plano.acao === 'guardar' && plano.ate && plano.ate <= ctx.hoje) {
       tipo = 'rever';
-    } else if (p.estado === 'por_anunciar' && plano.acao === 'vender') {
+    } else if (p.estado === 'por_anunciar' && plano.acao === 'vender' && !jaAnunciados.has(chaveComparacao(p))) {
       tipo = 'anunciar';
       preco = plano.precoSugerido;
     } else if (p.estado === 'anunciado' && p.preco_anuncio) {
@@ -272,10 +277,16 @@ export function tarefas(ctx: Contexto): Tarefa[] {
     if (ate && ate > ctx.hoje) continue;
     const p = g.produtos[0];
     const unidades = g.produtos.reduce((a, x) => a + unidadesDisponiveis(x, ctx.dados.vendas), 0);
-    const nome = `${unidades > 1 ? `${unidades}× ` : ''}${p.nome}`;
+    // "Anunciar" é sempre de 1 unidade; nas outras tarefas mostra-se quantas são
+    const nome = `${unidades > 1 && g.tipo !== 'anunciar' ? `${unidades}× ` : ''}${p.nome}`;
     const titulo =
       g.tipo === 'anunciar' ? `Anunciar ${nome} a ${fmtEuro(g.preco)}` : g.tipo === 'baixar' ? `Baixar ${nome} para ${fmtEuro(g.preco)}` : `Rever ${nome}: o prazo para guardar acabou`;
-    const detalhe = g.tipo === 'baixar' ? `${g.extra}. Mínimo: ${fmtEuro(g.plano.chao)}.` : g.plano.motivo;
+    const detalhe =
+      g.tipo === 'baixar'
+        ? `${g.extra}. Mínimo: ${fmtEuro(g.plano.chao)}.`
+        : g.tipo === 'anunciar' && unidades > 1
+          ? `${g.plano.motivo} (${unidades} em stock: anuncia-se 1 de cada vez.)`
+          : g.plano.motivo;
     lista.push({ id, tipo: g.tipo, produtos: g.produtos, unidades, titulo, detalhe, preco: g.preco, capital: g.produtos.reduce((a, x) => a + custoUnitario(x) * unidadesDisponiveis(x, ctx.dados.vendas), 0) });
   }
   const ordem = { rever: 0, baixar: 1, anunciar: 2 };

@@ -91,7 +91,7 @@ export function CartaoTarefas() {
             </button>
             <div className="tarefa-botoes">
               {t.tipo === 'anunciar' && (
-                <button className="btn btn-pequeno btn-primario" onClick={() => abrir({ tipo: 'anunciar', ids: t.produtos.map((p) => p.id), preco: t.preco })}>
+                <button className="btn btn-pequeno btn-primario" onClick={() => abrir({ tipo: 'anunciar', ids: t.produtos.map((p) => p.id), preco: t.preco, unidades: 1 })}>
                   Anunciar
                 </button>
               )}

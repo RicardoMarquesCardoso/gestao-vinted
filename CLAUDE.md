@@ -31,6 +31,7 @@ Guardar os dados que permitam estas análises desde já, mesmo que ainda não ap
   - **Princípio:** vender logo que o lucro previsto compense (`margemVender`), porque o dinheiro volta mais depressa para reinvestir.
   - Só se guarda quando vender agora dá pouco e a valorização esperada (por fase: à venda / retirado há menos de 2 anos / depois) rende pelo menos `rentabMinGuardar` por ano.
   - Preço de referência: as nossas vendas do último ano → BrickLink → PVP com desconto.
+  - **Anuncia-se 1 unidade de cada produto de cada vez**: se já há um igual anunciado, não se sugere anunciar outro.
   - Regras editáveis em Definições (`regras_plano`). Decisões manuais em `planos` (por set + condição). Tarefas adiadas em `tarefas_adiadas`.
 
 ## Regras do negócio

@@ -24,7 +24,7 @@ export type Acao =
   | { tipo: 'compra'; id?: string }
   | { tipo: 'venda'; id?: string; produtoId?: string }
   | { tipo: 'conta'; id?: string }
-  | { tipo: 'anunciar'; ids: string[]; retirar?: boolean; preco?: number | null }
+  | { tipo: 'anunciar'; ids: string[]; retirar?: boolean; preco?: number | null; unidades?: number }
   | { tipo: 'plano'; ids: string[] }
   | { tipo: 'vendi'; ids: string[] };
 
@@ -62,7 +62,7 @@ export function AcoesProvider({ children }: { children: ReactNode }) {
       {atual?.tipo === 'venda' && <FormVenda key={pilha.length} id={atual.id} produtoId={atual.produtoId} aoFechar={fechar} />}
       {atual?.tipo === 'conta' && <FormConta key={pilha.length} id={atual.id} aoFechar={fechar} />}
       {atual?.tipo === 'vendi' && <FormVendi key={pilha.length} ids={atual.ids} aoFechar={fechar} abrirCompleto={(produtoId) => setPilha((p) => [...p.slice(0, -1), { tipo: 'venda', produtoId }])} />}
-      {atual?.tipo === 'anunciar' && <FormAnunciar key={pilha.length} ids={atual.ids} retirar={atual.retirar} precoSugerido={atual.preco} aoFechar={fechar} />}
+      {atual?.tipo === 'anunciar' && <FormAnunciar key={pilha.length} ids={atual.ids} retirar={atual.retirar} precoSugerido={atual.preco} unidades={atual.unidades} aoFechar={fechar} />}
       {atual?.tipo === 'plano' && <FormPlano key={pilha.length} ids={atual.ids} aoFechar={fechar} />}
     </Contexto.Provider>
   );

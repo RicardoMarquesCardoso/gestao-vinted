@@ -272,3 +272,15 @@ test('plano: Pokémon usa o preço do TCGplayer e valoriza a taxa fixa', () => {
   const pq = sugerirPlano(q, { dados: { produtos: [q], vendas: [], definicoes: [] }, mercado: merc, hoje: '2026-10-27' });
   assert.equal(pq.acao, 'guardar');
 });
+
+test('tarefas: só se anuncia 1 unidade de cada produto de cada vez', () => {
+  const merc = { brickset: {}, bricklink: { '1': { n: [100, 10] as [number, number] } } };
+  const a = produto({ id: 'a', set_numero: '1', preco_compra: 50, estado: 'por_anunciar', condicao: 'Novo e selado' });
+  const b = produto({ id: 'b', set_numero: '1', preco_compra: 50, estado: 'por_anunciar', condicao: 'Novo e selado' });
+  const ctx = (ps: Produto[]) => ({ dados: { produtos: ps, vendas: [], definicoes: [] }, mercado: merc, hoje: '2026-10-27' });
+  const t = tarefas(ctx([a, b]));
+  assert.equal(t.length, 1);
+  assert.match(t[0].titulo, /^Anunciar Set a/); // sem "2×"
+  const c = { ...b, id: 'c', estado: 'anunciado' as const, preco_anuncio: 108, data_anuncio: '2026-10-20' };
+  assert.equal(tarefas(ctx([a, c])).filter((x) => x.tipo === 'anunciar').length, 0);
+});
