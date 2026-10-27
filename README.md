@@ -71,7 +71,7 @@ flowchart LR
   A -- "3. ler e guardar dados" --> DB
   A -- fotografias --> ST
   G -- "mensal" --> RB
-  G -- "semanal" --> BS & BL & PT
+  G -- "diário" --> BS & BL & PT
   G -- "grava catálogos JSON" --> P
   G -- "lista dos nossos sets" --> DB
 ```
@@ -296,7 +296,7 @@ Estes dados são preparados por **GitHub Actions** (pasta `.github/workflows/`).
 | Ficheiro | Gerado por | Quando | Conteúdo |
 |---|---|---|---|
 | `public/catalogo-sets.json` | `scripts/catalogo.py` | Mensal | ~26 mil sets LEGO (Rebrickable): nome, ano, tema. Preenche o formulário ao escrever o n.º do set. |
-| `public/mercado-sets.json` | `scripts/mercado.py` | Semanal (segunda-feira) | **Brickset**: lançamento, retirada, PVP. **BrickLink**: preço médio de venda na Europa (6 meses). **PokemonPriceTracker**: preço dos produtos Pokémon selados (TCGplayer, EUA). |
+| `public/mercado-sets.json` | `scripts/mercado.py` | Diário (5h43 UTC) | **Brickset**: lançamento, retirada, PVP. **BrickLink**: preço médio de venda na Europa (6 meses). **PokemonPriceTracker**: preço dos produtos Pokémon selados (TCGplayer, EUA). |
 
 ### As chaves (segredos)
 
@@ -378,7 +378,7 @@ docs/                       versão publicada (gerada; não editar à mão)
 scripts/
   build.mjs                 compila src/ para docs/ com o esbuild
   catalogo.py               gera o catálogo de sets (GitHub Action mensal)
-  mercado.py                gera os dados de mercado (GitHub Action semanal)
+  mercado.py                gera os dados de mercado (GitHub Action diária)
 .github/workflows/          as GitHub Actions (catalogo.yml, mercado.yml)
 supabase/schema.sql         tabelas, regras de segurança e funções da base de dados
 tests/                      testes automáticos dos cálculos

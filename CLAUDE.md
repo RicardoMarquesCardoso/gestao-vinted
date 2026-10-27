@@ -20,7 +20,7 @@ Guardar os dados que permitam estas análises desde já, mesmo que ainda não ap
   - São preenchidos automaticamente em `state.tsx` → `atualizarPeriodos` (`src/lib/anuncios.ts`).
   - Os registos com `aproximado: true` foram reconstruídos a partir de `data_anuncio`.
 - Catálogo oficial de sets (Rebrickable) em `public/catalogo-sets.json`, com o ano de lançamento. É atualizado todos os meses pela GitHub Action.
-- Dados de mercado em `public/mercado-sets.json`, gerados todas as semanas por `scripts/mercado.py` (`.github/workflows/mercado.yml`):
+- Dados de mercado em `public/mercado-sets.json`, gerados todos os dias por `scripts/mercado.py` (`.github/workflows/mercado.yml`):
   - **Brickset** e **BrickLink**: código preparado, mas **sem acesso** (a Brickset só dá chaves a projetos que a melhoram; a API da BrickLink é só para vendedores com loja). Para LEGO, a referência são as nossas vendas e a retirada é estimada pelo ano de lançamento.
   - **Pokémon** (PokemonPriceTracker, plano grátis): preço TCGplayer (EUA) dos produtos Pokémon selados em stock, pesquisados pelo nome (função `pokemon_mercado`). Só aceita resultados inequívocos; senão guarda candidatos e a app pergunta "Qual destes é?". As associações manuais ficam em `definicoes.pokemon_ids`. Preços absurdos face ao custo são ignorados.
   - A lista dos nossos sets vem da função `sets_mercado(token)` no Supabase, protegida pelo `token_mercado` (em `definicoes`) e pelo segredo `VINTEDUO_TOKEN`.

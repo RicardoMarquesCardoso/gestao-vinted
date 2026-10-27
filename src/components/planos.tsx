@@ -192,7 +192,7 @@ export function FormPlano({ ids, aoFechar }: { ids: string[]; aoFechar(): void }
 /**
  * Preço de mercado de um produto Pokémon (PokemonPriceTracker) e a associação ao produto certo.
  *
- * A tarefa semanal procura cada produto pelo nome. Como os nossos nomes são curtos ("ETB"),
+ * A tarefa diária procura cada produto pelo nome. Como os nossos nomes são curtos ("ETB"),
  * a pesquisa pode escolher o produto errado — por isso mostramos o nome encontrado e deixamos
  * indicar o n.º do TCGplayer certo (está no endereço da página do produto em tcgplayer.com).
  * A escolha fica em definicoes.pokemon_ids e é usada na próxima atualização.

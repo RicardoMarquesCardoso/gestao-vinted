@@ -2,7 +2,7 @@
 
 COMO FUNCIONA
 -------------
-Este script corre todas as semanas numa GitHub Action (.github/workflows/mercado.yml),
+Este script corre todos os dias numa GitHub Action (.github/workflows/mercado.yml),
 nos servidores do GitHub, e não no telemóvel. Vai buscar dados a três serviços externos e
 grava tudo num único ficheiro JSON, que fica publicado com o site. A app lê esse ficheiro
 como lê qualquer outro ficheiro estático.

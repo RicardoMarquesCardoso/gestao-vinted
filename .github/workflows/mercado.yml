@@ -1,4 +1,4 @@
-# GitHub Action: todas as segundas-feiras corre scripts/mercado.py, que vai buscar dados de
+# GitHub Action: todos os dias corre scripts/mercado.py, que vai buscar dados de
 # mercado (Brickset, BrickLink, PokemonPriceTracker) e grava public/ e docs/mercado-sets.json.
 # As chaves vêm dos "secrets" do repositório (Settings → Secrets and variables → Actions);
 # se uma faltar, essa fonte é simplesmente ignorada. Pode correr-se à mão em Actions → Run workflow.
@@ -7,7 +7,7 @@ name: Atualizar dados de mercado (Brickset, BrickLink e Pokémon)
 on:
   workflow_dispatch:
   schedule:
-    - cron: '43 5 * * 1' # todas as segundas-feiras
+    - cron: '43 5 * * *' # todos os dias (os créditos grátis da PokemonPriceTracker renovam-se por dia)
   push:
     paths:
       - 'scripts/mercado.py'
