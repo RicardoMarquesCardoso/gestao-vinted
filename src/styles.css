@@ -666,11 +666,17 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .pequeno { font-size: 0.85rem; }
 .linha-botoes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
 
-/* Quatro filtros de produtos: 2×2 no telemóvel */
-.abas-produtos { display: grid; grid-template-columns: repeat(4, 1fr); }
-.abas-produtos button { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 6px; }
-.aba-n { font-size: 0.75rem; opacity: 0.7; font-variant-numeric: tabular-nums; }
-@media (max-width: 520px) { .abas-produtos { grid-template-columns: repeat(2, 1fr); } }
+/* Quatro filtros de produtos: ícone + contagem (+ nome no computador), numa só linha */
+.abas-produtos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 4px; background: var(--superficie-2); border-radius: 14px; }
+.abas-produtos button {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  min-height: 64px; padding: 8px 4px; border: 0; border-radius: 11px; background: transparent;
+  color: var(--texto-2); font: inherit; cursor: pointer;
+}
+.abas-produtos button.ativo { background: color-mix(in srgb, var(--primario) 55%, var(--superficie)); color: var(--primario-texto); }
+.aba-n { font-size: 0.9rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.aba-nome { display: none; font-size: 0.75rem; }
+@media (min-width: 861px) { .aba-nome { display: block; } .abas-produtos button { flex-direction: row; gap: 8px; min-height: 48px; } }
 
 /* Investimento */
 .kpis-cartao { margin-bottom: 8px; }
