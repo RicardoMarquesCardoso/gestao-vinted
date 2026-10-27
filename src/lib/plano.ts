@@ -140,7 +140,20 @@ export function referencia(p: Produto, ctx: Contexto): Referencia | null {
   // Pokémon: preço do TCGplayer (EUA), convertido para euros. É uma referência fraca (outro mercado).
   const pk = ehPokemon(p) ? precoPokemon(ctx.mercado, p.nome, idsPokemon(ctx.dados.definicoes), custoUnitario(p)) : null;
   if (pk?.eur) return { preco: pk.eur, fonte: 'tcgplayer', texto: `TCGplayer (EUA): ~${Math.round(pk.eur)} €` };
-  if (m?.pvp && m.retirado === false && novo) return { preco: m.pvp * 0.8, fonte: 'pvp', texto: `ainda à venda (PVP ${Math.round(m.pvp)} €, com desconto ~20%)` };
+  // PVP (Brickset, LEGO Alemanha). Ainda à venda: as lojas fazem descontos, conta-se ~80% do PVP.
+  // Já retirado: parte do PVP e aplica a valorização esperada desde a retirada (as mesmas taxas das
+  // regras usadas para decidir guardar), no máximo o dobro do PVP. Se o preço ficar alto demais,
+  // a tarefa "baixar o preço" corrige ao fim de algum tempo sem vender.
+  if (m?.pvp && novo && m.retirado === false) return { preco: m.pvp * 0.8, fonte: 'pvp', texto: `ainda à venda (PVP ${Math.round(m.pvp)} €, com desconto ~20%)` };
+  if (m?.pvp && novo && m.retirado === true) {
+    const anos = m.retirada ? Math.max(diasEntre(m.retirada, ctx.hoje), 0) / 365 : 0;
+    const fator = Math.min(Math.pow(1 + r.valorizacaoRetirado, Math.min(anos, 2)) * Math.pow(1 + r.valorizacaoDepois, Math.max(anos - 2, 0)), 2);
+    return {
+      preco: m.pvp * fator,
+      fonte: 'pvp',
+      texto: `retirado${m.retirada ? ` em ${mesAno(m.retirada)}` : ''}, PVP ${Math.round(m.pvp)} € → estimado ~${Math.round(m.pvp * fator)} € hoje`,
+    };
+  }
   return null;
 }
 

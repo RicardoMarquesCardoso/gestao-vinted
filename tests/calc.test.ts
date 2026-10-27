@@ -310,3 +310,12 @@ test('eBay: preço pedido com desconto como referência de sets novos', () => {
   const usado = { ...p, condicao: 'Usado completo' };
   assert.equal(sugerirPlano(usado, { dados: { produtos: [usado], vendas: [], definicoes: [] }, mercado: merc, hoje: '2026-10-27' }).referencia, null);
 });
+
+test('PVP como referência: com desconto se à venda, inteiro se retirado', () => {
+  const merc = { brickset: { '10327': ['2023-06-01', '2026-07-31', 164.99, null, 'Retired'] as never }, bricklink: {} };
+  const p = produto({ id: 'r', set_numero: '10327', preco_compra: 90, estado: 'por_anunciar', condicao: null });
+  const pl = sugerirPlano(p, { dados: { produtos: [p], vendas: [], definicoes: [] }, mercado: merc, hoje: '2026-10-27' });
+  assert.equal(pl.referencia?.fonte, 'pvp');
+  assert.equal(Math.round(pl.referencia!.preco), Math.round(164.99 * Math.pow(1.2, 88 / 365))); // 3 meses depois de retirado
+  assert.equal(pl.acao, 'vender');
+});
