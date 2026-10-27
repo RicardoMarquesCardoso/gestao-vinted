@@ -2,16 +2,28 @@ import { BotaoTopo } from './ui';
 
 export interface VerProdutos {
   porVender: boolean;
+  anunciados: boolean;
+  pendentes: boolean;
   vendidos: boolean;
 }
 
-/** Topo de "Produtos": título, ícones e dois botões que se podem ligar ao mesmo tempo. */
-export function CabecalhoProdutos(props: { ver: VerProdutos; mudar(v: VerProdutos): void; exportar(): void; adicionar(): void }) {
+const BOTOES: { k: keyof VerProdutos; nome: string }[] = [
+  { k: 'porVender', nome: 'Por vender' },
+  { k: 'anunciados', nome: 'Anunciados' },
+  { k: 'pendentes', nome: 'Pendentes' },
+  { k: 'vendidos', nome: 'Vendidos' },
+];
+
+/** Topo de "Produtos": título, ícones e filtros que se podem ligar ao mesmo tempo. */
+export function CabecalhoProdutos(props: { ver: VerProdutos; mudar(v: VerProdutos): void; contagens?: Record<keyof VerProdutos, number>; exportar(): void; adicionar(): void }) {
   const { ver } = props;
-  // Pelo menos um tem de ficar ligado: desligar o último liga o outro.
   const alternar = (k: keyof VerProdutos) => {
     const novo = { ...ver, [k]: !ver[k] };
-    if (!novo.porVender && !novo.vendidos) novo[k === 'porVender' ? 'vendidos' : 'porVender'] = true;
+    // "Anunciados" já está dentro de "Por vender": ligar um desliga o outro.
+    if (novo[k] && k === 'anunciados') novo.porVender = false;
+    if (novo[k] && k === 'porVender') novo.anunciados = false;
+    // Pelo menos um tem de ficar ligado
+    if (!BOTOES.some((b) => novo[b.k])) return;
     props.mudar(novo);
   };
   return (
@@ -24,12 +36,12 @@ export function CabecalhoProdutos(props: { ver: VerProdutos; mudar(v: VerProduto
         </div>
       </div>
       <div className="segmentos segmentos-largos abas-produtos" role="group" aria-label="Mostrar">
-        <button aria-pressed={ver.porVender} className={ver.porVender ? 'ativo' : ''} onClick={() => alternar('porVender')}>
-          {ver.porVender ? '✓ ' : ''}Por vender
-        </button>
-        <button aria-pressed={ver.vendidos} className={ver.vendidos ? 'ativo' : ''} onClick={() => alternar('vendidos')}>
-          {ver.vendidos ? '✓ ' : ''}Vendidos
-        </button>
+        {BOTOES.map((b) => (
+          <button key={b.k} aria-pressed={ver[b.k]} className={ver[b.k] ? 'ativo' : ''} onClick={() => alternar(b.k)}>
+            {ver[b.k] ? '✓ ' : ''}{b.nome}
+            {props.contagens?.[b.k] !== undefined && <span className="aba-n">{props.contagens[b.k]}</span>}
+          </button>
+        ))}
       </div>
     </>
   );

@@ -657,3 +657,9 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .texto-vinted-titulo { font-weight: 600; }
 .pequeno { font-size: 0.85rem; }
 .linha-botoes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+
+/* Quatro filtros de produtos: 2×2 no telemóvel */
+.abas-produtos { display: grid; grid-template-columns: repeat(4, 1fr); }
+.abas-produtos button { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 6px; }
+.aba-n { font-size: 0.75rem; opacity: 0.7; font-variant-numeric: tabular-nums; }
+@media (max-width: 520px) { .abas-produtos { grid-template-columns: repeat(2, 1fr); } }
