@@ -227,12 +227,12 @@ def pokemon(produtos, chave):
     - Com associação manual (id_manual): pede esse produto e o preço é fiável.
     - Sem associação: pesquisa pelo nome. Só aceita o resultado se for inequívoco — todas as
       palavras "distintivas" do nosso nome (não genéricas como "box" ou "elite") aparecem nele
-      e nenhum outro resultado empata. Caso contrário guarda até 5 "candidatos", e a app
+      e nenhum outro resultado empata. Caso contrário guarda até 3 "candidatos", e a app
       pergunta qual é o certo (fica em definicoes.pokemon_ids e entra na atualização seguinte).
     """
     taxa = taxa_usd_eur()
     cab = {'Authorization': f'Bearer {chave}'}
-    procurar = lambda q: _lista(pedir(f"{PPT}?{urllib.parse.urlencode({'search': q, 'limit': 5})}", headers=cab, tentativas=2))  # noqa: E731
+    procurar = lambda q: _lista(pedir(f"{PPT}?{urllib.parse.urlencode({'search': q, 'limit': 3})}", headers=cab, tentativas=2))  # noqa: E731
     res, mostrou = {}, False
     for p in produtos:
         try:
@@ -272,8 +272,8 @@ def pokemon(produtos, chave):
             res[p['chave']] = {**_resumo(topo, taxa), 'auto': True}
             print(f"  {p['nome']} → {topo.get('name')}")
         else:
-            res[p['chave']] = {'auto': True, 'candidatos': [_resumo(i, taxa) for i in itens[:5]]}
-            print(f"  {p['nome']}: {len(itens[:5])} candidatos, falta escolher")
+            res[p['chave']] = {'auto': True, 'candidatos': [_resumo(i, taxa) for i in itens[:3]]}
+            print(f"  {p['nome']}: {len(itens[:3])} candidatos, falta escolher")
     print(f'Pokémon: {sum(1 for r in res.values() if r.get("usd"))} de {len(produtos)} com preço (1 $ = {taxa:.3f} €)')
     return res
 
