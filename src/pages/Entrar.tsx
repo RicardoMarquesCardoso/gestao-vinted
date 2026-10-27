@@ -1,3 +1,4 @@
+import { Logo } from '../components/ui';
 import { useState } from 'react';
 import { entrar } from '../lib/supabase';
 
@@ -25,8 +26,8 @@ export function Entrar(props: { aoEntrar(email: string): void; aoDemo(): void; m
     <div className="entrar">
       <form className="entrar-caixa" onSubmit={submeter}>
         <div className="marca marca-grande">
-          <span className="marca-tijolo" aria-hidden="true" />
-          <span>Gestão Vinted</span>
+          <Logo />
+          <span>VinteDuo</span>
         </div>
         <p className="mudo">Compras, vendas e lucro, sincronizados entre os dois.</p>
         <label className="campo">

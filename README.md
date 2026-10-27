@@ -1,4 +1,4 @@
-# Gestão Vinted
+# VinteDuo
 
 App web para gerir compras e vendas de brinquedos (sobretudo LEGO) na Vinted, a dois, com os dados sincronizados. Funciona no telemóvel e no computador e pode ser instalada no ecrã inicial.
 

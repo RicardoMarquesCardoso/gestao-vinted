@@ -101,6 +101,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .marca-tijolo::before { left: 3px; }
 .marca-tijolo::after { right: 3px; }
 .marca-grande { font-size: 1.4rem; padding: 0; margin-bottom: 4px; }
+.marca .logo { flex: none; }
+.marca-grande .logo { width: 40px; height: 40px; }
 
 @media (max-width: 860px) {
   .lateral { display: none; }

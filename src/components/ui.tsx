@@ -552,3 +552,16 @@ export function NomeComSugestoes(props: {
     </div>
   );
 }
+
+/** Logo VinteDuo: coração de duas peças de encaixar. */
+export function Logo({ tamanho = 28 }: { tamanho?: number }) {
+  return (
+    <svg className="logo" width={tamanho} height={tamanho} viewBox="85 95 342 322" aria-hidden="true">
+      <path fill="#c8201a" fillRule="evenodd" d="M115 270A100 100 0 0 1 256 129ZM178 164a28 28 0 1 0-56 0a28 28 0 1 0 56 0Z" />
+      <path fill="#de2b23" fillRule="evenodd" d="M256 129A100 100 0 0 1 397 270L256 411L115 270ZM390 164a28 28 0 1 0-56 0a28 28 0 1 0 56 0Z" />
+      <path d="M256 129L115 270" stroke="#a51812" strokeWidth="5" />
+      <g fill="#a51812"><circle cx="256" cy="204" r="31" /><circle cx="256" cy="345" r="31" /><circle cx="185" cy="274" r="31" /><circle cx="327" cy="274" r="31" /></g>
+      <g fill="#ea3a31"><circle cx="256" cy="198" r="29" /><circle cx="256" cy="339" r="29" /><circle cx="185" cy="268" r="29" /><circle cx="327" cy="268" r="29" /></g>
+    </svg>
+  );
+}

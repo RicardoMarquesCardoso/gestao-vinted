@@ -131,7 +131,7 @@ export function Definicoes(props: { aoSair(): void }) {
           Em Inventário, Compras e Vendas há um botão "Exportar CSV" que exporta a lista com os filtros aplicados (abre no Excel). Aqui podes
           descarregar uma cópia de segurança completa.
         </p>
-        <button className="btn" onClick={() => descarregar(`gestao-vinted-copia-${hoje()}.json`, JSON.stringify(dados, null, 2), 'application/json')}>
+        <button className="btn" onClick={() => descarregar(`vinteduo-copia-${hoje()}.json`, JSON.stringify(dados, null, 2), 'application/json')}>
           Descarregar cópia de segurança (JSON)
         </button>
       </Cartao>

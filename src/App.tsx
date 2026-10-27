@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { AcoesProvider } from './components/acoes';
-import { ConfirmarProvider } from './components/ui';
+import { Logo, ConfirmarProvider } from './components/ui';
 import { hoje } from './lib/format';
 import { dadosExemplo } from './lib/sample';
 import { demoTemDados, storeDemo, storeSupabase } from './lib/store';
@@ -142,8 +142,8 @@ function Estrutura({ aoSair }: { aoSair(): void }) {
     <div className="app">
       <aside className="lateral">
         <div className="marca">
-          <span className="marca-tijolo" aria-hidden="true" />
-          <span>Gestão Vinted</span>
+          <Logo />
+          <span>VinteDuo</span>
         </div>
         <nav>
           {MENU.map((m) => (
@@ -164,8 +164,8 @@ function Estrutura({ aoSair }: { aoSair(): void }) {
 
       <header className="topo-movel">
         <div className="marca">
-          <span className="marca-tijolo" aria-hidden="true" />
-          <span>Gestão Vinted</span>
+          <Logo />
+          <span>VinteDuo</span>
           {store.modo === 'demo' && <span className="chip chip-demo">demo</span>}
         </div>
         <button className="btn-icone" onClick={atualizar} aria-label="Atualizar dados" disabled={aAtualizar}>
