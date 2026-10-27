@@ -5,6 +5,8 @@ import { Cartao } from '../components/ui';
 import { PREDEFINICOES, estatisticas, idadeStock, intervaloDe, lotes } from '../lib/calc';
 import type { Intervalo, Predefinicao } from '../lib/calc';
 import { fmtEuro, fmtMes, fmtNum, hoje, plural } from '../lib/format';
+import { investimento, useMercado } from '../lib/investimento';
+import type { LinhaInvestimento } from '../lib/investimento';
 import { useDados } from '../state';
 
 export function Analises() {
@@ -15,7 +17,6 @@ export function Analises() {
   const [ate, setAte] = useState('');
   const [conta, setConta] = useState('');
   const [texto, setTexto] = useState('');
-  const [verTodosSets, setVerTodosSets] = useState(false);
   const [verSub, setVerSub] = useState(false);
   const [verLotes, setVerLotes] = useState(false);
   const [rapidos, setRapidos] = useState(true);
@@ -27,7 +28,6 @@ export function Analises() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [dados, intervalo.inicio, intervalo.fim, conta, texto, h],
   );
-  const sets = verTodosSets ? e.porSet : e.porSet.slice(0, 10);
   const tempos = rapidos ? [...e.tempos].sort((a, b) => a.dias - b.dias).slice(0, 8) : e.tempos.slice(0, 8);
   const listaLotes = useMemo(() => lotes(dados), [dados]);
   const idade = useMemo(() => idadeStock(dados, h), [dados, h]);
@@ -69,6 +69,8 @@ export function Analises() {
           <small>da compra à venda</small>
         </div>
       </div>
+
+      <ResumoInvestimentoCartao />
 
       <Cartao titulo="Lucro por mês">
         <BarrasMensais dados={e.porMes.map((m) => ({ mes: m.mes, valor: m.lucro }))} nome="Lucro por mês" />
@@ -184,48 +186,7 @@ export function Analises() {
         )}
       </Cartao>
 
-      <Cartao titulo="Comparação por produto / set" acao={<span className="mudo">Agrupado pelo n.º do set ou, se não houver, pelo nome</span>}>
-        {e.porSet.length === 0 ? (
-          <p className="mudo">Sem produtos.</p>
-        ) : (
-          <div className="tabela-scroll">
-            <table className="tabela">
-              <thead>
-                <tr>
-                  <th>Produto</th>
-                  <th className="num">Compradas</th>
-                  <th className="num">Vendidas</th>
-                  <th className="num">Custo médio</th>
-                  <th className="num">Venda média</th>
-                  <th className="num">Lucro médio</th>
-                  <th className="num">Dias até vender</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sets.map((s) => (
-                  <tr key={s.chave}>
-                    <td>
-                      <span className="truncar">{s.nome}</span>
-                      {s.setNumero && <small className="mudo"> · {s.setNumero}</small>}
-                    </td>
-                    <td className="num">{s.compradas}</td>
-                    <td className="num">{s.vendidas}</td>
-                    <td className="num">{s.custoMedioCompra !== null ? fmtEuro(s.custoMedioCompra) : '—'}</td>
-                    <td className="num">{s.precoMedioVenda !== null ? fmtEuro(s.precoMedioVenda) : '—'}</td>
-                    <td className={`num ${s.lucroMedio !== null && s.lucroMedio < 0 ? 'negativo' : ''}`}>{s.lucroMedio !== null ? fmtEuro(s.lucroMedio) : '—'}</td>
-                    <td className="num">{s.diasMedios ?? '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-        {e.porSet.length > 10 && (
-          <button className="link" onClick={() => setVerTodosSets((x) => !x)}>
-            {verTodosSets ? 'Mostrar menos' : `Mostrar todos (${e.porSet.length})`}
-          </button>
-        )}
-      </Cartao>
+      <PorSet texto={texto} />
 
       <Cartao
         titulo="Tempo até vender"
@@ -255,5 +216,149 @@ function ListaTempos(props: { itens: { produto: { id: string; nome: string }; di
         </li>
       ))}
     </ul>
+  );
+}
+
+const pctAno = (x: number | null) => (x === null ? '—' : Math.abs(x) >= 10 ? `${x > 0 ? '>' : '<−'}999%` : `${fmtNum(x * 100)}%`);
+
+/** Quanto rende o dinheiro e quanto tempo fica preso (desde sempre, inclui o que já foi vendido). */
+function ResumoInvestimentoCartao() {
+  const { dados } = useDados();
+  const mercado = useMercado();
+  const h = hoje();
+  const r = useMemo(() => investimento(dados, mercado, h), [dados, mercado, h]);
+  const ganho = r.custoComEstimativa > 0 ? r.valorEstimadoStock / r.custoComEstimativa - 1 : null;
+  const semBrickset = mercado !== null && !Object.keys(mercado.brickset).length;
+  return (
+    <Cartao titulo="Investimento" acao={<span className="mudo">Desde sempre</span>}>
+      <div className="kpis kpis-cartao">
+        <div className="kpi kpi-destaque">
+          <span>Rentabilidade por ano</span>
+          <strong className={r.rentabAnual !== null && r.rentabAnual < 0 ? 'negativo' : ''}>{pctAno(r.rentabAnual)}</strong>
+          <small>lucro ÷ dinheiro preso, em {plural(r.vendasComTempo, 'venda', 'vendas')} com datas</small>
+        </div>
+        <div className="kpi">
+          <span>Dinheiro preso por venda</span>
+          <strong>{r.diasMedioVenda !== null ? plural(r.diasMedioVenda, 'dia', 'dias') : '—'}</strong>
+          <small>em média, da compra à venda · ROI {r.roi !== null ? `${fmtNum(r.roi * 100)}%` : '—'}</small>
+        </div>
+        <div className="kpi">
+          <span>Dinheiro em stock</span>
+          <strong>{fmtEuro(r.stockCusto)}</strong>
+          <small>{plural(r.stockUnidades, 'unidade', 'unidades')}{r.stockDiasMedio !== null ? ` · há ${plural(r.stockDiasMedio, 'dia', 'dias')} em média` : ''}</small>
+        </div>
+        <div className="kpi">
+          <span>Valor estimado do stock</span>
+          <strong>{r.custoComEstimativa > 0 ? fmtEuro(r.valorEstimadoStock) : '—'}</strong>
+          <small>
+            {ganho !== null ? `${ganho >= 0 ? '+' : ''}${fmtNum(ganho * 100)}% sobre o custo` : 'sem dados'}
+            {r.custoComEstimativa > 0 && r.custoComEstimativa < r.stockCusto - 0.01 ? ` · ${fmtNum((r.custoComEstimativa / r.stockCusto) * 100)}% do stock` : ''}
+          </small>
+        </div>
+      </div>
+      <p className="nota">
+        A rentabilidade por ano tem em conta o tempo: 20% de lucro em 2 meses vale mais do que 20% em 2 anos. O valor do stock usa os preços de venda da
+        BrickLink (Europa, últimos 6 meses) e, sem isso, a vossa venda média do mesmo set.
+        {semBrickset && ' Os dados da Brickset e da BrickLink ainda não estão ligados.'}
+        {r.vendasSemTempo > 0 && ` ${plural(r.vendasSemTempo, 'venda não entra', 'vendas não entram')} na rentabilidade por falta de datas.`}
+      </p>
+    </Cartao>
+  );
+}
+
+type OrdemSets = 'rentab' | 'parado' | 'lucro';
+
+/** Tabela por set: o que já se vendeu, o que está parado e o estado do set no mercado. */
+function PorSet({ texto }: { texto: string }) {
+  const { dados } = useDados();
+  const mercado = useMercado();
+  const h = hoje();
+  const [ordem, setOrdem] = useState<OrdemSets>('rentab');
+  const [todos, setTodos] = useState(false);
+  const r = useMemo(() => investimento(dados, mercado, h), [dados, mercado, h]);
+  const t = texto.trim().toLowerCase();
+  const linhas = r.linhas
+    .filter((l) => !t || l.nome.toLowerCase().includes(t) || (l.setNumero ?? '').toLowerCase().includes(t))
+    .sort((a, b) =>
+      ordem === 'parado'
+        ? b.custoStock - a.custoStock
+        : ordem === 'lucro'
+          ? b.lucro - a.lucro
+          : (b.rentabAnual ?? -Infinity) - (a.rentabAnual ?? -Infinity) || b.lucro - a.lucro,
+    );
+  const visiveis = todos ? linhas : linhas.slice(0, 12);
+  return (
+    <Cartao
+      titulo="Por set"
+      acao={
+        <div className="segmentos segmentos-mini" role="group" aria-label="Ordenar">
+          <button className={ordem === 'rentab' ? 'ativo' : ''} onClick={() => setOrdem('rentab')}>Rentabilidade</button>
+          <button className={ordem === 'parado' ? 'ativo' : ''} onClick={() => setOrdem('parado')}>Em stock</button>
+          <button className={ordem === 'lucro' ? 'ativo' : ''} onClick={() => setOrdem('lucro')}>Lucro</button>
+        </div>
+      }
+    >
+      {linhas.length === 0 ? (
+        <p className="mudo">Sem produtos.</p>
+      ) : (
+        <div className="tabela-scroll">
+          <table className="tabela">
+            <thead>
+              <tr>
+                <th>Produto</th>
+                <th className="num">Vendidas</th>
+                <th className="num">Lucro</th>
+                <th className="num">Por ano</th>
+                <th className="num">Dias até vender</th>
+                <th className="num">Em stock</th>
+                <th className="num">Dias parado</th>
+                <th className="num">Valor estimado</th>
+                <th>Set</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visiveis.map((l) => (
+                <tr key={l.chave}>
+                  <td>
+                    <span className="truncar">{l.nome}</span>
+                    {l.setNumero && <small className="mudo"> · {l.setNumero}</small>}
+                  </td>
+                  <td className="num">{l.vendidas || '—'}</td>
+                  <td className={`num ${l.lucro < 0 ? 'negativo' : ''}`}>{l.vendidas ? fmtEuro(l.lucro) : '—'}</td>
+                  <td className={`num ${l.rentabAnual !== null && l.rentabAnual < 0 ? 'negativo' : ''}`}>{pctAno(l.rentabAnual)}</td>
+                  <td className="num">{l.diasMedioVenda ?? '—'}</td>
+                  <td className="num">{l.emStock ? `${l.emStock} · ${fmtEuro(l.custoStock)}` : '—'}</td>
+                  <td className="num">{l.emStock ? l.diasMedioStock ?? '—' : '—'}</td>
+                  <td className="num" title={l.fonteValor === 'bricklink' ? 'BrickLink, sem IVA' : l.fonteValor === 'vendas' ? 'Pela vossa venda média' : ''}>
+                    {l.valorEstimadoStock !== null ? fmtEuro(l.valorEstimadoStock) : '—'}
+                    {l.fonteValor === 'vendas' && <small className="mudo"> *</small>}
+                  </td>
+                  <td><EstadoSet l={l} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {linhas.length > 12 && (
+        <button className="link" onClick={() => setTodos((x) => !x)}>
+          {todos ? 'Mostrar menos' : `Mostrar todos (${linhas.length})`}
+        </button>
+      )}
+      <p className="nota">Por ano = rentabilidade anualizada das vendas. * Valor estimado pela vossa venda média (sem dados da BrickLink).</p>
+    </Cartao>
+  );
+}
+
+function EstadoSet({ l }: { l: LinhaInvestimento }) {
+  const m = l.mercado;
+  if (!m) return <span className="mudo">—</span>;
+  const ano = (s: string | null) => (s ? s.slice(0, 4) : '');
+  return (
+    <span className="estado-set">
+      {m.retirado === true ? <span className="chip chip-ok">retirado {ano(m.retirada)}</span> : m.retirado === false ? <span className="chip">à venda</span> : null}
+      {m.lancamento && <small className="mudo"> desde {ano(m.lancamento)}</small>}
+      {m.pvp ? <small className="mudo"> · PVP {fmtEuro(m.pvp)}</small> : null}
+    </span>
   );
 }

@@ -1,0 +1,42 @@
+name: Atualizar dados de mercado (Brickset e BrickLink)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '43 5 * * 1' # todas as segundas-feiras
+  push:
+    paths:
+      - 'scripts/mercado.py'
+      - '.github/workflows/mercado.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dados-gerados
+  cancel-in-progress: false
+
+jobs:
+  mercado:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python scripts/mercado.py public/mercado-sets.json docs/mercado-sets.json
+        env:
+          BRICKSET_API_KEY: ${{ secrets.BRICKSET_API_KEY }}
+          BRICKLINK_CONSUMER_KEY: ${{ secrets.BRICKLINK_CONSUMER_KEY }}
+          BRICKLINK_CONSUMER_SECRET: ${{ secrets.BRICKLINK_CONSUMER_SECRET }}
+          BRICKLINK_TOKEN: ${{ secrets.BRICKLINK_TOKEN }}
+          BRICKLINK_TOKEN_SECRET: ${{ secrets.BRICKLINK_TOKEN_SECRET }}
+          VINTEDUO_TOKEN: ${{ secrets.VINTEDUO_TOKEN }}
+      - name: Guardar alterações
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add public/mercado-sets.json docs/mercado-sets.json
+          git diff --cached --quiet || git commit -m "Atualizar dados de mercado"
+          git pull --rebase
+          git push

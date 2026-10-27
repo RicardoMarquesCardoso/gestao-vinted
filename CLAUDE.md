@@ -20,6 +20,12 @@ Guardar os dados que permitam estas análises desde já, mesmo que ainda não ap
   - São preenchidos automaticamente em `state.tsx` → `atualizarPeriodos` (`src/lib/anuncios.ts`).
   - Os registos com `aproximado: true` foram reconstruídos a partir de `data_anuncio`.
 - Catálogo oficial de sets (Rebrickable) em `public/catalogo-sets.json`, com o ano de lançamento. É atualizado todos os meses pela GitHub Action.
+- Dados de mercado em `public/mercado-sets.json`, gerados todas as semanas por `scripts/mercado.py` (`.github/workflows/mercado.yml`):
+  - **Brickset**: lançamento, retirada, PVP e disponibilidade de todos os sets desde 2005.
+  - **BrickLink**: preço médio de venda dos últimos 6 meses na Europa (EUR, sem IVA), novo e usado, só para os nossos sets.
+  - A lista dos nossos sets vem da função `sets_mercado(token)` no Supabase, protegida pelo `token_mercado` (em `definicoes`) e pelo segredo `VINTEDUO_TOKEN`.
+  - As chaves ficam só nos segredos do GitHub, nunca no código, porque o repositório é público.
+- Cálculos de investimento em `src/lib/investimento.ts`: rentabilidade anualizada = lucro ÷ (custo × dias ÷ 365). Contam os vendidos e o stock.
 
 ## Regras do negócio
 

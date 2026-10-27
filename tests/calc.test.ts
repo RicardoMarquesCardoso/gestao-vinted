@@ -200,3 +200,26 @@ test('períodos de anúncio', () => {
   assert.equal(diasAnunciado({ anuncios: a3 }, '2026-12-01'), 10);
   assert.equal(atualizarPeriodos(p3, { id: 'p1', nome: 'x' }, 'agora'), undefined);
 });
+
+import { investimento, infoMercado } from '../src/lib/investimento.ts';
+
+test('investimento: rentabilidade anualizada e stock', () => {
+  const ps = [
+    produto({ id: 'a', set_numero: '75192', data_compra: '2026-01-01', preco_compra: 100, estado: 'vendido', condicao: 'Novo e selado' }),
+    produto({ id: 'b', set_numero: '75192', data_compra: '2026-06-01', preco_compra: 100, estado: 'anunciado', condicao: 'Novo e selado' }),
+  ];
+  const vs = [venda({ produto_id: 'a', preco_venda: 150, data_venda: '2026-07-01' })]; // 181 dias, +50
+  const m = { brickset: { '75192': ['2017-10-01', '2024-12-31', 849.99, 649.99, 'Retired'] as never }, bricklink: { '75192': { n: [700, 12] as [number, number] } } };
+  const r = investimento({ produtos: ps, vendas: vs }, m, '2026-10-01');
+  assert.equal(r.lucro, 50);
+  assert.equal(Math.round(r.rentabAnual! * 1000) / 1000, Math.round((50 / (100 * 181 / 365)) * 1000) / 1000);
+  assert.equal(r.stockCusto, 100);
+  assert.equal(r.stockDiasMedio, 122);
+  assert.equal(r.valorEstimadoStock, 700);
+  const l = r.linhas[0];
+  assert.equal(l.fonteValor, 'bricklink');
+  assert.equal(l.mercado!.retirado, true);
+  assert.equal(infoMercado(m, '99999', '2026-10-01'), null);
+  // sem BrickLink, o valor vem da nossa venda média
+  assert.equal(investimento({ produtos: ps, vendas: vs }, null, '2026-10-01').valorEstimadoStock, 150);
+});
