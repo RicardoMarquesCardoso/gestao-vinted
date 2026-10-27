@@ -206,14 +206,33 @@ export interface UsoConta {
   anunciosAtivos: number;
   vendasPeriodo: number;
   valorPeriodo: number;
+  externas: number; // vendas fora da app incluídas
+  externasValor: number;
 }
 
-export function usoConta(c: Conta, d: Pick<Dados, 'produtos' | 'vendas'>, hoje: string): UsoConta {
+/** Vendas feitas na conta mas fora do negócio: só contam para os limites (guardadas em Definições). */
+export interface VendaExterna {
+  conta_id: string;
+  data: string;
+  valor: number;
+  descricao?: string;
+}
+
+export const CHAVE_EXTERNAS = 'vendas_externas';
+
+export function vendasExternas(d: Pick<Dados, 'definicoes'>): VendaExterna[] {
+  const v = d.definicoes?.find((x) => x.chave === CHAVE_EXTERNAS)?.valor as unknown;
+  return Array.isArray(v) ? (v as VendaExterna[]) : [];
+}
+
+export function usoConta(c: Conta, d: Pick<Dados, 'produtos' | 'vendas'> & Partial<Pick<Dados, 'definicoes'>>, hoje: string): UsoConta {
   const periodo = periodoConta(c, hoje);
   const anunciosAtivos = d.produtos.filter((p) => p.conta_id === c.id && p.estado === 'anunciado').length;
   const vendas = d.vendas.filter((v) => v.conta_id === c.id && vendaValida(v) && dentro(v.data_venda, periodo));
-  const vendasPeriodo = vendas.length;
-  const valorPeriodo = soma(vendas.map((v) => v.preco_venda));
+  const externas = vendasExternas({ definicoes: d.definicoes ?? [] }).filter((x) => x.conta_id === c.id && dentro(x.data, periodo));
+  const externasValor = soma(externas.map((x) => x.valor));
+  const vendasPeriodo = vendas.length + externas.length;
+  const valorPeriodo = arred(soma(vendas.map((v) => v.preco_venda)) + externasValor);
   const alerta = c.alerta_pct || 80;
   const limites = [
     uso('Anúncios ativos', anunciosAtivos, c.limite_anuncios, alerta),
@@ -222,7 +241,7 @@ export function usoConta(c: Conta, d: Pick<Dados, 'produtos' | 'vendas'>, hoje: 
   ];
   const ordem: Nivel[] = ['sem_limite', 'ok', 'aviso', 'excedido'];
   const nivel = limites.reduce<Nivel>((n, l) => (ordem.indexOf(l.nivel) > ordem.indexOf(n) ? l.nivel : n), 'sem_limite');
-  return { conta: c, periodo, limites, nivel, anunciosAtivos, vendasPeriodo, valorPeriodo };
+  return { conta: c, periodo, limites, nivel, anunciosAtivos, vendasPeriodo, valorPeriodo, externas: externas.length, externasValor };
 }
 
 // ---------- Estatísticas ----------

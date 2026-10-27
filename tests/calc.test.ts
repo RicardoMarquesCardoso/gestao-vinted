@@ -144,3 +144,19 @@ test('lotes de compra e idade do stock', () => {
   ]);
   assert.equal(i.antigos[0].produto.id, 'b');
 });
+
+test('vendas fora da app contam para os limites', () => {
+  const c = conta({ periodo: 'anual', limite_vendas: 30, limite_valor: 2000 });
+  const u = usoConta(
+    c,
+    {
+      produtos: [],
+      vendas: [venda({ data_venda: '2026-03-01', preco_venda: 50 })],
+      definicoes: [{ chave: 'vendas_externas', valor: [{ conta_id: 'c1', data: '2026-04-01', valor: 130 }, { conta_id: 'c1', data: '2025-10-30', valor: 400 }] as never }],
+    },
+    '2026-10-27',
+  );
+  assert.equal(u.vendasPeriodo, 2);
+  assert.equal(u.valorPeriodo, 180);
+  assert.equal(u.externas, 1);
+});

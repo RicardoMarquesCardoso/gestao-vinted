@@ -644,3 +644,4 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .segmentos-mini { margin: 0; }
 .segmentos-mini button { padding: 5px 10px; font-size: 0.8rem; }
 @media (max-width: 640px) { .col-opcional { display: none; } }
+.conta-externas { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.82rem; margin-top: 8px; }

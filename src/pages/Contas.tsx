@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useAbrir } from '../components/acoes';
-import { BarraLimite, Cartao, Vazio, Valor } from '../components/ui';
-import { liquidoVenda, lucroVenda, usoConta, vendaValida } from '../lib/calc';
-import { fmtData, fmtEuro, hoje, plural } from '../lib/format';
+import { BarraLimite, Campo, Cartao, Dinheiro, Janela, Vazio, Valor } from '../components/ui';
+import { CHAVE_EXTERNAS, liquidoVenda, lucroVenda, usoConta, vendaValida, vendasExternas } from '../lib/calc';
+import type { VendaExterna } from '../lib/calc';
+import { fmtData, fmtEuro, hoje, lerNumero, plural } from '../lib/format';
 import { PERIODOS } from '../lib/types';
 import { useDados } from '../state';
 
@@ -12,6 +13,7 @@ export function Contas() {
   const h = hoje();
   const usos = useMemo(() => dados.contas.map((c) => usoConta(c, dados, h)), [dados, h]);
   const produtoPorId = new Map(dados.produtos.map((p) => [p.id, p]));
+  const [externaPara, setExternaPara] = useState<string | null>(null);
 
   return (
     <div className="pagina">
@@ -61,6 +63,16 @@ export function Contas() {
                 {u.limites.map((l) => (
                   <BarraLimite key={l.nome} l={l} />
                 ))}
+                <div className="conta-externas">
+                  {u.externas > 0 && (
+                    <span className="mudo">
+                      Inclui {plural(u.externas, 'venda', 'vendas')} fora da app ({fmtEuro(u.externasValor)})
+                    </span>
+                  )}
+                  <button className="link" onClick={() => setExternaPara(c.id)}>
+                    + Venda fora da app
+                  </button>
+                </div>
                 <div className="conta-totais">
                   <span>{plural(validas.length, 'venda', 'vendas')} no total</span>
                   <span>lucro <Valor n={lucro} sinal /></span>
@@ -87,6 +99,41 @@ export function Contas() {
       <p className="nota">
         Os limites são definidos por vocês em cada conta e servem para acompanhar a atividade. Confirmem sempre as regras atuais da Vinted.
       </p>
+      {externaPara && <FormExterna contaId={externaPara} aoFechar={() => setExternaPara(null)} />}
     </div>
+  );
+}
+
+/** Regista uma venda que não é do negócio mas conta para os limites da conta. */
+function FormExterna({ contaId, aoFechar }: { contaId: string; aoFechar(): void }) {
+  const { dados, guardar, aviso, nomeConta } = useDados();
+  const [valor, setValor] = useState('');
+  const [data, setData] = useState(hoje());
+  async function submeter() {
+    const v = lerNumero(valor);
+    if (!(v > 0)) return aviso('Indica o valor.', 'erro');
+    const nova: VendaExterna = { conta_id: contaId, data, valor: v };
+    await guardar('definicoes', [{ chave: CHAVE_EXTERNAS, valor: [...vendasExternas(dados), nova] as never }]);
+    aviso('Venda registada. Conta só para os limites.');
+    aoFechar();
+  }
+  return (
+    <Janela
+      titulo={`Venda fora da app · ${nomeConta(contaId)}`}
+      aoFechar={aoFechar}
+      rodape={
+        <>
+          <span className="espaco" />
+          <button className="btn" onClick={aoFechar}>Cancelar</button>
+          <button className="btn btn-primario" onClick={submeter}>Guardar</button>
+        </>
+      }
+    >
+      <p className="nota">Para vendas nesta conta que não são do negócio. Contam para os limites, mas não aparecem nos produtos, no lucro nem nos acertos.</p>
+      <div className="grelha-form">
+        <Campo rotulo="Valor"><Dinheiro valor={valor} mudar={setValor} /></Campo>
+        <Campo rotulo="Data"><input type="date" value={data} onChange={(e) => setData(e.target.value)} /></Campo>
+      </div>
+    </Janela>
   );
 }
