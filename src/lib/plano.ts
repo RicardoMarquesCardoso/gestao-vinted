@@ -36,6 +36,8 @@ export interface RegrasPlano {
   valorizacaoDepois: number;
   /** Valorização anual esperada dos produtos Pokémon selados (sem datas de retirada conhecidas). */
   valorizacaoPokemon: number;
+  /** Desconto sobre os preços pedidos no eBay (os anúncios costumam vender abaixo do preço pedido). */
+  descontoEbay: number;
 }
 
 export const REGRAS_PADRAO: RegrasPlano = {
@@ -49,6 +51,7 @@ export const REGRAS_PADRAO: RegrasPlano = {
   valorizacaoRetirado: 0.2,
   valorizacaoDepois: 0.07,
   valorizacaoPokemon: 0.15,
+  descontoEbay: 0.1,
 };
 
 /** Decisão tomada por vocês para um produto/set (sobrepõe-se à sugestão). */
@@ -82,7 +85,7 @@ export interface Contexto {
 
 export interface Referencia {
   preco: number; // preço por que se espera vender uma unidade agora
-  fonte: 'vendas' | 'bricklink' | 'pvp' | 'tcgplayer';
+  fonte: 'vendas' | 'bricklink' | 'ebay' | 'pvp' | 'tcgplayer';
   texto: string;
 }
 
@@ -106,8 +109,9 @@ const mesAno = (d: string) => {
 };
 export { mesAno };
 
-/** Preço de referência para vender agora: as nossas vendas recentes, a BrickLink ou o PVP. */
+/** Preço de referência para vender agora: as nossas vendas → BrickLink → eBay (com desconto) → TCGplayer (Pokémon) → PVP. */
 export function referencia(p: Produto, ctx: Contexto): Referencia | null {
+  const r = regrasPlano(ctx.dados.definicoes);
   const chave = chaveComparacao(p);
   const novo = produtoNovo(p);
   const produtos = new Map(ctx.dados.produtos.map((x) => [x.id, x]));
@@ -128,6 +132,11 @@ export function referencia(p: Produto, ctx: Contexto): Referencia | null {
   const m = infoMercado(ctx.mercado, p.set_numero, ctx.hoje);
   const bl = novo ? m?.blNovo : m?.blUsado ?? null;
   if (bl && bl[1] >= 2) return { preco: bl[0], fonte: 'bricklink', texto: `BrickLink: ${Math.round(bl[0])} € (${bl[1]} vendidos em 6 meses)` };
+  // eBay: preços pedidos (não de venda), por isso com desconto. Só para novos.
+  if (novo && m?.ebay && m.ebay[1] >= 3) {
+    const preco = m.ebay[0] * (1 - r.descontoEbay);
+    return { preco, fonte: 'ebay', texto: `eBay: anúncios a ~${Math.round(m.ebay[0])} € (${m.ebay[1]} na Europa), conta-se ~${Math.round(preco)} €` };
+  }
   // Pokémon: preço do TCGplayer (EUA), convertido para euros. É uma referência fraca (outro mercado).
   const pk = ehPokemon(p) ? precoPokemon(ctx.mercado, p.nome, idsPokemon(ctx.dados.definicoes), custoUnitario(p)) : null;
   if (pk?.eur) return { preco: pk.eur, fonte: 'tcgplayer', texto: `TCGplayer (EUA): ~${Math.round(pk.eur)} €` };

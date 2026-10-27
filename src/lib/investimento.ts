@@ -13,6 +13,9 @@ export interface Mercado {
   brickset: Record<string, LinhaBrickset>;
   /** Vendas dos últimos 6 meses na Europa, em EUR sem IVA: [média, n.º de unidades] */
   bricklink: Record<string, { n?: [number, number]; u?: [number, number] }>;
+  /** eBay europeu: [mediana do preço PEDIDO em EUR por sets novos, n.º de anúncios] */
+  ebay?: Record<string, [number, number]>;
+  ebay_atualizado?: string | null;
   /** Produtos Pokémon selados: chave = o nosso nome em minúsculas. Preço do TCGplayer (EUA). */
   pokemon?: Record<string, PrecoPokemon>;
   brickset_atualizado?: string | null;
@@ -105,7 +108,15 @@ export interface InfoMercado {
   pvp: number | null; // EUR (LEGO Alemanha)
   blNovo: [number, number] | null;
   blUsado: [number, number] | null;
+  /** eBay: [mediana do preço pedido (novos), n.º de anúncios] */
+  ebay: [number, number] | null;
 }
+
+/** Desconto a aplicar aos preços pedidos no eBay (regra "descontoEbay" em Definições; 10% por defeito). */
+export const descontoEbay = (defs: { chave: string; valor: unknown }[] | undefined): number => {
+  const r = (defs ?? []).find((d) => d.chave === 'regras_plano')?.valor as { descontoEbay?: number } | undefined;
+  return typeof r?.descontoEbay === 'number' ? r.descontoEbay : 0.1;
+};
 
 const numeroBase = (s: string) => s.trim().replace(/-\d+$/, '');
 
@@ -114,7 +125,8 @@ export function infoMercado(m: Mercado | null, setNumero: string | null, hoje: s
   const n = numeroBase(setNumero);
   const b = m.brickset[n];
   const bl = m.bricklink[n] ?? m.bricklink[setNumero.trim()];
-  if (!b && !bl) return null;
+  const eb = m.ebay?.[n] ?? null;
+  if (!b && !bl && !eb) return null;
   const retirada = b?.[1] ?? null;
   const retirado = retirada ? retirada <= hoje : b?.[4] ? /retired/i.test(b[4]) : null;
   return {
@@ -124,6 +136,7 @@ export function infoMercado(m: Mercado | null, setNumero: string | null, hoje: s
     pvp: b?.[2] ?? null,
     blNovo: bl?.n ?? null,
     blUsado: bl?.u ?? null,
+    ebay: eb,
   };
 }
 
@@ -145,7 +158,7 @@ export interface LinhaInvestimento {
   custoStock: number;
   diasMedioStock: number | null; // desde a compra, média pesada pelo custo
   valorEstimadoStock: number | null; // pelo preço de mercado (BrickLink) ou pelas nossas vendas
-  fonteValor: 'bricklink' | 'tcgplayer' | 'vendas' | null;
+  fonteValor: 'bricklink' | 'ebay' | 'tcgplayer' | 'vendas' | null;
   mercado: InfoMercado | null;
 }
 
@@ -186,7 +199,7 @@ export function investimento(d: Pick<Dados, 'produtos' | 'vendas'> & Partial<Pic
     custoStockComData: number;
     valorStock: number;
     custoStockComValor: number;
-    fonte: 'bricklink' | 'tcgplayer' | 'vendas' | null;
+    fonte: 'bricklink' | 'ebay' | 'tcgplayer' | 'vendas' | null;
     stock: Produto[];
   }
   const grupos = new Map<string, Acum>();
@@ -246,17 +259,19 @@ export function investimento(d: Pick<Dados, 'produtos' | 'vendas'> & Partial<Pic
   const linhas: LinhaInvestimento[] = [];
   for (const [chave, g] of grupos) {
     const mercado = infoMercado(m, g.setNumero, hoje);
-    // Valor estimado do stock: BrickLink (novo/usado conforme a condição) ou, sem isso, a nossa venda média líquida
+    // Valor estimado do stock: BrickLink → eBay (com desconto) → TCGplayer (Pokémon) → a nossa venda média líquida
     const vendaMedia = g.vendidas ? g.liquido / g.vendidas : null;
     for (const p of g.stock) {
       const u = unidadesDisponiveis(p, d.vendas);
       const bl = produtoNovo(p) ? mercado?.blNovo ?? null : mercado?.blUsado ?? mercado?.blNovo ?? null;
       const pk = precoPokemon(m, p.nome, idsPokemon(d.definicoes), custoUnitario(p));
-      const unit = bl ? bl[0] : pk ? pk.eur : vendaMedia;
+      // eBay só para novos (procuramos anúncios de novos), com desconto por serem preços pedidos
+      const eb = produtoNovo(p) && mercado?.ebay && mercado.ebay[1] >= 3 ? mercado.ebay[0] * (1 - descontoEbay(d.definicoes)) : null;
+      const unit = bl ? bl[0] : eb ?? (pk ? pk.eur : vendaMedia);
       if (unit === null) continue;
       g.valorStock += unit * u;
       g.custoStockComValor += custoUnitario(p) * u;
-      g.fonte = bl ? 'bricklink' : pk ? 'tcgplayer' : (g.fonte ?? 'vendas');
+      g.fonte = bl ? 'bricklink' : eb ? 'ebay' : pk ? 'tcgplayer' : (g.fonte ?? 'vendas');
     }
     linhas.push({
       chave,

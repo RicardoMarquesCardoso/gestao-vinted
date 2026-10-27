@@ -2,7 +2,7 @@
 # mercado (Brickset, BrickLink, PokemonPriceTracker) e grava public/ e docs/mercado-sets.json.
 # As chaves vêm dos "secrets" do repositório (Settings → Secrets and variables → Actions);
 # se uma faltar, essa fonte é simplesmente ignorada. Pode correr-se à mão em Actions → Run workflow.
-name: Atualizar dados de mercado (Brickset, BrickLink e Pokémon)
+name: Atualizar dados de mercado (eBay, Pokémon, Brickset, BrickLink)
 
 on:
   workflow_dispatch:
@@ -37,6 +37,8 @@ jobs:
           BRICKLINK_TOKEN_SECRET: ${{ secrets.BRICKLINK_TOKEN_SECRET }}
           VINTEDUO_TOKEN: ${{ secrets.VINTEDUO_TOKEN }}
           POKEMONPRICETRACKER_API_KEY: ${{ secrets.POKEMONPRICETRACKER_API_KEY }}
+          EBAY_CLIENT_ID: ${{ secrets.EBAY_CLIENT_ID }}
+          EBAY_CLIENT_SECRET: ${{ secrets.EBAY_CLIENT_SECRET }}
       - name: Guardar alterações
         run: |
           git config user.name "github-actions[bot]"

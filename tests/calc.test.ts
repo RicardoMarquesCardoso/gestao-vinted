@@ -299,3 +299,14 @@ test('Pokémon: candidatos escolhidos à mão e preços absurdos ignorados', () 
   assert.equal(precoPokemon(m, 'ETB', { etb: '2' })?.eur, 54); // escolhido entre os candidatos
   assert.equal(precoPokemon(m, 'Velha', {}, 56), null); // 4500 € para um custo de 56 € → ignorado
 });
+
+test('eBay: preço pedido com desconto como referência de sets novos', () => {
+  const merc = { brickset: {}, bricklink: {}, ebay: { '75192': [700, 12] as [number, number] } };
+  const p = produto({ id: 'e', set_numero: '75192', preco_compra: 500, estado: 'por_anunciar', condicao: 'Novo e selado' });
+  const pl = sugerirPlano(p, { dados: { produtos: [p], vendas: [], definicoes: [] }, mercado: merc, hoje: '2026-10-27' });
+  assert.equal(pl.referencia?.fonte, 'ebay');
+  assert.equal(Math.round(pl.referencia!.preco), 630); // 700 − 10%
+  assert.equal(pl.acao, 'vender'); // +26%
+  const usado = { ...p, condicao: 'Usado completo' };
+  assert.equal(sugerirPlano(usado, { dados: { produtos: [usado], vendas: [], definicoes: [] }, mercado: merc, hoje: '2026-10-27' }).referencia, null);
+});

@@ -22,6 +22,7 @@ Guardar os dados que permitam estas análises desde já, mesmo que ainda não ap
 - Catálogo oficial de sets (Rebrickable) em `public/catalogo-sets.json`, com o ano de lançamento. É atualizado todos os meses pela GitHub Action.
 - Dados de mercado em `public/mercado-sets.json`, gerados todos os dias por `scripts/mercado.py` (`.github/workflows/mercado.yml`):
   - **Brickset** e **BrickLink**: código preparado, mas **sem acesso** (a Brickset só dá chaves a projetos que a melhoram; a API da BrickLink é só para vendedores com loja). Para LEGO, a referência são as nossas vendas e a retirada é estimada pelo ano de lançamento.
+  - **eBay** (Browse API, grátis): mediana dos preços **pedidos** por sets novos nas lojas eBay DE/FR/ES/IT, só para os nossos sets. A app aplica `descontoEbay` (10%) antes de usar. Segredos `EBAY_CLIENT_ID`/`EBAY_CLIENT_SECRET`.
   - **Pokémon** (PokemonPriceTracker, plano grátis): preço TCGplayer (EUA) dos produtos Pokémon selados em stock, pesquisados pelo nome (função `pokemon_mercado`). Só aceita resultados inequívocos; senão guarda candidatos e a app pergunta "Qual destes é?". As associações manuais ficam em `definicoes.pokemon_ids`. Preços absurdos face ao custo são ignorados.
   - A lista dos nossos sets vem da função `sets_mercado(token)` no Supabase, protegida pelo `token_mercado` (em `definicoes`) e pelo segredo `VINTEDUO_TOKEN`.
   - As chaves ficam só nos segredos do GitHub, nunca no código, porque o repositório é público.
@@ -29,7 +30,7 @@ Guardar os dados que permitam estas análises desde já, mesmo que ainda não ap
 - **Planos e tarefas** (`src/lib/plano.ts`): cada produto em stock tem o plano "vender" ou "guardar até X", e o Painel mostra "O que fazer" (anunciar a X €, baixar para Y €, rever).
   - **Princípio:** vender logo que o lucro previsto compense (`margemVender`), porque o dinheiro volta mais depressa para reinvestir.
   - Só se guarda quando vender agora dá pouco e a valorização esperada (por fase: à venda / retirado há menos de 2 anos / depois) rende pelo menos `rentabMinGuardar` por ano.
-  - Preço de referência: as nossas vendas do último ano → BrickLink → PVP com desconto.
+  - Preço de referência: as nossas vendas (2 anos) → BrickLink → eBay com desconto → TCGplayer (Pokémon) → PVP com desconto.
   - **Anuncia-se 1 unidade de cada produto de cada vez**: se já há um igual anunciado, não se sugere anunciar outro.
   - Regras editáveis em Definições (`regras_plano`). Decisões manuais em `planos` (por set + condição). Tarefas adiadas em `tarefas_adiadas`.
 

@@ -19,6 +19,8 @@ O QUE GERA (public/mercado-sets.json e docs/mercado-sets.json)
   bricklink: {"75192": {"n": [média, n.º vendidos], "u": [média, n.º vendidos]}, ...}
              Preços de venda dos últimos 6 meses na Europa, em EUR (sem IVA), novo (n) e usado (u).
              Só para os sets que temos ou já vendemos.
+  ebay:      {"75192": [mediana do preço pedido em EUR, n.º de anúncios], ...}
+             Anúncios ativos de sets novos no eBay europeu (DE, FR, ES, IT). Só os nossos sets.
   pokemon:   {"30th celebration etb": {"id": ..., "nome": ..., "set": ..., "usd": 59.9, "eur": 55.1, "auto": true}, ...}
              Preço de mercado (TCGplayer, EUA) dos produtos Pokémon selados que temos em stock.
              A chave é o nosso nome do produto em minúsculas. "auto" = associação feita pela pesquisa
@@ -32,6 +34,7 @@ SEGREDOS (GitHub → Settings → Secrets and variables → Actions)
   BRICKSET_API_KEY               chave gratuita da Brickset
   BRICKLINK_CONSUMER_KEY, BRICKLINK_CONSUMER_SECRET, BRICKLINK_TOKEN, BRICKLINK_TOKEN_SECRET
   POKEMONPRICETRACKER_API_KEY    chave gratuita da PokemonPriceTracker (100 créditos por dia)
+  EBAY_CLIENT_ID, EBAY_CLIENT_SECRET   App ID e Cert ID da conta de programador eBay (grátis)
 """
 import base64, datetime, hashlib, hmac, json, os, re, secrets, sys, time, urllib.parse, urllib.request
 
@@ -278,6 +281,74 @@ def pokemon(produtos, chave):
     return res
 
 
+# ============================================================================ eBay (Browse API)
+# A API "Browse" do eBay é grátis com uma conta de programador (developer.ebay.com) e permite
+# pesquisar anúncios ativos. Para cada set nosso procuramos anúncios de "novo" em lojas europeias
+# do eBay e guardamos a mediana do preço pedido. Atenção: são preços PEDIDOS, não de venda —
+# a app aplica um desconto (regra "Desconto sobre o eBay") antes de os usar.
+#
+# Autenticação "client credentials": com o App ID e o Cert ID pedimos um token temporário
+# (válido ~2 horas) e usamos esse token em cada pesquisa.
+
+EBAY_LOJAS = ('EBAY_DE', 'EBAY_FR', 'EBAY_ES', 'EBAY_IT')  # os maiores mercados LEGO na zona euro
+EBAY_CATEGORIA_SETS = '19006'  # categoria "LEGO Complete Sets & Packs"
+# Anúncios que não são o set completo (caixa vazia, só instruções, minifiguras, peças…)
+EBAY_EXCLUIR = re.compile(r'\b(leer|empty|vide|vac[ií]a|vuot|ohne|sans|sin|senza|nur|only|anleitung|instructions?|notice|'
+                          r'minifig\w*|figur\w*|teile|parts|pi[eè]ces|piezas|pezzi|sticker|aufkleber|poster|box only)\b', re.I)
+
+
+def ebay_token(cid, segredo):
+    """Pede ao eBay um token de aplicação (OAuth 'client credentials')."""
+    basic = base64.b64encode(f'{cid}:{segredo}'.encode()).decode()
+    corpo = urllib.parse.urlencode({'grant_type': 'client_credentials', 'scope': 'https://api.ebay.com/oauth/api_scope'}).encode()
+    r = pedir('https://api.ebay.com/identity/v1/oauth2/token', data=corpo, headers={
+        'Authorization': f'Basic {basic}', 'Content-Type': 'application/x-www-form-urlencoded'})
+    return r['access_token']
+
+
+def mediana(xs):
+    xs = sorted(xs)
+    n = len(xs)
+    return (xs[n // 2] if n % 2 else (xs[n // 2 - 1] + xs[n // 2]) / 2) if n else None
+
+
+def ebay(sets, cid, segredo):
+    token = ebay_token(cid, segredo)
+    res = {}
+    for n in sets:
+        numero = n.split('-')[0]
+        precos = []
+        for loja in EBAY_LOJAS:
+            query = {
+                'q': f'lego {numero}',
+                'category_ids': EBAY_CATEGORIA_SETS,
+                'filter': 'conditionIds:{1000},buyingOptions:{FIXED_PRICE},priceCurrency:EUR',  # 1000 = novo
+                'limit': '50',
+            }
+            try:
+                r = pedir(f"https://api.ebay.com/buy/browse/v1/item_summary/search?{urllib.parse.urlencode(query)}",
+                          headers={'Authorization': f'Bearer {token}', 'X-EBAY-C-MARKETPLACE-ID': loja}, tentativas=2)
+            except Exception as e:  # noqa: BLE001
+                print(f'  eBay {numero} {loja}: {e}')
+                continue
+            for item in r.get('itemSummaries') or []:
+                titulo = item.get('title') or ''
+                preco = (item.get('price') or {})
+                # Só anúncios com o n.º do set no título (evita sets parecidos) e que não sejam partes do set
+                if not re.search(rf'(?<!\d){re.escape(numero)}(?!\d)', titulo) or EBAY_EXCLUIR.search(titulo):
+                    continue
+                if preco.get('currency') == 'EUR' and float(preco.get('value') or 0) > 0:
+                    precos.append(float(preco['value']))
+        if len(precos) >= 3:
+            # Cortar os 10% mais baratos e mais caros (anúncios estranhos) antes da mediana
+            precos.sort()
+            corte = len(precos) // 10
+            uteis = precos[corte:len(precos) - corte] or precos
+            res[numero] = [round(mediana(uteis), 2), len(precos)]
+    print(f'eBay: {len(res)} de {len(sets)} sets com pelo menos 3 anúncios')
+    return res
+
+
 # ============================================================================ principal
 
 anterior = {}
@@ -287,12 +358,13 @@ try:
 except FileNotFoundError:
     pass
 
-saida = {k: anterior.get(k) for k in ('brickset_atualizado', 'bricklink_atualizado', 'pokemon_atualizado')}
+saida = {k: anterior.get(k) for k in ('brickset_atualizado', 'bricklink_atualizado', 'pokemon_atualizado', 'ebay_atualizado')}
 saida.update({
     'atualizado': HOJE.isoformat(),
     'brickset': anterior.get('brickset', {}),
     'bricklink': anterior.get('bricklink', {}),
     'pokemon': anterior.get('pokemon', {}),
+    'ebay': anterior.get('ebay', {}),
 })
 token = os.environ.get('VINTEDUO_TOKEN')
 
@@ -309,6 +381,14 @@ if all(bl) and token:
     saida['bricklink_atualizado'] = HOJE.isoformat()
 else:
     print('Sem segredos da BrickLink: BrickLink não atualizado.')
+
+if os.environ.get('EBAY_CLIENT_ID') and os.environ.get('EBAY_CLIENT_SECRET') and token:
+    nossos = sorted({str(x).strip() for x in rpc_supabase('sets_mercado', token) if str(x).strip()})
+    novos = ebay(nossos, os.environ['EBAY_CLIENT_ID'], os.environ['EBAY_CLIENT_SECRET'])
+    saida['ebay'] = {**saida['ebay'], **novos}  # mantém os anteriores se algum pedido falhar
+    saida['ebay_atualizado'] = HOJE.isoformat()
+else:
+    print('Sem EBAY_CLIENT_ID/EBAY_CLIENT_SECRET: eBay não atualizado.')
 
 if os.environ.get('POKEMONPRICETRACKER_API_KEY') and token:
     # Junta ao que já havia: se um pedido falhar (ex.: créditos do dia esgotados), mantém-se o valor anterior

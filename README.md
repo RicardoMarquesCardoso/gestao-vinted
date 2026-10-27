@@ -64,6 +64,7 @@ flowchart LR
     BS[Brickset<br/>datas e PVP<br/><i>sem acesso</i>]
     BL[BrickLink<br/>preços LEGO<br/><i>sem acesso</i>]
     PT[PokemonPriceTracker<br/>preços Pokémon]
+    EB[eBay Europa<br/>preços pedidos LEGO]
   end
 
   P -- "1. descarrega o site" --> A
@@ -71,7 +72,7 @@ flowchart LR
   A -- "3. ler e guardar dados" --> DB
   A -- fotografias --> ST
   G -- "mensal" --> RB
-  G -- "diário" --> BS & BL & PT
+  G -- "diário" --> EB & PT & BS & BL
   G -- "grava catálogos JSON" --> P
   G -- "lista dos nossos sets" --> DB
 ```
@@ -249,7 +250,7 @@ Sempre que um produto muda para *anunciado*, abre-se um período, e quando deixa
 ```
 rentabilidade por ano = lucro ÷ (custo × dias com o dinheiro preso ÷ 365)
 dinheiro parado       = custo do stock, e há quantos dias está parado (média pesada pelo custo)
-valor estimado        = unidades em stock × preço de mercado (BrickLink, TCGplayer ou a nossa venda média)
+valor estimado        = unidades em stock × preço de mercado (BrickLink, eBay com desconto, TCGplayer ou a nossa venda média)
 ```
 
 Conta **o que já foi vendido**, que dá a rentabilidade real, **e o que está em stock**, que dá o dinheiro parado e o valor estimado.
@@ -273,7 +274,7 @@ flowchart TD
   P -- não --> V4[VENDER<br/>para libertar o dinheiro]
 ```
 
-- **Preço de referência**, por esta ordem: as nossas vendas do mesmo produto nos últimos 2 anos (as do último ano pesam mais) → BrickLink → TCGplayer (Pokémon) → PVP com 20% de desconto (se ainda estiver à venda na LEGO).
+- **Preço de referência**, por esta ordem: as nossas vendas do mesmo produto nos últimos 2 anos (as do último ano pesam mais) → BrickLink → **eBay** (mediana dos anúncios de novos na Europa, menos 10% por serem preços pedidos) → TCGplayer (Pokémon) → PVP com 20% de desconto (se ainda estiver à venda na LEGO).
 - **Valorização esperada:**
   - **LEGO:** ~0% enquanto a LEGO ainda o vende; ~20%/ano nos 2 anos depois de ser retirado; ~7%/ano depois disso.
   - **Pokémon selado:** ~15%/ano.
@@ -296,7 +297,7 @@ Estes dados são preparados por **GitHub Actions** (pasta `.github/workflows/`).
 | Ficheiro | Gerado por | Quando | Conteúdo |
 |---|---|---|---|
 | `public/catalogo-sets.json` | `scripts/catalogo.py` | Mensal | ~26 mil sets LEGO (Rebrickable): nome, ano, tema. Preenche o formulário ao escrever o n.º do set. |
-| `public/mercado-sets.json` | `scripts/mercado.py` | Diário (5h43 UTC) | **Brickset**: lançamento, retirada, PVP. **BrickLink**: preço médio de venda na Europa (6 meses). **PokemonPriceTracker**: preço dos produtos Pokémon selados (TCGplayer, EUA). |
+| `public/mercado-sets.json` | `scripts/mercado.py` | Diário (5h43 UTC) | **eBay**: mediana dos preços pedidos por cada set nosso, novo, nas lojas eBay da Alemanha, França, Espanha e Itália. **PokemonPriceTracker**: preço dos produtos Pokémon selados (TCGplayer, EUA). **Brickset/BrickLink**: preparados, sem acesso. |
 
 ### As chaves (segredos)
 
@@ -308,6 +309,7 @@ Ficam em **GitHub → Settings → Secrets and variables → Actions**. Se uma f
 | `BRICKSET_API_KEY` | Brickset. **Sem acesso:** só dão chaves a projetos que contribuem para a Brickset. O código fica preparado caso isso mude. |
 | `BRICKLINK_CONSUMER_KEY`, `BRICKLINK_CONSUMER_SECRET`, `BRICKLINK_TOKEN`, `BRICKLINK_TOKEN_SECRET` | BrickLink. **Sem acesso:** a API só está disponível para vendedores com loja na BrickLink. |
 | `POKEMONPRICETRACKER_API_KEY` | PokemonPriceTracker (plano grátis: 100 pedidos por dia). |
+| `EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET` | eBay Browse API: o *App ID* e o *Cert ID* do "Production keyset" de uma conta grátis em developer.ebay.com. |
 
 Para correr a tarefa à mão: **Actions → "Atualizar dados de mercado" → Run workflow**.
 
@@ -446,5 +448,5 @@ No ecrã de entrada: **Experimentar com dados de exemplo**. Os dados ficam só n
 
 - **Sincronização:** não é instantânea. A app atualiza de minuto a minuto e ao voltar a ela.
 - **Preços Pokémon:** vêm do TCGplayer, que é o mercado dos EUA. A API do Cardmarket não aceita novos pedidos, e um plano pago da PokemonPriceTracker daria preços do Cardmarket.
-- **Sugestões LEGO:** não há acesso à Brickset nem à BrickLink, por isso, para os LEGO, a referência de preço são as nossas vendas anteriores do mesmo set e a data de retirada é estimada. Muitos produtos ficam com "vender, custo + margem". Os valores das regras devem ser afinados com os dados reais de tempo anunciado.
+- **Sugestões LEGO:** não há acesso à Brickset nem à BrickLink. A referência de preço são as nossas vendas e os anúncios do eBay (preços pedidos, não de venda), e a data de retirada é estimada pelo ano de lançamento. Só a BrickEconomy Premium (paga) daria datas de retirada automáticas. Os valores das regras devem ser afinados com os dados reais de tempo anunciado.
 - **Próximo passo planeado:** sugerir **compras** a partir das promoções do dia, comparando o preço da promoção com o histórico de vendas, a valorização esperada e o tempo até vender.

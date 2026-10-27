@@ -337,6 +337,7 @@ const CAMPOS_REGRAS: { k: keyof RegrasPlano; nome: string; ajuda: string; pct: b
   { k: 'valorizacaoAVenda', nome: 'Valorização enquanto está à venda na LEGO', ajuda: 'por ano', pct: true },
   { k: 'valorizacaoRetirado', nome: 'Valorização nos 2 anos depois de retirado', ajuda: 'por ano', pct: true },
   { k: 'valorizacaoDepois', nome: 'Valorização depois disso', ajuda: 'por ano', pct: true },
+  { k: 'descontoEbay', nome: 'Desconto sobre os preços pedidos no eBay', ajuda: 'vende-se abaixo do pedido', pct: true },
   { k: 'valorizacaoPokemon', nome: 'Valorização dos produtos Pokémon selados', ajuda: 'por ano', pct: true },
 ];
 
