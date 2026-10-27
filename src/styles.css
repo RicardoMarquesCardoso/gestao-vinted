@@ -726,3 +726,7 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
   padding: 8px 10px; border: 0; border-radius: 8px; background: transparent; color: var(--texto); text-align: left; cursor: pointer; font-size: 0.95rem;
 }
 .sugestoes button:hover, .sugestoes button:focus-visible { background: var(--superficie-2); }
+
+/* A ordenação mantém a altura da pesquisa mesmo quando aparece o chip do filtro por baixo */
+.filtros-inv-1 { align-items: start; }
+.chip-filtro { gap: 4px; padding: 3px 10px; }

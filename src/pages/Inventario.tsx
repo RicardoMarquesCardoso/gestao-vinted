@@ -15,6 +15,7 @@ import type { VerProdutos } from '../components/CabecalhoProdutos';
 import { EtiquetaProduto, Foto, ImagemReferencia, Valor, Vazio, iconeMarca, urlReferencia } from '../components/ui';
 import { chaveComparacao, custoTotalProduto, custoUnitario, diasEntre, emInventario, liquidoVenda, lucroVenda, unidadesDisponiveis, vendaValida } from '../lib/calc';
 import { diasAnunciado } from '../lib/anuncios';
+import { infoMercado, useMercado } from '../lib/investimento';
 import { descarregar, paraCsv } from '../lib/csv';
 import { fmtData, fmtEuro, hoje, plural } from '../lib/format';
 import type { Produto, Venda } from '../lib/types';
@@ -42,6 +43,15 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
   }, [dados.vendas]);
   const h = hoje();
   const ctxPlano = useContextoPlano();
+  const mercado = useMercado();
+  /** Texto curto da retirada do set (Brickset), ex.: "retirado 2024" ou "sai 2026". */
+  const retirada = (p: Produto): string | null => {
+    if (!p.set_numero || (p.marca && !/lego/i.test(p.marca))) return null;
+    const m = infoMercado(mercado, p.set_numero, h);
+    if (!m) return null;
+    if (m.retirada) return m.retirado ? `retirado ${m.retirada.slice(0, 4)}` : `sai ${m.retirada.slice(0, 4)}`;
+    return m.retirado ? 'retirado' : null;
+  };
   const temVenda = (p: Produto, estado: 'pendente' | 'concluida') => (vendasDe.get(p.id) ?? []).some((v) => v.estado === estado);
   const contagens = useMemo(
     () => ({
@@ -148,7 +158,7 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
         <ImagemProduto p={p} />
         <div className="produto-info">
           <div className="produto-nome">{p.nome}</div>
-          <div className="produto-meta">{[categoria(p), p.set_numero && `Set ${p.set_numero}`].filter(Boolean).join(' · ')}</div>
+          <div className="produto-meta">{[categoria(p), p.set_numero && `Set ${p.set_numero}`, retirada(p)].filter(Boolean).join(' · ')}</div>
           <div className="produto-linha">
             <EtiquetaProduto estado={p.estado} />
             {p.quantidade > 1 && <span className="chip">{disp}/{p.quantidade} un.</span>}
@@ -245,6 +255,7 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
                 aberto={aberto === g.chave}
                 alternar={() => setAberto((x) => (x === g.chave ? null : g.chave))}
                 linha={linhaProduto}
+                retirada={retirada(g.itens[0])}
                 anunciar={(ids, retirar) => abrir({ tipo: 'anunciar', ids, retirar })}
                 vendi={(ids) => abrir({ tipo: 'vendi', ids })}
                 plano={(() => {
@@ -295,7 +306,7 @@ interface Grupo {
 }
 
 /** Cartão de um grupo de produtos iguais; aberto mostra cada unidade e ações para o grupo. */
-function GrupoProdutos(props: { grupo: Grupo; aberto: boolean; alternar(): void; linha(p: Produto): ReactNode; anunciar(ids: string[], retirar?: boolean): void; vendi(ids: string[]): void; plano?: ReactNode }) {
+function GrupoProdutos(props: { grupo: Grupo; aberto: boolean; alternar(): void; linha(p: Produto): ReactNode; anunciar(ids: string[], retirar?: boolean): void; vendi(ids: string[]): void; plano?: ReactNode; retirada?: string | null }) {
   const { grupo: g } = props;
   const p = g.itens[0];
   const estados = ESTADOS_PRODUTO.map((e) => ({ ...e, n: g.itens.filter((x) => x.estado === e.valor).length })).filter((e) => e.n > 0);
@@ -309,7 +320,7 @@ function GrupoProdutos(props: { grupo: Grupo; aberto: boolean; alternar(): void;
         </span>
         <div className="produto-info">
           <div className="produto-nome">{p.nome}{nomes.size > 1 ? ' e variantes' : ''}</div>
-          <div className="produto-meta">{[categoria(p), p.set_numero && `Set ${p.set_numero}`].filter(Boolean).join(' · ')}</div>
+          <div className="produto-meta">{[categoria(p), p.set_numero && `Set ${p.set_numero}`, props.retirada].filter(Boolean).join(' · ')}</div>
           <div className="produto-linha">
             {estados.map((e) => (
               <span key={e.valor} className={`etiqueta et-${e.valor}`}>

@@ -1,12 +1,13 @@
 // Janela de detalhe de um produto: fotografias, imagem oficial, plano (vender/guardar),
-// dados da compra, vendas feitas e botões de ação (✏️ editar, 📷, Anunciar/Retirar, Vendi).
+// ciclo de vida do set (lançamento, retirada e PVP, do Brickset), dados da compra, vendas feitas e botões de ação (✏️ editar, 📷, Anunciar/Retirar, Vendi).
 // As vendas mostram também as dos outros exemplares do mesmo set (com o valor e o lucro de cada
 // uma), e "Em stock" lista os exemplares desse set que ainda estão por vender.
 
 import { LinhaPlano, LinhaPokemon } from './planos';
 import { ehPokemon } from '../lib/plano';
 import { custoTotalProduto, custoUnitario, diasEntre, emInventario, liquidoVenda, lucroVenda, unidadesDisponiveis } from '../lib/calc';
-import { fmtData, fmtEuro, hoje } from '../lib/format';
+import { fmtData, fmtEuro, fmtMesAno, hoje } from '../lib/format';
+import { infoMercado, useMercado } from '../lib/investimento';
 import { useDados } from '../state';
 import { useAbrir } from './acoes';
 import { compararNomes, useCatalogoSets } from './catalogo';
@@ -17,10 +18,13 @@ import { EtiquetaProduto, EtiquetaVenda, Foto, ImagemReferencia, Janela, Valor, 
 export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void }) {
   const { dados, nomeConta, nomePagador, store, guardar, aviso, lista } = useDados();
   const procurarSet = useCatalogoSets();
+  const mercado = useMercado();
   const [aEnviar, setAEnviar] = useState(false);
   const abrir = useAbrir();
   const p = dados.produtos.find((x) => x.id === id);
   if (!p) return null;
+  // Ciclo de vida do set (Brickset): quando saiu, quando foi/será retirado e o PVP
+  const ciclo = p.set_numero && (!p.marca || /lego/i.test(p.marca)) ? infoMercado(mercado, p.set_numero, hoje()) : null;
   const oficial = p.set_numero && (!p.marca || /lego/i.test(p.marca)) ? procurarSet(p.set_numero) : undefined;
   const talvez =
     oficial && compararNomes(p.nome, oficial.nome) === 'diferente' ? procurarSet.parecidos(p.nome, oficial.tema, oficial.ano, oficial.numero) : [];
@@ -138,6 +142,28 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
       {emInventario(p) && disponiveis > 0 && ehPokemon(p) && <LinhaPokemon p={p} />}
       {emInventario(p) && disponiveis > 0 && <LinhaPlano p={p} />}
       <dl className="detalhes">
+        {ciclo && (ciclo.lancamento || ciclo.retirada || ciclo.retirado !== null) && (
+          <div>
+            <dt>Ciclo do set</dt>
+            <dd>
+              {[
+                ciclo.lancamento && `lançado ${fmtMesAno(ciclo.lancamento)}`,
+                ciclo.retirada
+                  ? ciclo.retirado
+                    ? `retirado ${fmtMesAno(ciclo.retirada)}`
+                    : `retirada prevista ${fmtMesAno(ciclo.retirada)}`
+                  : ciclo.retirado
+                    ? 'já retirado'
+                    : ciclo.retirado === false
+                      ? 'ainda à venda'
+                      : null,
+                ciclo.pvp && `PVP ${fmtEuro(ciclo.pvp)}`,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </dd>
+          </div>
+        )}
         <div><dt>Quantidade</dt><dd>{p.quantidade} ({disponiveis} {disponiveis === 1 ? 'disponível' : 'disponíveis'})</dd></div>
         <div><dt>Custo total</dt><dd>{fmtEuro(custoTotalProduto(p))}{p.quantidade > 1 ? ` · ${fmtEuro(custoUnitario(p))}/un.` : ''}</dd></div>
         <div><dt>Compra</dt><dd>{fmtEuro(p.preco_compra)} + {fmtEuro(p.custos_adicionais)} de custos</dd></div>

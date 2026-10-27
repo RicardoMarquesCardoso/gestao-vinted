@@ -25,6 +25,13 @@ export function fmtMes(chave: string): string {
   return `${MESES[Number(m) - 1]} ${a.slice(2)}`;
 }
 
+/** '2024-12-31' → 'dez 2024' (mês e ano por extenso, para datas de lançamento/retirada dos sets). */
+export function fmtMesAno(d: string | null | undefined): string {
+  if (!d) return '—';
+  const [a, m] = d.split('-');
+  return `${MESES[Number(m) - 1]} ${a}`;
+}
+
 /** Data local de hoje no formato AAAA-MM-DD. */
 export function hoje(): string {
   return dataLocal(new Date());
