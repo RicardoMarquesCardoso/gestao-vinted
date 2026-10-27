@@ -406,6 +406,8 @@ npm run typecheck  # confirma os tipos do TypeScript
 npm run build      # gera a versão publicada em docs/
 ```
 
+O CSS e o JS levam no endereço um código que muda a cada compilação (`?v=…`), para o telemóvel não usar uma cópia antiga. Os ícones (separador do browser, ecrã principal e `manifest`) levam um código calculado a partir do conteúdo dos ficheiros de ícone, por isso só mudam quando o logótipo muda.
+
 ### Publicar uma alteração
 
 1. `npm test` e `npm run build`.

@@ -7,6 +7,7 @@
 // Cada ficheiro gerado leva um código de versão no endereço, para o telemóvel não usar uma cópia antiga.
 //   npm run build  -> gera docs/
 //   npm run dev    -> gera e serve em http://localhost:5173, atualizando ao gravar
+import { createHash } from 'node:crypto';
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -30,8 +31,17 @@ cpSync(resolve(raiz, 'public'), destino, { recursive: true });
 
 // Código de versão (muda a cada compilação) posto nos endereços do CSS e JS do index.html
 const versao = Date.now().toString(36);
-const html = readFileSync(resolve(raiz, 'index.html'), 'utf8').replaceAll('%VERSAO%', versao);
+// Código do ícone: resumo (hash) do conteúdo dos ícones. Só muda quando o logótipo muda, e obriga o
+// browser (que guarda o ícone do separador durante muito tempo) a ir buscar o novo.
+const icone = createHash('sha1')
+  .update(['icone.svg', 'icone-180.png', 'icone-192.png', 'icone-512.png'].map((n) => readFileSync(resolve(raiz, 'public', n))).reduce((a, b) => Buffer.concat([a, b]), Buffer.alloc(0)))
+  .digest('hex')
+  .slice(0, 8);
+const html = readFileSync(resolve(raiz, 'index.html'), 'utf8').replaceAll('%VERSAO%', versao).replaceAll('%ICONE%', icone);
 writeFileSync(resolve(destino, 'index.html'), html);
+// O manifest (ícone da app instalada) leva o mesmo código
+const manifest = resolve(destino, 'manifest.webmanifest');
+writeFileSync(manifest, readFileSync(manifest, 'utf8').replaceAll('%ICONE%', icone));
 // .nojekyll diz ao GitHub Pages para servir os ficheiros tal como estão
 writeFileSync(resolve(destino, '.nojekyll'), '');
 
