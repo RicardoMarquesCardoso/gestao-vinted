@@ -1,5 +1,5 @@
 // Topo do ecrã Produtos: título, botões (exportar, registar compra) e os 4 filtros
-// Por vender / Anunciados / Pendentes / Vendidos, que se podem ligar ao mesmo tempo.
+// Por anunciar / Anunciados / Pendentes / Vendidos, que se podem ligar ao mesmo tempo (em qualquer combinação).
 // Cada filtro é um botão com ícone e contagem (no computador aparece também o nome).
 // Os ícones seguem o estilo Lucide (traço de 2 px, 24×24): package-open, megaphone, clock e circle-check.
 
@@ -7,7 +7,7 @@ import type { ReactNode } from 'react';
 import { BotaoTopo } from './ui';
 
 export interface VerProdutos {
-  porVender: boolean;
+  porAnunciar: boolean;
   anunciados: boolean;
   pendentes: boolean;
   vendidos: boolean;
@@ -15,8 +15,8 @@ export interface VerProdutos {
 
 const BOTOES: { k: keyof VerProdutos; nome: string; icone: ReactNode }[] = [
   {
-    k: 'porVender',
-    nome: 'Por vender',
+    k: 'porAnunciar',
+    nome: 'Por anunciar',
     icone: (
       <>
         <path d="M12 22v-9" />
@@ -63,9 +63,6 @@ export function CabecalhoProdutos(props: { ver: VerProdutos; mudar(v: VerProduto
   const { ver } = props;
   const alternar = (k: keyof VerProdutos) => {
     const novo = { ...ver, [k]: !ver[k] };
-    // "Anunciados" já está dentro de "Por vender": ligar um desliga o outro.
-    if (novo[k] && k === 'anunciados') novo.porVender = false;
-    if (novo[k] && k === 'porVender') novo.anunciados = false;
     // Pelo menos um tem de ficar ligado
     if (!BOTOES.some((b) => novo[b.k])) return;
     props.mudar(novo);

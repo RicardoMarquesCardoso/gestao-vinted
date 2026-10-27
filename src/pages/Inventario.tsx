@@ -1,4 +1,4 @@
-// Ecrã "Produtos": stock e vendidos num só sítio, com os filtros Por vender / Anunciados /
+// Ecrã "Produtos": stock e vendidos num só sítio, com os filtros Por anunciar / Anunciados /
 // Pendentes / Vendidos, pesquisa e ordenação.
 //
 // Produtos iguais (mesmo n.º de set ou mesmo nome) aparecem agrupados num só cartão com o
@@ -28,7 +28,7 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
   const [verOutros, setVerOutros] = useState(false);
   const [ordem, setOrdem] = useState<Ordem>('recentes');
   const [aberto, setAberto] = useState<string | null>(null);
-  const [ver, setVer] = useState<VerProdutos>({ porVender: inicial === 'por_vender', anunciados: false, pendentes: false, vendidos: inicial === 'vendidos' });
+  const [ver, setVer] = useState<VerProdutos>({ porAnunciar: inicial === 'por_vender', anunciados: inicial === 'por_vender', pendentes: false, vendidos: inicial === 'vendidos' });
 
   // Vendas válidas de cada produto (a mais recente primeiro)
   const vendasDe = useMemo(() => {
@@ -44,7 +44,7 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
   const vendaVisivel = (v: Venda) => (v.estado === 'pendente' ? ver.pendentes : ver.vendidos);
   const contagens = useMemo(
     () => ({
-      porVender: dados.produtos.filter(emInventario).length,
+      porAnunciar: dados.produtos.filter((p) => p.estado === 'por_anunciar').length,
       anunciados: dados.produtos.filter((p) => p.estado === 'anunciado').length,
       pendentes: dados.produtos.filter((p) => temVenda(p, 'pendente')).length,
       vendidos: dados.produtos.filter((p) => temVenda(p, 'concluida')).length,
@@ -57,7 +57,7 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
     const t = texto.trim().toLowerCase();
     const r = dados.produtos.filter(
       (p) =>
-        ((ver.porVender && emInventario(p)) || (ver.anunciados && p.estado === 'anunciado') || (ver.pendentes && temVenda(p, 'pendente')) || (ver.vendidos && temVenda(p, 'concluida')) || (verOutros && (p.estado === 'cancelado' || p.estado === 'devolvido'))) &&
+        ((ver.porAnunciar && p.estado === 'por_anunciar') || (ver.anunciados && p.estado === 'anunciado') || (ver.pendentes && temVenda(p, 'pendente')) || (ver.vendidos && temVenda(p, 'concluida')) || (verOutros && (p.estado === 'cancelado' || p.estado === 'devolvido'))) &&
         (!t ||
           [p.nome, p.set_numero, p.tema, p.marca, p.condicao, p.notas, p.conta_id ? nomeConta(p.conta_id) : '', nomePagador(p)].some((x) =>
             (x || '').toLowerCase().includes(t),
@@ -94,7 +94,8 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
   }, [lista, dados.vendas, ordem]);
 
   const outros = dados.produtos.filter((p) => p.estado === 'cancelado' || p.estado === 'devolvido').length;
-  const contaStock = (p: Produto) => (ver.porVender ? emInventario(p) : ver.anunciados && p.estado === 'anunciado');
+  // Stock que entra no resumo: o dos filtros de stock ligados (por anunciar e/ou anunciados)
+  const contaStock = (p: Produto) => (ver.porAnunciar && p.estado === 'por_anunciar') || (ver.anunciados && p.estado === 'anunciado');
   const unidades = lista.reduce((a, p) => a + (contaStock(p) ? unidadesDisponiveis(p, dados.vendas) : 0), 0);
   const custo = lista.reduce((a, p) => a + (contaStock(p) ? custoUnitario(p) * unidadesDisponiveis(p, dados.vendas) : 0), 0);
   const vendasLista = lista.flatMap((p) => (vendasDe.get(p.id) ?? []).filter(vendaVisivel).map((v) => ({ v, p })));
@@ -227,7 +228,7 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
       <p className="resumo-lista">
         {grupos.length !== lista.length ? `${plural(grupos.length, 'produto diferente', 'produtos diferentes')} · ` : ''}
         {plural(lista.length, 'registo', 'registos')}
-        {(ver.porVender || ver.anunciados) && unidades > 0 && ` · ${plural(unidades, 'por vender', 'por vender')} (custo ${fmtEuro(custo)})`}
+        {(ver.porAnunciar || ver.anunciados) && unidades > 0 && ` · ${plural(unidades, 'por vender', 'por vender')} (custo ${fmtEuro(custo)})`}
         {vendasLista.length > 0 && (
           <>
             {` · ${plural(vendasLista.length, 'venda', 'vendas')} (${fmtEuro(recebido)}, lucro `}

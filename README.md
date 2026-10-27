@@ -31,7 +31,7 @@ Este README explica **o que a app faz, como está construída e porquê**, para 
 | Ecrã | Para quê |
 |---|---|
 | **Painel** | Botões *Registar venda* e *Registar compra*, a lista **"O que fazer"** (anunciar, baixar preços, rever), os números do período, alertas de limites, acertos por fazer e vendas recentes. |
-| **Produtos** | Stock e vendidos num só sítio. Filtros *Por vender / Anunciados / Pendentes / Vendidos* (podem combinar-se). Produtos iguais aparecem agrupados com o custo médio. Cada produto mostra o plano (*vender* ou *guardar até…*). |
+| **Produtos** | Stock e vendidos num só sítio. Filtros *Por anunciar / Anunciados / Pendentes / Vendidos* (podem combinar-se à vontade; ao abrir estão ligados Por anunciar e Anunciados). Produtos iguais aparecem agrupados com o custo médio. Cada produto mostra o plano (*vender* ou *guardar até…*). |
 | **Detalhe do produto** | Fotografias, imagem oficial do set, plano e preço sugerido, dados da compra e vendas. Botões *Editar*, 📷, *Anunciar/Retirar* e *Vendi*. |
 | **Anunciar** | Escolhe a conta e o preço, e mostra o **título e a descrição prontos a copiar** para a Vinted. |
 | **Vendi** | Venda rápida: só preço e conta. |
