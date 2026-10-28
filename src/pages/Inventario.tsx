@@ -16,7 +16,6 @@ import type { VerProdutos } from '../components/CabecalhoProdutos';
 import { Foto, ImagemReferencia, Valor, Vazio, iconeMarca, useImagemReferencia } from '../components/ui';
 import { chaveComparacao, custoTotalProduto, custoUnitario, emInventario, liquidoVenda, lucroVenda, unidadesDisponiveis, vendaValida } from '../lib/calc';
 import { diasAnunciado } from '../lib/anuncios';
-import { infoMercado, useMercado } from '../lib/investimento';
 import { descarregar, paraCsv } from '../lib/csv';
 import { fmtData, fmtEuro, hoje, plural } from '../lib/format';
 import type { Produto, Venda } from '../lib/types';
@@ -46,15 +45,6 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
   const ctxPlano = useContextoPlano();
   // Bolinha tipo semáforo + próxima ação de cada produto (ver sinais() em lib/plano.ts)
   const sinaisP = useSinais(ctxPlano);
-  const mercado = useMercado();
-  /** Texto curto da retirada do set (Brickset), ex.: "retirado 2024" ou "sai 2026". */
-  const retirada = (p: Produto): string | null => {
-    if (!p.set_numero || (p.marca && !/lego/i.test(p.marca))) return null;
-    const m = infoMercado(mercado, p.set_numero, h);
-    if (!m) return null;
-    if (m.retirada) return m.retirado ? `retirado ${m.retirada.slice(0, 4)}` : `sai ${m.retirada.slice(0, 4)}`;
-    return m.retirado ? 'retirado' : null;
-  };
   const vendido = (p: Produto) => vendasDe.has(p.id);
   const contagens = useMemo(
     () => ({
@@ -159,7 +149,8 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
         <ImagemProduto p={p} />
         <div className="produto-info">
           <div className="produto-nome">{p.nome}</div>
-          <div className="produto-meta">{[categoria(p), p.set_numero && `Set ${p.set_numero}`, retirada(p)].filter(Boolean).join(' · ')}</div>
+          {/* Só categoria e n.º do set; a retirada fica no detalhe do produto, para o cartão ficar limpo */}
+          <div className="produto-meta">{[categoria(p), p.set_numero].filter(Boolean).join(' · ')}</div>
           <div className="produto-linha">
             {/* Uma só linha: bolinha de cor + próxima ação (e as unidades, se houver mais do que uma) */}
             <SinalProduto sinal={sinaisP.get(p.id)} />
@@ -254,7 +245,6 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
                 aberto={aberto === g.chave}
                 alternar={() => setAberto((x) => (x === g.chave ? null : g.chave))}
                 linha={linhaProduto}
-                retirada={retirada(g.itens[0])}
                 anunciar={(ids, retirar) => abrir({ tipo: 'anunciar', ids, retirar })}
                 vendi={(ids) => abrir({ tipo: 'vendi', ids })}
                 sinal={(() => {
@@ -308,7 +298,7 @@ interface Grupo {
 }
 
 /** Cartão de um grupo de produtos iguais; aberto mostra cada unidade e ações para o grupo. */
-function GrupoProdutos(props: { grupo: Grupo; aberto: boolean; alternar(): void; linha(p: Produto): ReactNode; anunciar(ids: string[], retirar?: boolean): void; vendi(ids: string[]): void; sinal?: ReactNode; retirada?: string | null }) {
+function GrupoProdutos(props: { grupo: Grupo; aberto: boolean; alternar(): void; linha(p: Produto): ReactNode; anunciar(ids: string[], retirar?: boolean): void; vendi(ids: string[]): void; sinal?: ReactNode }) {
   const { grupo: g } = props;
   const p = g.itens[0];
   const nomes = new Set(g.itens.map((x) => x.nome.trim().toLowerCase()));
@@ -321,7 +311,7 @@ function GrupoProdutos(props: { grupo: Grupo; aberto: boolean; alternar(): void;
         </span>
         <div className="produto-info">
           <div className="produto-nome">{p.nome}{nomes.size > 1 ? ' e variantes' : ''}</div>
-          <div className="produto-meta">{[categoria(p), p.set_numero && `Set ${p.set_numero}`, props.retirada].filter(Boolean).join(' · ')}</div>
+          <div className="produto-meta">{[categoria(p), p.set_numero].filter(Boolean).join(' · ')}</div>
           <div className="produto-linha">
             {props.sinal}
           </div>
