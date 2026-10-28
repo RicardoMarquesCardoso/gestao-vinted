@@ -7,7 +7,7 @@
 
 import { useMemo, useState } from 'react';
 import { fmtData, fmtEuro, hoje, plural } from '../lib/format';
-import { chavePokemon, entradaPokemon, idsPokemon, precoPokemon, useMercado } from '../lib/investimento';
+import { chavePokemon, entradaPokemon, idsPokemon, precoPokemon, urlImagemTcg, useMercado } from '../lib/investimento';
 import type { ProdutoTcg } from '../lib/investimento';
 import { custoUnitario } from '../lib/calc';
 import { CHAVE_ADIADAS, CHAVE_PLANOS, CHAVE_POKEMON_IDS, chavePlano, mesAno, planosManuais, sugerirPlano, tarefas, tarefasAdiadas } from '../lib/plano';
@@ -16,7 +16,7 @@ import type { Produto } from '../lib/types';
 import { useDados } from '../state';
 import { useAbrir } from './acoes';
 import { useCatalogoSets } from './catalogo';
-import { Cartao, Janela } from './ui';
+import { Cartao, ImagemReferencia, Janela } from './ui';
 
 /** Contexto para sugerir planos: dados, mercado e catálogo. */
 export function useContextoPlano(): Contexto {
@@ -278,9 +278,13 @@ export function LinhaPokemon({ p }: { p: Produto }) {
         <div className="candidatos-tcg">
           <p className="pequeno">Qual destes é?</p>
           {candidatos.map((c) => (
-            <button key={c.id} className="btn btn-pequeno" onClick={() => gravar(c.id)}>
-              {c.nome}
-              {c.eur ? ` · ${fmtEuro(c.eur)}` : ''}
+            <button key={c.id} className="btn btn-pequeno candidato-tcg" onClick={() => gravar(c.id)}>
+              {/* Miniatura do TCGplayer, para ser mais fácil reconhecer o produto certo */}
+              <ImagemReferencia url={urlImagemTcg(c.id)} className="procurar-img" />
+              <span>
+                {c.nome}
+                {c.eur ? ` · ${fmtEuro(c.eur)}` : ''}
+              </span>
             </button>
           ))}
         </div>

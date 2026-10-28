@@ -12,7 +12,7 @@ import { EtiquetaPlano, useContextoPlano } from '../components/planos';
 import { PesquisaProdutos, naCategoria, normalizar } from '../components/PesquisaProdutos';
 import type { FiltroCategoria } from '../components/PesquisaProdutos';
 import type { VerProdutos } from '../components/CabecalhoProdutos';
-import { EtiquetaProduto, Foto, ImagemReferencia, Valor, Vazio, iconeMarca, urlReferencia } from '../components/ui';
+import { EtiquetaProduto, Foto, ImagemReferencia, Valor, Vazio, iconeMarca, useImagemReferencia } from '../components/ui';
 import { chaveComparacao, custoTotalProduto, custoUnitario, diasEntre, emInventario, liquidoVenda, lucroVenda, unidadesDisponiveis, vendaValida } from '../lib/calc';
 import { diasAnunciado } from '../lib/anuncios';
 import { infoMercado, useMercado } from '../lib/investimento';
@@ -276,13 +276,14 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
   );
 }
 
-/** Fotografia do produto, ou a imagem oficial do set, ou um ícone. */
+/** Fotografia do produto, ou a imagem de referência (set LEGO / produto Pokémon), ou um ícone. */
 function ImagemProduto({ p }: { p: Produto }) {
+  const imagemReferencia = useImagemReferencia();
   return p.fotos[0] ? (
     <Foto refFoto={p.fotos[0]} alt="" className="produto-foto" />
   ) : (
     <ImagemReferencia
-      url={urlReferencia(p)}
+      url={imagemReferencia(p)}
       className="produto-foto produto-sem-foto"
       vazio={
         <span className="icone-marca">

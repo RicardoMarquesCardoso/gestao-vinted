@@ -32,7 +32,7 @@ Este README explica **o que a app faz, como está construída e porquê**, para 
 |---|---|
 | **Painel** | Botões *Registar venda* e *Registar compra*, a lista **"O que fazer"** (anunciar, baixar preços, rever), os números do período, alertas de limites, acertos por fazer e vendas recentes. |
 | **Produtos** | Stock e vendidos num só sítio. Filtros *Por anunciar / Anunciados / Vendidos* (podem combinar-se à vontade; ao abrir estão ligados Por anunciar e Anunciados). Produtos iguais aparecem agrupados com o custo médio. Cada produto mostra o plano (*vender* ou *guardar até…*). Os sets LEGO mostram o ano de retirada (Brickset). A pesquisa sugere produtos e categorias/subcategorias (ex.: *LEGO › Speed Champions*) enquanto se escreve; escolher uma categoria liga-a como filtro. |
-| **Detalhe do produto** | Fotografias, imagem oficial do set, plano e preço sugerido, ciclo do set (lançamento, retirada real ou prevista e PVP, do Brickset), dados da compra, **Vendas** (deste produto e dos outros exemplares do mesmo set, com valor e lucro) e **Em stock** (outros exemplares do set por vender). Botões ✏️ (editar), 📷, *Anunciar/Retirar* e *Vendi*. |
+| **Detalhe do produto** | Fotografias, imagem oficial do set (ou do produto no TCGplayer, nos Pokémon), plano e preço sugerido, ciclo do set (lançamento, retirada real ou prevista e PVP, do Brickset), dados da compra, **Vendas** (deste produto e dos outros exemplares do mesmo set, com valor e lucro) e **Em stock** (outros exemplares do set por vender). Botões ✏️ (editar), 📷, *Anunciar/Retirar* e *Vendi*. |
 | **Anunciar** | Escolhe a conta e o preço, e mostra o **título e a descrição prontos a copiar** para a Vinted. |
 | **Vendi** | Venda rápida: só preço e conta. |
 | **Acertos** | Tipo Splitwise: quem deve quanto a quem, com as transferências mínimas. |
@@ -323,6 +323,8 @@ Para correr a tarefa à mão: **Actions → "Atualizar dados de mercado" → Run
 - Se não for nenhum, em *"Não é nenhum destes"* cola-se o endereço da página do produto no TCGplayer.
 - Um preço automático absurdo face ao custo (mais de 4× ou menos de ¼) é ignorado.
 - Produtos em espanhol ou português não existem no TCGplayer, que é só inglês. Associar à versão inglesa dá uma referência aproximada.
+
+**Imagens Pokémon:** um produto Pokémon sem fotografia nossa mostra a imagem do produto no TCGplayer (`tcgplayer-cdn.tcgplayer.com/product/<id>_200w.jpg`, ou `_in_1000x1000.jpg` no detalhe), tal como os LEGO mostram a do Brickset. A imagem não é guardada, é o browser que a vai buscar. Só aparece quando já se sabe qual é o produto: associação automática inequívoca (e com preço não absurdo) ou escolhida em "Qual destes é?", onde os candidatos também mostram a miniatura. Se a imagem não carregar, fica o ícone ⚡. Código: `idTcgPokemon` e `urlImagemTcg` em `src/lib/investimento.ts`, `useImagemReferencia` em `src/components/ui.tsx`.
 
 ---
 

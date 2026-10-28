@@ -11,15 +11,16 @@
 //   Selecionar…       listas de pessoas, contas, quem pagou
 //   Cartao, Vazio     blocos de conteúdo e estados vazios
 //   ProcurarLista, EscolherOuEscrever, NomeComSugestoes   campos com pesquisa e sugestões
-//   Foto, ImagemReferencia   fotografias nossas e imagens oficiais dos sets
+//   Foto, ImagemReferencia   fotografias nossas e imagens oficiais (sets LEGO e produtos Pokémon)
 
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { UsoLimite } from '../lib/calc';
 import { fmtEuro, fmtNum } from '../lib/format';
 import { ESTADOS_PRODUTO, ESTADOS_VENDA } from '../lib/types';
 import type { EstadoProduto, EstadoVenda, TipoPagamento } from '../lib/types';
 import { useDados } from '../state';
+import { idTcgPokemon, idsPokemon, urlImagemTcg, useMercado } from '../lib/investimento';
 
 // ---------- Janela (modal) ----------
 
@@ -406,6 +407,30 @@ export function urlReferencia(p: { marca: string | null; set_numero: string | nu
   if (!/^\d{4,7}$/.test(set)) return null;
   if (p.marca && !/lego/i.test(p.marca)) return null;
   return `https://images.brickset.com/sets/${grande ? 'images' : 'small'}/${set}-1.jpg`;
+}
+
+/** O produto é Pokémon? (pela marca) */
+const ePokemon = (marca: string | null | undefined) => /pok[eé]mon/i.test(marca || '');
+
+/**
+ * Imagem de referência de qualquer produto, quando não há fotografia nossa:
+ * - LEGO: a imagem oficial do set (urlReferencia);
+ * - Pokémon: a imagem do produto no TCGplayer, se já se sabe qual é (associação automática
+ *   inequívoca ou escolhida por nós em "Qual destes é?").
+ * É um "hook" porque precisa dos dados de mercado e das associações guardadas.
+ */
+export function useImagemReferencia() {
+  const { dados } = useDados();
+  const mercado = useMercado();
+  const ids = useMemo(() => idsPokemon(dados.definicoes), [dados.definicoes]);
+  // useCallback: a função só muda quando chegam os dados de mercado ou mudam as associações
+  return useCallback((p: { nome: string; marca: string | null; set_numero: string | null; preco_compra?: number; custos_adicionais?: number; quantidade?: number }, grande = false): string | null => {
+    const lego = urlReferencia(p, grande);
+    if (lego || !ePokemon(p.marca)) return lego;
+    // Custo de uma unidade, para pôr de parte associações com preço absurdo (produto errado)
+    const custo = p.preco_compra != null ? ((p.preco_compra || 0) + (p.custos_adicionais || 0)) / Math.max(p.quantidade || 1, 1) : undefined;
+    return urlImagemTcg(idTcgPokemon(mercado, p.nome, ids, custo), grande);
+  }, [mercado, ids]);
 }
 
 /** Imagem oficial do set (Brickset, com alternativa no Rebrickable); se falhar, mostra o "vazio". */

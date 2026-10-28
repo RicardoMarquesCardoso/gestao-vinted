@@ -9,11 +9,12 @@ import type { EstadoVenda, Venda } from '../lib/types';
 import { ESTADOS_VENDA } from '../lib/types';
 import { useDados } from '../state';
 import { paraCampo, vazioANull } from './acoes';
-import { Campo, Dinheiro, Janela, SelecionarConta, SelecionarPessoa, Valor, useConfirmar, ProcurarLista, urlReferencia } from './ui';
+import { Campo, Dinheiro, Janela, SelecionarConta, SelecionarPessoa, Valor, useConfirmar, ProcurarLista, useImagemReferencia } from './ui';
 
 export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?: string; aoFechar(): void }) {
   const { dados, guardar, apagar, aviso, nomeConta, nomePagador } = useDados();
   const confirmar = useConfirmar();
+  const imagemReferencia = useImagemReferencia();
   const existente = dados.vendas.find((v) => v.id === id);
   const produtoInicial = dados.produtos.find((p) => p.id === (existente?.produto_id ?? produtoId));
 
@@ -70,9 +71,9 @@ export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?
       detalhe: [p.set_numero && `Set ${p.set_numero}`, p.condicao, `custo ${fmtEuro(custoUnitario(p))}`, `pagou ${nomePagador(p)}`, p.conta_id && nomeConta(p.conta_id)]
         .filter(Boolean)
         .join(' · '),
-      imagem: p.fotos[0] ? null : urlReferencia(p),
+      imagem: p.fotos[0] ? null : imagemReferencia(p),
     }));
-  }, [dados.produtos, dados.vendas, f.produto_id, id, nomeConta, nomePagador]);
+  }, [dados.produtos, dados.vendas, f.produto_id, id, nomeConta, nomePagador, imagemReferencia]);
 
   const qtd = Math.max(Math.round(lerNumero(f.quantidade)) || 1, 1);
   const liquido = arred(lerNumero(f.preco_venda) - lerNumero(f.comissao) - lerNumero(f.portes) - lerNumero(f.outros_custos));

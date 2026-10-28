@@ -69,6 +69,29 @@ export function precoPokemon(m: Mercado | null, nome: string, ids: Record<string
   return { ...(e as ProdutoTcg), auto: e.auto };
 }
 
+/**
+ * Id TCGplayer que corresponde a este produto Pokémon, ou null se ainda não se sabe qual é.
+ * - Se escolhemos um (definicoes.pokemon_ids), é esse, mesmo antes da próxima atualização.
+ * - Senão, o que a pesquisa automática encontrou, desde que não haja candidatos por escolher
+ *   e o preço não seja absurdo face ao custo (sinal de produto errado; ver precoPokemon).
+ */
+export function idTcgPokemon(m: Mercado | null, nome: string, ids: Record<string, string> = {}, custo?: number): string | null {
+  const escolhido = ids[chavePokemon(nome)];
+  if (escolhido) return escolhido;
+  const e = entradaPokemon(m, nome);
+  if (!e?.id || e.candidatos?.length) return null;
+  if (custo && custo > 0 && e.eur && (e.eur > custo * 4 || e.eur < custo / 4)) return null;
+  return e.id;
+}
+
+/**
+ * Imagem do produto no TCGplayer, a partir do id. Não é guardada: o browser mostra-a
+ * diretamente do site deles (como as imagens do Brickset nos LEGO). Pequena para as listas,
+ * grande para o detalhe do produto.
+ */
+export const urlImagemTcg = (id: string | null | undefined, grande = false): string | null =>
+  id && /^\d+$/.test(id) ? `https://tcgplayer-cdn.tcgplayer.com/product/${id}_${grande ? 'in_1000x1000' : '200w'}.jpg` : null;
+
 /** Associações manuais dos produtos Pokémon (nome em minúsculas → tcgPlayerId). */
 export const idsPokemon = (defs: { chave: string; valor: unknown }[] | undefined): Record<string, string> =>
   ((defs ?? []).find((d) => d.chave === 'pokemon_ids')?.valor ?? {}) as Record<string, string>;

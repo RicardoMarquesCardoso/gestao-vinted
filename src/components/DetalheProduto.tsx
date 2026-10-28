@@ -13,7 +13,7 @@ import { useAbrir } from './acoes';
 import { compararNomes, useCatalogoSets } from './catalogo';
 import { CHAVE_MANTIDOS } from '../pages/ReverNomes';
 import { useState } from 'react';
-import { EtiquetaProduto, EtiquetaVenda, Foto, ImagemReferencia, Janela, Valor, reduzirFoto, urlReferencia } from './ui';
+import { EtiquetaProduto, EtiquetaVenda, Foto, ImagemReferencia, Janela, Valor, reduzirFoto, urlReferencia, useImagemReferencia } from './ui';
 
 export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void }) {
   const { dados, nomeConta, nomePagador, store, guardar, aviso, lista } = useDados();
@@ -21,6 +21,7 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
   const mercado = useMercado();
   const [aEnviar, setAEnviar] = useState(false);
   const abrir = useAbrir();
+  const imagemReferencia = useImagemReferencia();
   const p = dados.produtos.find((x) => x.id === id);
   if (!p) return null;
   // Ciclo de vida do set (Brickset): quando saiu, quando foi/será retirado e o PVP
@@ -110,6 +111,13 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
             <a href={`https://www.lego.com/pt-pt/search?q=${encodeURIComponent(p.set_numero ?? '')}`} target="_blank" rel="noreferrer">site da LEGO</a> ·{' '}
             <a href={`https://brickset.com/sets/${encodeURIComponent(p.set_numero ?? '')}-1`} target="_blank" rel="noreferrer">Brickset</a>
           </figcaption>
+        </figure>
+      )}
+      {/* Pokémon: imagem do produto no TCGplayer (se já se sabe qual é); some se não carregar */}
+      {p.fotos.length === 0 && !urlReferencia(p) && imagemReferencia(p, true) && (
+        <figure className="referencia">
+          <ImagemReferencia url={imagemReferencia(p, true)} alt={p.nome} className="referencia-img" />
+          <figcaption className="mudo">Imagem de referência · TCGplayer</figcaption>
         </figure>
       )}
       {oficial && compararNomes(p.nome, oficial.nome) !== 'igual' && !lista(CHAVE_MANTIDOS).includes((p.set_numero ?? '').trim()) && (
