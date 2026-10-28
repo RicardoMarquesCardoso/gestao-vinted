@@ -135,11 +135,72 @@ export interface InfoMercado {
   ebay: [number, number] | null;
 }
 
-/** Desconto a aplicar aos preços pedidos no eBay (regra "descontoEbay" em Definições; 10% por defeito). */
+/** Desconto das regras (Definições → "descontoEbay"), usado só quando não há vendas para calibrar. */
 export const descontoEbay = (defs: { chave: string; valor: unknown }[] | undefined): number => {
   const r = (defs ?? []).find((d) => d.chave === 'regras_plano')?.valor as { descontoEbay?: number } | undefined;
-  return typeof r?.descontoEbay === 'number' ? r.descontoEbay : 0.1;
+  return typeof r?.descontoEbay === 'number' ? r.descontoEbay : 0.37;
 };
+
+/**
+ * Desconto a aplicar aos preços pedidos no eBay: o real, medido nas nossas vendas (calibrarEbay),
+ * ou, se ainda houver poucas vendas comparáveis, o das regras.
+ */
+export const descontoEbayEfetivo = (d: Pick<Dados, 'produtos' | 'vendas'> & Partial<Pick<Dados, 'definicoes'>>, m: Mercado | null, hoje: string): number =>
+  calibrarEbay(d, m, hoje)?.desconto ?? descontoEbay(d.definicoes);
+
+// ---------- Calibração do eBay ----------
+//
+// Os preços do eBay são PEDIDOS, e nós vendemos na Vinted, por isso recebemos bastante menos.
+// Para saber quanto menos, comparamos as nossas vendas com o preço pedido no eBay para os mesmos
+// sets: para cada set, preço médio a que vendemos ÷ mediana pedida no eBay. A mediana desses
+// rácios (todos os sets) dá a percentagem que costumamos conseguir; o desconto é o resto.
+// Ex.: vendemos a 63% do pedido no eBay → desconto de 37%. Recalcula-se sozinho a cada venda.
+
+/** Mínimo de sets comparáveis para confiar na calibração (abaixo disto usa-se a regra). */
+export const MIN_SETS_CALIBRACAO = 10;
+
+export interface CalibracaoEbay {
+  desconto: number; // ex.: 0.37
+  sets: number; // quantos sets entraram na conta
+  dias: number; // janela usada: vendas dos últimos 365 dias (ou 730, se houver poucas)
+}
+
+let cacheCal: { vendas: unknown; produtos: unknown; mercado: unknown; hoje: string; r: CalibracaoEbay | null } | null = null;
+
+/** Desconto real sobre o eBay, medido nas nossas vendas de sets novos; null se houver poucos dados. */
+export function calibrarEbay(dados: Pick<Dados, 'produtos' | 'vendas'>, mercado: Mercado | null, hoje: string): CalibracaoEbay | null {
+  // Guarda o último resultado: é pedido para cada produto, mas só muda quando mudam os dados
+  if (cacheCal && cacheCal.vendas === dados.vendas && cacheCal.produtos === dados.produtos && cacheCal.mercado === mercado && cacheCal.hoje === hoje) return cacheCal.r;
+  const produtos = new Map(dados.produtos.map((p) => [p.id, p]));
+  const medir = (dias: number): CalibracaoEbay | null => {
+    const porSet = new Map<string, number[]>();
+    for (const v of dados.vendas) {
+      const p = produtos.get(v.produto_id);
+      if (!p?.set_numero || !vendaValida(v) || !produtoNovo(p) || !(v.preco_venda > 0)) continue;
+      if (v.notas?.includes('data de venda desconhecida') || diasEntre(v.data_venda, hoje) > dias) continue;
+      const lista = porSet.get(p.set_numero.trim()) ?? [];
+      lista.push(v.preco_venda / (v.quantidade || 1));
+      porSet.set(p.set_numero.trim(), lista);
+    }
+    const racios: number[] = [];
+    for (const [set, precos] of porSet) {
+      const e = infoMercado(mercado, set, hoje)?.ebay;
+      if (!e || e[1] < 3 || !(e[0] > 0)) continue;
+      racios.push(precos.reduce((a, b) => a + b, 0) / precos.length / e[0]);
+    }
+    if (racios.length < MIN_SETS_CALIBRACAO) return null;
+    racios.sort((a, b) => a - b);
+    const n = racios.length;
+    const mediana = n % 2 ? racios[(n - 1) / 2] : (racios[n / 2 - 1] + racios[n / 2]) / 2;
+    // Entre 0% e 70% de desconto, arredondado às centésimas
+    return { desconto: Math.round(Math.min(Math.max(1 - mediana, 0), 0.7) * 100) / 100, sets: n, dias };
+  };
+  // Preferir as vendas do último ano (preços mais atuais); se forem poucas, os últimos 2 anos
+  const r = medir(365) ?? medir(730);
+  cacheCal = { vendas: dados.vendas, produtos: dados.produtos, mercado, hoje, r };
+  return r;
+}
+
 
 const numeroBase = (s: string) => s.trim().replace(/-\d+$/, '');
 
@@ -289,7 +350,7 @@ export function investimento(d: Pick<Dados, 'produtos' | 'vendas'> & Partial<Pic
       const bl = produtoNovo(p) ? mercado?.blNovo ?? null : mercado?.blUsado ?? mercado?.blNovo ?? null;
       const pk = precoPokemon(m, p.nome, idsPokemon(d.definicoes), custoUnitario(p));
       // eBay só para novos (procuramos anúncios de novos), com desconto por serem preços pedidos
-      const eb = produtoNovo(p) && mercado?.ebay && mercado.ebay[1] >= 3 ? mercado.ebay[0] * (1 - descontoEbay(d.definicoes)) : null;
+      const eb = produtoNovo(p) && mercado?.ebay && mercado.ebay[1] >= 3 ? mercado.ebay[0] * (1 - descontoEbayEfetivo(d, m, hoje)) : null;
       const unit = bl ? bl[0] : eb ?? (pk ? pk.eur : vendaMedia);
       if (unit === null) continue;
       g.valorStock += unit * u;

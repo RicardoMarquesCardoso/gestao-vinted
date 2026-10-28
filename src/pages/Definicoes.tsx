@@ -15,6 +15,7 @@ import { useCasosNomes } from './ReverNomes';
 import { CHAVE_MODELO_ANUNCIO, MODELO_PADRAO, modeloAnuncio } from '../lib/anuncio';
 import type { ModeloAnuncio } from '../lib/anuncio';
 import { CHAVE_REGRAS, REGRAS_PADRAO, regrasPlano } from '../lib/plano';
+import { MIN_SETS_CALIBRACAO, calibrarEbay, useMercado } from '../lib/investimento';
 import type { RegrasPlano } from '../lib/plano';
 
 const NOMES_TABELA: Record<string, string> = {
@@ -337,7 +338,7 @@ const CAMPOS_REGRAS: { k: keyof RegrasPlano; nome: string; ajuda: string; pct: b
   { k: 'valorizacaoAVenda', nome: 'Valorização enquanto está à venda na LEGO', ajuda: 'por ano', pct: true },
   { k: 'valorizacaoRetirado', nome: 'Valorização nos 2 anos depois de retirado', ajuda: 'por ano', pct: true },
   { k: 'valorizacaoDepois', nome: 'Valorização depois disso', ajuda: 'por ano', pct: true },
-  { k: 'descontoEbay', nome: 'Desconto sobre os preços pedidos no eBay', ajuda: 'vende-se abaixo do pedido', pct: true },
+  { k: 'descontoEbay', nome: 'Desconto sobre o eBay (reserva)', ajuda: 'só enquanto não há vendas para o calcular', pct: true },
   { k: 'valorizacaoPokemon', nome: 'Valorização dos produtos Pokémon selados', ajuda: 'por ano', pct: true },
   { k: 'mesesAntesRetirada', nome: 'Guardar sets que saem de produção dentro de', ajuda: 'meses', pct: false },
   { k: 'mesesDepoisRetirada', nome: 'Guardar até depois da retirada', ajuda: 'meses', pct: false },
@@ -346,6 +347,9 @@ const CAMPOS_REGRAS: { k: keyof RegrasPlano; nome: string; ajuda: string; pct: b
 /** Editar as regras que decidem "vender já" ou "guardar" e os preços sugeridos. */
 function CartaoRegrasPlano() {
   const { dados, guardar, aviso } = useDados();
+  // Desconto real sobre o eBay, medido nas nossas vendas (ver calibrarEbay em lib/investimento.ts)
+  const mercado = useMercado();
+  const cal = calibrarEbay(dados, mercado, hoje());
   const guardado = regrasPlano(dados.definicoes);
   const paraTexto = (r: RegrasPlano) =>
     Object.fromEntries(CAMPOS_REGRAS.map((c) => [c.k, String(c.pct ? Math.round(r[c.k] * 1000) / 10 : r[c.k]).replace('.', ',')])) as Record<keyof RegrasPlano, string>;
@@ -378,6 +382,11 @@ function CartaoRegrasPlano() {
           </label>
         ))}
       </div>
+      <p className="mudo pequeno">
+        {cal
+          ? `Desconto sobre o eBay calculado com as vossas vendas: vendem a ~${Math.round((1 - cal.desconto) * 100)}% do preço pedido no eBay (${cal.sets} sets, vendas ${cal.dias === 365 ? 'do último ano' : 'dos últimos 2 anos'}), por isso usa-se ${Math.round(cal.desconto * 100)}%. Atualiza-se sozinho a cada venda.`
+          : `Desconto sobre o eBay: ainda não há ${MIN_SETS_CALIBRACAO} sets vendidos com preço no eBay para o calcular, por isso usa-se o valor de reserva.`}
+      </p>
       <div className="linha-botoes">
         <button className="btn btn-primario" disabled={JSON.stringify(v) === JSON.stringify(paraTexto(guardado))} onClick={() => gravar(v)}>Guardar</button>
         <button className="btn" onClick={() => gravar(paraTexto(REGRAS_PADRAO))}>Repor os valores sugeridos</button>

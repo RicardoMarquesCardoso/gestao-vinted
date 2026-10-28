@@ -276,12 +276,13 @@ flowchart TD
   P -- não --> V4[VENDER<br/>para libertar o dinheiro]
 ```
 
-- **Preço de referência**, por esta ordem: as nossas vendas do mesmo produto nos últimos 2 anos (as do último ano pesam mais) → BrickLink → **eBay** (mediana dos anúncios de novos na Europa, menos 10% por serem preços pedidos) → TCGplayer (Pokémon) → PVP da Brickset: com 20% de desconto se ainda estiver à venda na LEGO, ou, se já foi retirado, o PVP valorizado desde a retirada com as mesmas taxas das regras (no máximo o dobro do PVP).
+- **Preço de referência**, por esta ordem: as nossas vendas do mesmo produto nos últimos 2 anos (as do último ano pesam mais) → BrickLink → **eBay** (mediana dos anúncios de novos na Europa, com o **desconto real medido nas nossas vendas**, ver abaixo) → TCGplayer (Pokémon) → PVP da Brickset: com 20% de desconto se ainda estiver à venda na LEGO, ou, se já foi retirado, o PVP valorizado desde a retirada com as mesmas taxas das regras (no máximo o dobro do PVP).
 - **Subida da retirada ("pop"):** um set LEGO perto da retirada (sai nos próximos 6 meses ou saiu há menos de 6, pela data real do Brickset) guarda-se até ~6 meses depois da retirada, mesmo que já dê lucro e seja qual for o valor do set. O plano mostra uma estimativa do valor nessa data (nunca menor do que o PVP valorizado), só como informação. Os 2 números de meses editam-se em Definições. Análises mais finas por set (previsões de valor) precisam de dados como os da API do BrickEconomy.
 - **Valorização esperada** (taxas fixas iguais para todos os sets, editáveis em Definições; não é uma previsão por set):
   - **LEGO:** ~0% enquanto a LEGO ainda o vende; ~20%/ano nos 2 anos depois de ser retirado; ~7%/ano depois disso.
   - **Pokémon selado:** ~15%/ano.
   - A data de retirada vem da Brickset (real, ou prevista para os sets ainda à venda). Sem ela, estima-se como ano de lançamento + 2,5 anos.
+- **Desconto real sobre o eBay** (`calibrarEbay` em `src/lib/investimento.ts`): os preços do eBay são pedidos, e nós vendemos na Vinted. Para cada set que já vendemos e que tem preço no eBay, calcula-se *preço médio a que vendemos ÷ mediana pedida no eBay*. A mediana desses rácios dá a percentagem que costumamos conseguir, e o desconto é o resto. Usam-se as vendas de sets novos do último ano (ou dos últimos 2 anos, se houver poucas) e é preciso pelo menos 10 sets; com menos, usa-se a regra de reserva "Desconto sobre o eBay" (37% por defeito). Recalcula-se sozinho a cada venda e aparece nas Definições. Em out/2026: vendemos a ~64% do eBay (50 sets) → desconto de 36%. O mesmo desconto entra no valor estimado do stock.
 - **Preço sugerido** = referência + 8% (margem para negociar), nunca abaixo de custo + 5%.
 - **Baixar o preço:** ao fim de **60 dias** anunciado sem mudar de preço, sugere baixar 7%.
 

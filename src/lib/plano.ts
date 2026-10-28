@@ -8,7 +8,7 @@
 import { produtoNovo } from './anuncio';
 import { chaveComparacao, custoUnitario, diasEntre, emInventario, somarDias, unidadesDisponiveis, vendaValida } from './calc';
 import { fmtEuro } from './format';
-import { idsPokemon, infoMercado, precoPokemon } from './investimento';
+import { descontoEbayEfetivo, idsPokemon, infoMercado, precoPokemon } from './investimento';
 import type { Mercado } from './investimento';
 import type { Dados, Definicao, Produto } from './types';
 
@@ -37,7 +37,10 @@ export interface RegrasPlano {
   valorizacaoDepois: number;
   /** Valorização anual esperada dos produtos Pokémon selados (sem datas de retirada conhecidas). */
   valorizacaoPokemon: number;
-  /** Desconto sobre os preços pedidos no eBay (os anúncios costumam vender abaixo do preço pedido). */
+  /**
+   * Desconto sobre os preços pedidos no eBay, usado só como reserva: quando há vendas nossas
+   * suficientes para comparar, a app calcula o desconto real sozinha (ver calibrarEbay).
+   */
   descontoEbay: number;
   /** Guardar sets que saem de produção dentro deste n.º de meses (ou saíram há menos disto)… */
   mesesAntesRetirada: number;
@@ -56,7 +59,7 @@ export const REGRAS_PADRAO: RegrasPlano = {
   valorizacaoRetirado: 0.2,
   valorizacaoDepois: 0.07,
   valorizacaoPokemon: 0.15,
-  descontoEbay: 0.1,
+  descontoEbay: 0.37, // medido em out/2026: vendemos a ~63% do preço pedido no eBay (61 sets)
   mesesAntesRetirada: 6,
   mesesDepoisRetirada: 6,
 };
@@ -140,9 +143,15 @@ export function referencia(p: Produto, ctx: Contexto): Referencia | null {
   const bl = novo ? m?.blNovo : m?.blUsado ?? null;
   if (bl && bl[1] >= 2) return { preco: bl[0], fonte: 'bricklink', texto: `BrickLink: ${Math.round(bl[0])} € (${bl[1]} vendidos em 6 meses)` };
   // eBay: preços pedidos (não de venda), por isso com desconto. Só para novos.
+  // O desconto é o real, medido nas nossas vendas (calibrarEbay); sem dados suficientes, o das regras.
   if (novo && m?.ebay && m.ebay[1] >= 3) {
-    const preco = m.ebay[0] * (1 - r.descontoEbay);
-    return { preco, fonte: 'ebay', texto: `eBay: anúncios a ~${Math.round(m.ebay[0])} € (${m.ebay[1]} na Europa), conta-se ~${Math.round(preco)} €` };
+    const desconto = descontoEbayEfetivo(ctx.dados, ctx.mercado, ctx.hoje);
+    const preco = m.ebay[0] * (1 - desconto);
+    return {
+      preco,
+      fonte: 'ebay',
+      texto: `eBay: anúncios a ~${Math.round(m.ebay[0])} € (${m.ebay[1]} na Europa); como vendemos a ~${Math.round((1 - desconto) * 100)}% do eBay, conta-se ~${Math.round(preco)} €`,
+    };
   }
   // Pokémon: preço do TCGplayer (EUA), convertido para euros. É uma referência fraca (outro mercado).
   const pk = ehPokemon(p) ? precoPokemon(ctx.mercado, p.nome, idsPokemon(ctx.dados.definicoes), custoUnitario(p)) : null;

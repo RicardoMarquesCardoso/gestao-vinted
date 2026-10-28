@@ -307,11 +307,11 @@ test('Pokémon: candidatos escolhidos à mão e preços absurdos ignorados', () 
 
 test('eBay: preço pedido com desconto como referência de sets novos', () => {
   const merc = { brickset: {}, bricklink: {}, ebay: { '75192': [700, 12] as [number, number] } };
-  const p = produto({ id: 'e', set_numero: '75192', preco_compra: 500, estado: 'por_anunciar', condicao: 'Novo e selado' });
+  const p = produto({ id: 'e', set_numero: '75192', preco_compra: 300, estado: 'por_anunciar', condicao: 'Novo e selado' });
   const pl = sugerirPlano(p, { dados: { produtos: [p], vendas: [], definicoes: [] }, mercado: merc, hoje: '2026-10-27' });
   assert.equal(pl.referencia?.fonte, 'ebay');
-  assert.equal(Math.round(pl.referencia!.preco), 630); // 700 − 10%
-  assert.equal(pl.acao, 'vender'); // +26%
+  assert.equal(Math.round(pl.referencia!.preco), 441); // 700 − 37% (reserva: sem vendas nossas para calibrar)
+  assert.equal(pl.acao, 'vender'); // +47%
   const usado = { ...p, condicao: 'Usado completo' };
   assert.equal(sugerirPlano(usado, { dados: { produtos: [usado], vendas: [], definicoes: [] }, mercado: merc, hoje: '2026-10-27' }).referencia, null);
 });
@@ -374,4 +374,26 @@ test('sinal (semáforo): verde a correr, amarelo ação, azul guardado, vermelho
   // Outra unidade do mesmo set já anunciada: a que está por anunciar espera a vez (verde)
   const a2 = { ...a, id: 'a2', set_numero: '5' };
   assert.deepEqual([sinais(ctx([a2, e])).get('a2')!.cor], ['verde']);
+});
+
+import { calibrarEbay, descontoEbayEfetivo } from '../src/lib/investimento.ts';
+
+test('eBay: o desconto real mede-se nas nossas vendas (mediana dos rácios por set)', () => {
+  const ebay: Record<string, [number, number]> = {};
+  const ps: Produto[] = [];
+  const vs: Venda[] = [];
+  // 12 sets: o eBay pede 100 €, nós vendemos a 60 € (rácio 0,6), menos um a 90 € (não mexe na mediana)
+  for (let i = 0; i < 12; i++) {
+    const set = String(10000 + i);
+    ebay[set] = [100, 50];
+    ps.push(produto({ id: `p${i}`, set_numero: set, estado: 'vendido', condicao: 'Novo e selado' }));
+    vs.push(venda({ id: `v${i}`, produto_id: `p${i}`, preco_venda: i === 0 ? 90 : 60, data_venda: '2026-09-01' }));
+  }
+  const m = { brickset: {}, bricklink: {}, ebay };
+  const cal = calibrarEbay({ produtos: ps, vendas: vs }, m, '2026-10-28');
+  assert.deepEqual(cal, { desconto: 0.4, sets: 12, dias: 365 });
+  // Com poucos sets não se confia: usa-se a regra (reserva)
+  const poucos = calibrarEbay({ produtos: ps.slice(0, 5), vendas: vs.slice(0, 5) }, m, '2026-10-28');
+  assert.equal(poucos, null);
+  assert.equal(descontoEbayEfetivo({ produtos: ps.slice(0, 5), vendas: vs.slice(0, 5), definicoes: [] }, m, '2026-10-28'), 0.37);
 });
