@@ -316,7 +316,7 @@ input[type='checkbox'] { width: 18px; height: 18px; min-height: 0; accent-color:
 
 .grelha-produtos { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
 .produto {
-  width: 100%; height: 100%; display: flex; gap: 12px; padding: 10px; text-align: left; cursor: pointer;
+  width: 100%; height: 100%; display: flex; align-items: center; gap: 12px; padding: 10px; text-align: left; cursor: pointer;
   background: var(--superficie); border: 1px solid var(--linha); border-radius: 12px;
 }
 .produto:hover { border-color: var(--texto-3); }
@@ -532,7 +532,8 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
   .grupo-linha-info .linha-direita .sinal .truncar { display: none; }
 }
 .grelha-produtos > li.grupo-aberto > .produto { height: auto; }
-.grupo-pilha { align-self: flex-start; width: 76px; height: 76px; }
+/* A foto fica centrada na altura do cartão (como nos cartões simples) */
+.grupo-pilha { align-self: center; width: 76px; height: 76px; }
 .grupo-pilha > .produto-foto { width: 76px; height: 76px; }
 
 /* ---------- Simplificação dos formulários ---------- */
