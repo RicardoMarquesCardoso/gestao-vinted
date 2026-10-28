@@ -386,7 +386,8 @@ if os.environ.get('EBAY_CLIENT_ID') and os.environ.get('EBAY_CLIENT_SECRET') and
     # Um erro no eBay (ex.: chaves erradas) não pode impedir de gravar as outras fontes
     try:
         nossos = sorted({str(x).strip() for x in rpc_supabase('sets_mercado', token) if str(x).strip()})
-        novos = ebay(nossos, os.environ['EBAY_CLIENT_ID'], os.environ['EBAY_CLIENT_SECRET'])
+        # .strip(): ignora espaços ou mudanças de linha que tenham vindo agarrados ao colar as chaves
+        novos = ebay(nossos, os.environ['EBAY_CLIENT_ID'].strip(), os.environ['EBAY_CLIENT_SECRET'].strip())
         saida['ebay'] = {**saida['ebay'], **novos}  # mantém os anteriores se algum pedido falhar
         saida['ebay_atualizado'] = HOJE.isoformat()
     except urllib.error.HTTPError as e:
