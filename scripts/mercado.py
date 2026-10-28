@@ -390,13 +390,22 @@ if os.environ.get('EBAY_CLIENT_ID') and os.environ.get('EBAY_CLIENT_SECRET') and
         novos = ebay(nossos, os.environ['EBAY_CLIENT_ID'].strip(), os.environ['EBAY_CLIENT_SECRET'].strip())
         saida['ebay'] = {**saida['ebay'], **novos}  # mantém os anteriores se algum pedido falhar
         saida['ebay_atualizado'] = HOJE.isoformat()
+        saida['ebay_erro'] = None
     except urllib.error.HTTPError as e:
+        # A resposta de erro do eBay (ex.: {"error":"invalid_client",...}) explica o motivo e nunca traz as chaves.
+        # Fica gravada em ebay_erro para se poder ver sem abrir os registos da Action.
+        try:
+            corpo = e.read().decode('utf-8', 'replace')[:300]
+        except Exception:  # noqa: BLE001
+            corpo = ''
+        saida['ebay_erro'] = f'{HOJE.isoformat()} HTTP {e.code}: {corpo}'
         if e.code in (400, 401):
-            print(f'eBay: o eBay recusou as chaves (HTTP {e.code}). Confirmar que EBAY_CLIENT_ID e EBAY_CLIENT_SECRET '
+            print(f'eBay: o eBay recusou as chaves (HTTP {e.code}: {corpo}). Confirmar que EBAY_CLIENT_ID e EBAY_CLIENT_SECRET '
                   'são do keyset "Production" (não Sandbox), que esse keyset está ativo e que não há espaços a mais.')
         else:
-            print(f'eBay: erro {e.code} ({e.reason}); eBay não atualizado hoje.')
+            print(f'eBay: erro {e.code} ({e.reason}: {corpo}); eBay não atualizado hoje.')
     except Exception as e:  # noqa: BLE001
+        saida['ebay_erro'] = f'{HOJE.isoformat()} {type(e).__name__}: {str(e)[:300]}'
         print(f'eBay: erro ({e}); eBay não atualizado hoje.')
 else:
     print('Sem EBAY_CLIENT_ID/EBAY_CLIENT_SECRET: eBay não atualizado.')
