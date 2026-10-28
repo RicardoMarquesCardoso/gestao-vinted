@@ -328,6 +328,8 @@ Ficam em **GitHub → Settings → Secrets and variables → Actions**. Se uma f
 
 Para correr a tarefa à mão: **Actions → "Atualizar dados de mercado" → Run workflow**.
 
+Se o eBay recusar as chaves, a tarefa não falha: grava o motivo em `ebay_erro` dentro de `mercado-sets.json` (a resposta do eBay, que nunca inclui as chaves) e as outras fontes atualizam-se na mesma. As chaves são lidas sem espaços à volta.
+
 **Pokémon:** os nossos nomes são curtos ("ETB"), por isso a pesquisa por nome pode encontrar o produto errado. Para evitar isso:
 
 - O resultado só é aceite automaticamente se for **inequívoco**: todas as palavras que identificam o nosso produto aparecem no nome encontrado (palavras genéricas como "box" ou "elite" não contam) e nenhum outro resultado empata.
