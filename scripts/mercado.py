@@ -36,7 +36,7 @@ SEGREDOS (GitHub → Settings → Secrets and variables → Actions)
   POKEMONPRICETRACKER_API_KEY    chave gratuita da PokemonPriceTracker (100 créditos por dia)
   EBAY_CLIENT_ID, EBAY_CLIENT_SECRET   App ID e Cert ID da conta de programador eBay (grátis)
 """
-import base64, datetime, hashlib, hmac, json, os, re, secrets, sys, time, urllib.parse, urllib.request
+import base64, datetime, hashlib, hmac, json, os, re, secrets, sys, time, urllib.error, urllib.parse, urllib.request
 
 # O URL e a chave pública ("publishable") do Supabase são lidos do código da app (src/config.ts),
 # para não estarem repetidos. Esta chave é pública por natureza: sozinha não dá acesso a nada,
@@ -383,10 +383,20 @@ else:
     print('Sem segredos da BrickLink: BrickLink não atualizado.')
 
 if os.environ.get('EBAY_CLIENT_ID') and os.environ.get('EBAY_CLIENT_SECRET') and token:
-    nossos = sorted({str(x).strip() for x in rpc_supabase('sets_mercado', token) if str(x).strip()})
-    novos = ebay(nossos, os.environ['EBAY_CLIENT_ID'], os.environ['EBAY_CLIENT_SECRET'])
-    saida['ebay'] = {**saida['ebay'], **novos}  # mantém os anteriores se algum pedido falhar
-    saida['ebay_atualizado'] = HOJE.isoformat()
+    # Um erro no eBay (ex.: chaves erradas) não pode impedir de gravar as outras fontes
+    try:
+        nossos = sorted({str(x).strip() for x in rpc_supabase('sets_mercado', token) if str(x).strip()})
+        novos = ebay(nossos, os.environ['EBAY_CLIENT_ID'], os.environ['EBAY_CLIENT_SECRET'])
+        saida['ebay'] = {**saida['ebay'], **novos}  # mantém os anteriores se algum pedido falhar
+        saida['ebay_atualizado'] = HOJE.isoformat()
+    except urllib.error.HTTPError as e:
+        if e.code in (400, 401):
+            print(f'eBay: o eBay recusou as chaves (HTTP {e.code}). Confirmar que EBAY_CLIENT_ID e EBAY_CLIENT_SECRET '
+                  'são do keyset "Production" (não Sandbox), que esse keyset está ativo e que não há espaços a mais.')
+        else:
+            print(f'eBay: erro {e.code} ({e.reason}); eBay não atualizado hoje.')
+    except Exception as e:  # noqa: BLE001
+        print(f'eBay: erro ({e}); eBay não atualizado hoje.')
 else:
     print('Sem EBAY_CLIENT_ID/EBAY_CLIENT_SECRET: eBay não atualizado.')
 
