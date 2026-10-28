@@ -178,7 +178,8 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
           ) : (
             <div className="produto-rodape">
               <span>{fmtEuro(custoTotalProduto(p))}</span>
-              <span className="mudo">{[p.conta_id && nomeConta(p.conta_id), `pagou ${nomePagador(p)}`].filter(Boolean).join(' · ')}</span>
+              {/* Quem pagou fica só no detalhe do produto, para o cartão ficar mais limpo */}
+              <span className="mudo">{p.conta_id ? nomeConta(p.conta_id) : ''}</span>
             </div>
           )}
         </div>
@@ -200,7 +201,7 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
             <small className="mudo">
               {temVenda(p, 'pendente') ? 'venda pendente · ' : ''}
               {p.estado === 'vendido' && vendasDe.has(p.id) ? `vendido ${fmtData(vendasDe.get(p.id)![0].data_venda)} · ` : ''}
-              {fmtData(p.data_compra)} · pagou {nomePagador(p)}
+              {fmtData(p.data_compra)}
               {p.conta_id ? ` · ${nomeConta(p.conta_id)}` : ''}
               {p.notas ? ` · ${p.notas}` : ''}
             </small>

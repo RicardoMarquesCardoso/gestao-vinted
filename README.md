@@ -36,7 +36,7 @@ Este README explica **o que a app faz, como está construída e porquê**, para 
 | **Anunciar** | Escolhe a conta e o preço, e mostra o **título e a descrição prontos a copiar** para a Vinted. |
 | **Vendi** | Venda rápida: só preço e conta. |
 | **Acertos** | Tipo Splitwise: quem deve quanto a quem, com as transferências mínimas. |
-| **Contas** | As contas da Vinted com as barras dos limites (30 vendas / 2000 € por ano). |
+| **Contas** | As contas da Vinted com as barras dos limites (30 vendas / 2000 € por ano). Botão ✏️ para editar cada conta. |
 | **Compras** | Lista das compras. É a única forma de entrar produtos novos. |
 | **Análises** | Lucro por mês, conta e categoria; **investimento** (rentabilidade por ano, dinheiro parado, valor do stock); tabela por set; lotes de compra; idade do stock; tempo até vender. |
 | **Definições** | Texto dos anúncios, regras das sugestões, pessoas, listas, exportação, dados de exemplo e histórico de alterações. |

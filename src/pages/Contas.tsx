@@ -57,7 +57,7 @@ export function Contas() {
                     {c.utilizador_vinted && <small className="mudo"> @{c.utilizador_vinted}</small>}
                   </span>
                 }
-                acao={<button className="btn btn-pequeno" onClick={() => abrir({ tipo: 'conta', id: c.id })}>Editar</button>}
+                acao={<button className="btn btn-pequeno" title="Editar" aria-label={`Editar ${c.nome}`} onClick={() => abrir({ tipo: 'conta', id: c.id })}>✏️</button>}
               >
                 <p className="mudo conta-periodo">
                   Período: {PERIODOS.find((p) => p.valor === c.periodo)?.nome}
