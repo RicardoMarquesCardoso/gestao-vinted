@@ -11,7 +11,7 @@ import { fmtEuro, hoje, lerNumero } from '../lib/format';
 import type { Compra, Distribuicao, Produto } from '../lib/types';
 import { useDados } from '../state';
 import { paraCampo, vazioANull } from './acoes';
-import { Campo, Dinheiro, Janela, SelecionarPagador, TextoSugerido, lerPagador, useConfirmar, valorPagador , EscolherOuEscrever, ImagemReferencia, NomeComSugestoes, urlReferencia } from './ui';
+import { Campo, Dinheiro, Janela, SelecionarPagador, TextoSugerido, lerPagador, useConfirmar, valorPagador , EscolherOuEscrever, ImagemReferencia, NomeComSugestoes, urlReferencia, IconeLixo } from './ui';
 import { useCatalogo, useInfoPorSet } from './catalogo';
 
 interface Item {
@@ -282,8 +282,8 @@ export function FormCompra({ id, aoFechar }: { id?: string; aoFechar(): void }) 
               <span className="ic-custo" title="Custo final com portes e outros custos distribuídos">
                 {c ? `= ${fmtEuro(c.preco_compra + c.custos_adicionais)}` : ''}
               </span>
-              <button className="btn-icone" onClick={() => removerItem(i)} aria-label="Retirar produto">
-                ✕
+              <button className="btn-icone" onClick={() => removerItem(i)} aria-label="Tirar produto" title="Tirar produto">
+                <IconeLixo />
               </button>
             </div>
           );

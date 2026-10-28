@@ -8,7 +8,7 @@ import type { EstadoProduto, Produto } from '../lib/types';
 import { ESTADOS_PRODUTO } from '../lib/types';
 import { useDados } from '../state';
 import { paraCampo, vazioANull } from './acoes';
-import { Campo, Dinheiro, Foto, Janela, SelecionarConta, SelecionarPagador, TextoSugerido, lerPagador, reduzirFoto, useConfirmar, valorPagador , EscolherOuEscrever, ImagemReferencia, NomeComSugestoes, urlReferencia } from './ui';
+import { Campo, Dinheiro, Foto, Janela, SelecionarConta, SelecionarPagador, TextoSugerido, lerPagador, reduzirFoto, useConfirmar, valorPagador , EscolherOuEscrever, ImagemReferencia, NomeComSugestoes, urlReferencia, IconeLixo } from './ui';
 import { useCatalogo, useInfoPorSet } from './catalogo';
 
 export function FormProduto({ id, aoFechar }: { id?: string; aoFechar(): void }) {
@@ -226,7 +226,7 @@ export function FormProduto({ id, aoFechar }: { id?: string; aoFechar(): void })
           <div key={r} className="foto-item">
             <Foto refFoto={r} alt={f.nome} />
             <button className="btn-icone foto-remover" onClick={() => removerFoto(r)} aria-label="Remover fotografia">
-              ✕
+              <IconeLixo />
             </button>
           </div>
         ))}
