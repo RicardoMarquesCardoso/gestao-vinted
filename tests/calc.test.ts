@@ -342,3 +342,36 @@ test('plano: set prestes a sair → guardar até ~6 meses depois da retirada, se
   const merc3 = { brickset: { '76300': ['2025-09-01', '2027-12-31', 299.99, null, 'Retail'] as never }, bricklink: {} };
   assert.equal(sugerirPlano(p, { dados: { produtos: [p], vendas: [], definicoes: [] }, mercado: merc3, hoje: '2026-10-28' }).acao, 'vender');
 });
+
+import { sinais } from '../src/lib/plano.ts';
+
+test('sinal (semáforo): verde a correr, amarelo ação, azul guardado, vermelho atenção', () => {
+  const hojeT = '2026-10-27';
+  const merc = {
+    brickset: {
+      '1': ['2025-01-01', '2026-12-31', 100, null, 'Retail'] as never, // sai em breve → guardar
+      '2': ['2018-01-01', '2020-12-31', 50, null, 'Retired'] as never,
+      '3': ['2025-01-01', '2029-12-31', 100, null, 'Retail'] as never,
+      '5': ['2025-01-01', '2029-12-31', 100, null, 'Retail'] as never,
+    },
+    bricklink: { '1': { n: [80, 10] as [number, number] }, '2': { n: [55, 10] as [number, number] }, '3': { n: [80, 10] as [number, number] }, '5': { n: [80, 10] as [number, number] } },
+  };
+  const ctx = (ps: Produto[]) => ({ dados: { produtos: ps, vendas: [], definicoes: [] }, mercado: merc, hoje: hojeT });
+  const a = produto({ id: 'a', set_numero: '3', preco_compra: 60, estado: 'por_anunciar', condicao: 'Novo e selado' }); // vender
+  const b = produto({ id: 'b', set_numero: '1', preco_compra: 75, estado: 'por_anunciar', condicao: 'Novo e selado' }); // guardar
+  const d = produto({ id: 'd', set_numero: '2', preco_compra: 30, estado: 'anunciado', condicao: 'Novo e selado', preco_anuncio: 70, data_anuncio: '2026-07-01' }); // 118 dias
+  const e = produto({ id: 'e', set_numero: '5', preco_compra: 60, estado: 'anunciado', condicao: 'Novo e selado', preco_anuncio: 86, data_anuncio: '2026-10-20' }); // 7 dias
+  const v = produto({ id: 'v', set_numero: '2', preco_compra: 30, estado: 'vendido' });
+  const s = sinais(ctx([a, b, d, e, v]));
+  assert.equal(s.get('a')!.cor, 'amarelo');
+  assert.match(s.get('a')!.texto, /^Anunciar a 86/);
+  assert.equal(s.get('b')!.cor, 'azul');
+  assert.match(s.get('b')!.texto, /^Guardar até /);
+  assert.equal(s.get('d')!.cor, 'vermelho'); // mais de 60 dias anunciado
+  assert.match(s.get('d')!.texto, /^118 dias · baixar para 65/);
+  assert.deepEqual([s.get('e')!.cor, s.get('e')!.texto], ['verde', 'Anunciado há 7 dias']);
+  assert.deepEqual([s.get('v')!.cor, s.get('v')!.texto], ['cinzento', 'Vendido']);
+  // Outra unidade do mesmo set já anunciada: a que está por anunciar espera a vez (verde)
+  const a2 = { ...a, id: 'a2', set_numero: '5' };
+  assert.deepEqual([sinais(ctx([a2, e])).get('a2')!.cor], ['verde']);
+});

@@ -381,3 +381,76 @@ export function tarefas(ctx: Contexto): Tarefa[] {
   const ordem = { rever: 0, baixar: 1, anunciar: 2 };
   return lista.sort((a, b) => ordem[a.tipo] - ordem[b.tipo] || b.capital - a.capital);
 }
+
+// ---------- Sinal (bolinha tipo semáforo nos cartões) ----------
+//
+// Cada produto mostra uma bolinha de cor e uma linha curta com a próxima ação, em vez de várias
+// etiquetas. A cor responde a "tenho de fazer alguma coisa?":
+//   verde    = está a correr (anunciado, dentro do normal);
+//   amarelo  = há uma ação (anunciar, baixar o preço);
+//   azul     = guardado de propósito (nada a fazer até à data);
+//   vermelho = precisa de atenção (anunciado há demasiado tempo, ou o prazo de guardar acabou);
+//   cinzento = já não está em stock (vendido, cancelado, devolvido).
+// As ações vêm das mesmas tarefas do "O que fazer" do Painel, para dizerem sempre o mesmo.
+
+/** A partir de quantos dias anunciado um produto fica "parado" (vermelho). */
+export const DIAS_PARADO = 60;
+
+export type CorSinal = 'verde' | 'amarelo' | 'azul' | 'vermelho' | 'cinzento';
+
+export interface Sinal {
+  cor: CorSinal;
+  texto: string; // linha curta, ex.: "Anunciar a 89 €"
+  porque?: string; // explicação mais longa (aparece ao passar o rato)
+}
+
+/** Ordem de urgência, para escolher o sinal de um grupo de produtos iguais (o mais urgente). */
+export const URGENCIA: Record<CorSinal, number> = { vermelho: 0, amarelo: 1, azul: 2, verde: 3, cinzento: 4 };
+
+/** "Anunciado há 12 dias", "Anunciado hoje"… */
+function textoAnunciado(dias: number | null) {
+  if (dias === null) return 'Anunciado';
+  if (dias <= 0) return 'Anunciado hoje';
+  return `Anunciado há ${dias === 1 ? '1 dia' : `${dias} dias`}`;
+}
+
+/**
+ * Sinal de cada produto (id → sinal). Calcula as tarefas uma só vez para todos os produtos.
+ */
+export function sinais(ctx: Contexto): Map<string, Sinal> {
+  const porProduto = new Map<string, Tarefa>();
+  for (const t of tarefas(ctx)) for (const p of t.produtos) porProduto.set(p.id, t);
+  // Produtos (set ou nome) que já têm uma unidade anunciada: as outras unidades esperam a vez
+  const jaAnunciados = new Set(
+    ctx.dados.produtos.filter((p) => p.estado === 'anunciado' && unidadesDisponiveis(p, ctx.dados.vendas) > 0).map(chaveComparacao),
+  );
+  const res = new Map<string, Sinal>();
+  for (const p of ctx.dados.produtos) {
+    // Fora de stock: só informativo
+    if (!emInventario(p) || !unidadesDisponiveis(p, ctx.dados.vendas)) {
+      const nome = p.estado === 'cancelado' ? 'Cancelado' : p.estado === 'devolvido' ? 'Devolvido' : 'Vendido';
+      res.set(p.id, { cor: 'cinzento', texto: nome });
+      continue;
+    }
+    const t = porProduto.get(p.id);
+    if (t?.tipo === 'rever') {
+      res.set(p.id, { cor: 'vermelho', texto: 'Prazo de guardar acabou', porque: t.detalhe });
+      continue;
+    }
+    if (p.estado === 'anunciado') {
+      const dias = p.data_anuncio ? diasEntre(p.data_anuncio, ctx.hoje) : null;
+      const parado = dias !== null && dias > DIAS_PARADO;
+      if (t?.tipo === 'baixar')
+        res.set(p.id, { cor: parado ? 'vermelho' : 'amarelo', texto: parado ? `${dias} dias · baixar para ${fmtEuro(t.preco)}` : `Baixar para ${fmtEuro(t.preco)}`, porque: t.detalhe });
+      else res.set(p.id, { cor: parado ? 'vermelho' : 'verde', texto: textoAnunciado(dias), porque: parado ? `Anunciado há mais de ${DIAS_PARADO} dias.` : undefined });
+      continue;
+    }
+    // Por anunciar
+    const pl = sugerirPlano(p, ctx);
+    if (t?.tipo === 'anunciar') res.set(p.id, { cor: 'amarelo', texto: `Anunciar a ${fmtEuro(t.preco)}`, porque: pl.motivo });
+    else if (pl.acao === 'guardar') res.set(p.id, { cor: 'azul', texto: pl.ate ? `Guardar até ${mesAno(pl.ate)}` : 'Guardar', porque: pl.motivo });
+    else if (jaAnunciados.has(chaveComparacao(p))) res.set(p.id, { cor: 'verde', texto: 'Outro igual já anunciado', porque: 'Anuncia-se 1 unidade de cada vez.' });
+    else res.set(p.id, { cor: 'azul', texto: 'Anunciar adiado', porque: 'A tarefa de anunciar foi adiada no Painel.' });
+  }
+  return res;
+}

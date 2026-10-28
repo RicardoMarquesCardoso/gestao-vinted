@@ -1,6 +1,6 @@
 // Interface dos planos e tarefas (a lógica está em lib/plano.ts):
 //   - CartaoTarefas: lista "O que fazer" no Painel (anunciar, baixar preço, rever).
-//   - EtiquetaPlano: etiqueta "vender" / "guardar até …" nos cartões de produto.
+//   - SinalProduto: bolinha tipo semáforo + próxima ação nos cartões de produto (lógica em sinais()).
 //   - LinhaPlano: plano, preço sugerido e porquê, no detalhe do produto.
 //   - FormPlano: mudar o plano à mão (vender / guardar até / seguir a sugestão).
 //   - LinhaPokemon: preço de mercado de produtos Pokémon e associação ao produto certo.
@@ -10,8 +10,8 @@ import { fmtData, fmtEuro, hoje, plural } from '../lib/format';
 import { chavePokemon, entradaPokemon, idsPokemon, precoPokemon, urlImagemTcg, useMercado } from '../lib/investimento';
 import type { ProdutoTcg } from '../lib/investimento';
 import { custoUnitario } from '../lib/calc';
-import { CHAVE_ADIADAS, CHAVE_PLANOS, CHAVE_POKEMON_IDS, chavePlano, mesAno, planosManuais, sugerirPlano, tarefas, tarefasAdiadas } from '../lib/plano';
-import type { Contexto, Plano, PlanoManual, Tarefa } from '../lib/plano';
+import { CHAVE_ADIADAS, CHAVE_PLANOS, CHAVE_POKEMON_IDS, chavePlano, mesAno, planosManuais, sinais, sugerirPlano, tarefas, tarefasAdiadas } from '../lib/plano';
+import type { Contexto, Plano, PlanoManual, Sinal, Tarefa } from '../lib/plano';
 import type { Produto } from '../lib/types';
 import { useDados } from '../state';
 import { useAbrir } from './acoes';
@@ -35,10 +35,23 @@ export function textoPlano(pl: Plano) {
   return pl.acao === 'guardar' ? (pl.ate ? `guardar até ${mesAno(pl.ate)}` : 'guardar') : 'vender';
 }
 
-/** Etiqueta curta com o plano, para os cartões de produto. */
-export function EtiquetaPlano({ p, ctx }: { p: Produto; ctx: Contexto }) {
-  const pl = sugerirPlano(p, ctx);
-  return <span className={`chip chip-plano chip-plano-${pl.acao}`} title={pl.motivo}>{textoPlano(pl)}</span>;
+/** Sinal (cor + próxima ação) de todos os produtos, calculado uma vez por cada mudança nos dados. */
+export function useSinais(ctx: Contexto): Map<string, Sinal> {
+  return useMemo(() => sinais(ctx), [ctx]);
+}
+
+/**
+ * Bolinha de cor com a próxima ação, ex.: "● Anunciar a 89 €".
+ * A cor dá a leitura rápida; o texto tira a dúvida (e serve a quem não distingue bem as cores).
+ */
+export function SinalProduto({ sinal }: { sinal: Sinal | undefined }) {
+  if (!sinal) return null;
+  return (
+    <span className={`sinal sinal-${sinal.cor}`} title={sinal.porque}>
+      <span className="sinal-bola" aria-hidden="true" />
+      <span className="truncar">{sinal.texto}</span>
+    </span>
+  );
 }
 
 /** Linha no detalhe do produto: plano, preço sugerido e porquê. */

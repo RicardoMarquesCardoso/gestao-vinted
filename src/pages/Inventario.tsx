@@ -8,12 +8,13 @@ import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useAbrir } from '../components/acoes';
 import { CabecalhoProdutos } from '../components/CabecalhoProdutos';
-import { EtiquetaPlano, useContextoPlano } from '../components/planos';
+import { SinalProduto, useContextoPlano, useSinais } from '../components/planos';
+import { URGENCIA } from '../lib/plano';
 import { PesquisaProdutos, naCategoria, normalizar } from '../components/PesquisaProdutos';
 import type { FiltroCategoria } from '../components/PesquisaProdutos';
 import type { VerProdutos } from '../components/CabecalhoProdutos';
-import { EtiquetaProduto, Foto, ImagemReferencia, Valor, Vazio, iconeMarca, useImagemReferencia } from '../components/ui';
-import { chaveComparacao, custoTotalProduto, custoUnitario, diasEntre, emInventario, liquidoVenda, lucroVenda, unidadesDisponiveis, vendaValida } from '../lib/calc';
+import { Foto, ImagemReferencia, Valor, Vazio, iconeMarca, useImagemReferencia } from '../components/ui';
+import { chaveComparacao, custoTotalProduto, custoUnitario, emInventario, liquidoVenda, lucroVenda, unidadesDisponiveis, vendaValida } from '../lib/calc';
 import { diasAnunciado } from '../lib/anuncios';
 import { infoMercado, useMercado } from '../lib/investimento';
 import { descarregar, paraCsv } from '../lib/csv';
@@ -43,6 +44,8 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
   }, [dados.vendas]);
   const h = hoje();
   const ctxPlano = useContextoPlano();
+  // Bolinha tipo semáforo + próxima ação de cada produto (ver sinais() em lib/plano.ts)
+  const sinaisP = useSinais(ctxPlano);
   const mercado = useMercado();
   /** Texto curto da retirada do set (Brickset), ex.: "retirado 2024" ou "sai 2026". */
   const retirada = (p: Produto): string | null => {
@@ -151,7 +154,6 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
 
   function cartaoProduto(p: Produto) {
     const disp = unidadesDisponiveis(p, dados.vendas);
-    const dias = p.estado === 'anunciado' && p.data_anuncio ? diasEntre(p.data_anuncio, h) : null;
     return (
       <button className="produto" onClick={() => abrir({ tipo: 'detalhe', id: p.id })}>
         <ImagemProduto p={p} />
@@ -159,10 +161,9 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
           <div className="produto-nome">{p.nome}</div>
           <div className="produto-meta">{[categoria(p), p.set_numero && `Set ${p.set_numero}`, retirada(p)].filter(Boolean).join(' · ')}</div>
           <div className="produto-linha">
-            <EtiquetaProduto estado={p.estado} />
-            {p.quantidade > 1 && <span className="chip">{disp}/{p.quantidade} un.</span>}
-            {dias !== null && <span className={`chip ${dias > 60 ? 'chip-alerta' : ''}`}>{dias} dias</span>}
-            {emInventario(p) && disp > 0 && <EtiquetaPlano p={p} ctx={ctxPlano} />}
+            {/* Uma só linha: bolinha de cor + próxima ação (e as unidades, se houver mais do que uma) */}
+            <SinalProduto sinal={sinaisP.get(p.id)} />
+            {disp > 1 && <span className="sinal-qtd">×{disp}</span>}
           </div>
           {vendasDe.has(p.id) && !emInventario(p) ? (
             <div className="produto-rodape">
@@ -204,7 +205,7 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
             </small>
           </span>
           <span className="linha-direita">
-            <EtiquetaProduto estado={p.estado} />
+            <SinalProduto sinal={sinaisP.get(p.id)} />
             {p.estado === 'vendido' && vendasDe.has(p.id) ? (
               <span className="coluna-valores">
                 <strong>{fmtEuro(vendasDe.get(p.id)!.reduce((a, v) => a + liquidoVenda(v), 0))}</strong>
@@ -256,9 +257,11 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
                 retirada={retirada(g.itens[0])}
                 anunciar={(ids, retirar) => abrir({ tipo: 'anunciar', ids, retirar })}
                 vendi={(ids) => abrir({ tipo: 'vendi', ids })}
-                plano={(() => {
-                  const q = g.itens.find((x) => emInventario(x) && unidadesDisponiveis(x, dados.vendas) > 0);
-                  return q ? <EtiquetaPlano p={q} ctx={ctxPlano} /> : null;
+                sinal={(() => {
+                  // O grupo mostra o sinal da unidade mais urgente (vermelho > amarelo > azul > verde)
+                  const lista = g.itens.map((x) => sinaisP.get(x.id)).filter((x): x is NonNullable<typeof x> => !!x);
+                  const s = lista.sort((a, b) => URGENCIA[a.cor] - URGENCIA[b.cor])[0];
+                  return <SinalProduto sinal={s} />;
                 })()}
               />
             ),
@@ -305,10 +308,9 @@ interface Grupo {
 }
 
 /** Cartão de um grupo de produtos iguais; aberto mostra cada unidade e ações para o grupo. */
-function GrupoProdutos(props: { grupo: Grupo; aberto: boolean; alternar(): void; linha(p: Produto): ReactNode; anunciar(ids: string[], retirar?: boolean): void; vendi(ids: string[]): void; plano?: ReactNode; retirada?: string | null }) {
+function GrupoProdutos(props: { grupo: Grupo; aberto: boolean; alternar(): void; linha(p: Produto): ReactNode; anunciar(ids: string[], retirar?: boolean): void; vendi(ids: string[]): void; sinal?: ReactNode; retirada?: string | null }) {
   const { grupo: g } = props;
   const p = g.itens[0];
-  const estados = ESTADOS_PRODUTO.map((e) => ({ ...e, n: g.itens.filter((x) => x.estado === e.valor).length })).filter((e) => e.n > 0);
   const nomes = new Set(g.itens.map((x) => x.nome.trim().toLowerCase()));
   return (
     <li className={props.aberto ? 'grupo-aberto' : ''}>
@@ -321,12 +323,7 @@ function GrupoProdutos(props: { grupo: Grupo; aberto: boolean; alternar(): void;
           <div className="produto-nome">{p.nome}{nomes.size > 1 ? ' e variantes' : ''}</div>
           <div className="produto-meta">{[categoria(p), p.set_numero && `Set ${p.set_numero}`, props.retirada].filter(Boolean).join(' · ')}</div>
           <div className="produto-linha">
-            {estados.map((e) => (
-              <span key={e.valor} className={`etiqueta et-${e.valor}`}>
-                {e.n} {e.n > 1 && e.valor !== 'por_anunciar' ? `${e.nome.toLowerCase()}s` : e.nome.toLowerCase()}
-              </span>
-            ))}
-            {props.plano}
+            {props.sinal}
           </div>
           <div className="produto-rodape">
             <span>

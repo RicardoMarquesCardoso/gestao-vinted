@@ -31,7 +31,7 @@ Este README explica **o que a app faz, como está construída e porquê**, para 
 | Ecrã | Para quê |
 |---|---|
 | **Painel** | Botões *Registar venda* e *Registar compra*, a lista **"O que fazer"** (anunciar, baixar preços, rever), os números do período, alertas de limites, acertos por fazer e vendas recentes. |
-| **Produtos** | Stock e vendidos num só sítio. Filtros *Por anunciar / Anunciados / Vendidos* (podem combinar-se à vontade; ao abrir estão ligados Por anunciar e Anunciados). Produtos iguais aparecem agrupados com o custo médio. Cada produto mostra o plano (*vender* ou *guardar até…*). Os sets LEGO mostram o ano de retirada (Brickset). A pesquisa sugere produtos e categorias/subcategorias (ex.: *LEGO › Speed Champions*) enquanto se escreve; escolher uma categoria liga-a como filtro. |
+| **Produtos** | Stock e vendidos num só sítio. Filtros *Por anunciar / Anunciados / Vendidos* (podem combinar-se à vontade; ao abrir estão ligados Por anunciar e Anunciados). Produtos iguais aparecem agrupados com o custo médio. Cada produto mostra uma **bolinha tipo semáforo** e a próxima ação numa só linha (ver *Sinal dos produtos*). Os sets LEGO mostram o ano de retirada (Brickset). A pesquisa sugere produtos e categorias/subcategorias (ex.: *LEGO › Speed Champions*) enquanto se escreve; escolher uma categoria liga-a como filtro. |
 | **Detalhe do produto** | Fotografias, imagem oficial do set (ou do produto no TCGplayer, nos Pokémon), plano e preço sugerido, ciclo do set (lançamento, retirada real ou prevista e PVP, do Brickset), dados da compra, **Vendas** (deste produto e dos outros exemplares do mesmo set, com valor e lucro) e **Em stock** (outros exemplares do set por vender). Botões ✏️ (editar), 📷, *Anunciar/Retirar* e *Vendi*. |
 | **Anunciar** | Escolhe a conta e o preço, e mostra o **título e a descrição prontos a copiar** para a Vinted. |
 | **Vendi** | Venda rápida: só preço e conta. |
@@ -289,6 +289,18 @@ Todos estes números estão em **Definições → Regras das sugestões** e pode
 
 A lista **"O que fazer"** no Painel junta as tarefas: *Anunciar X a Y €*, *Baixar X para Y €* e *Rever X* (quando acaba um prazo de guardar escolhido por vocês). Cada tarefa pode ser **adiada** 14 dias. Tocar no título "O que fazer" minimiza ou maximiza a lista (fica lembrado em cada dispositivo).
 
+**Sinal dos produtos** (`sinais()` em `src/lib/plano.ts`, desenhado por `SinalProduto` em `planos.tsx`): em vez de várias etiquetas, cada cartão tem uma bolinha de cor e uma linha com a próxima ação. A cor responde a "tenho de fazer alguma coisa?" e usa as mesmas tarefas do "O que fazer":
+
+| Cor | Quando | Texto |
+|---|---|---|
+| 🟢 Verde | Anunciado há até 60 dias, ou outra unidade igual já está anunciada | *Anunciado há 12 dias* / *Outro igual já anunciado* |
+| 🟡 Amarelo | Há uma ação: anunciar (plano vender) ou baixar o preço | *Anunciar a 89 €* / *Baixar para 38 €* |
+| 🔵 Azul | Guardado de propósito, ou a tarefa de anunciar foi adiada | *Guardar até jul/27* / *Anunciar adiado* |
+| 🔴 Vermelho | Anunciado há mais de 60 dias (`DIAS_PARADO`), ou acabou o prazo de guardar escolhido por vocês | *74 dias · baixar para 39 €* / *Prazo de guardar acabou* |
+| ⚪ Cinzento | Já não está em stock | *Vendido* / *Cancelado* / *Devolvido* |
+
+Um grupo de produtos iguais mostra o sinal da unidade mais urgente. Ao passar o rato aparece o porquê (o motivo do plano ou da tarefa). Na importação do Excel os anunciados ficaram todos com data de anúncio 27/10/2026, por isso os vermelhos só começam a aparecer com o tempo.
+
 **Anuncia-se uma unidade de cada vez.** Se já há um produto igual anunciado (mesmo n.º de set ou nome), as outras unidades não aparecem como "Anunciar" até essa ser vendida.
 
 ---
@@ -366,7 +378,7 @@ src/
   components/               peças de interface
     ui.tsx                  janela, campos, listas, cartões, fotografias, logo…
     acoes.tsx               abrir janelas a partir de qualquer ecrã (+ botão voltar)
-    planos.tsx              "O que fazer", etiquetas e janela do plano, preço Pokémon
+    planos.tsx              "O que fazer", sinal dos produtos (semáforo), janela do plano, preço Pokémon
     catalogo.ts             sugestões e catálogo oficial de sets
     FormCompra.tsx          registar compra (entrada de produtos)
     FormProduto.tsx         editar produto
