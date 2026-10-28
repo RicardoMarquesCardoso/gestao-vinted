@@ -8,7 +8,7 @@
 //   custo unitário  = (preço de compra + custos adicionais) ÷ quantidade
 //   líquido         = preço de venda − comissão − portes − outros custos
 //   lucro da venda  = líquido − custo unitário × unidades vendidas
-//   Só contam vendas "pendentes" ou "concluídas" (as canceladas/devolvidas valem 0).
+//   Só contam vendas "concluídas" (as canceladas/devolvidas valem 0).
 
 import { dataLocal } from './format';
 import type { Compra, Conta, Dados, EstadoProduto, Produto, Venda } from './types';
@@ -24,8 +24,8 @@ export const custoTotalProduto = (p: Produto) => arred((p.preco_compra || 0) + (
 /** Custo de uma unidade. */
 export const custoUnitario = (p: Produto) => custoTotalProduto(p) / Math.max(p.quantidade || 1, 1);
 
-/** Uma venda conta para o lucro se estiver pendente ou concluída. */
-export const vendaValida = (v: Venda) => v.estado === 'pendente' || v.estado === 'concluida';
+/** Uma venda conta para o lucro se estiver concluída (uma venda passa logo a concluída). */
+export const vendaValida = (v: Venda) => v.estado === 'concluida';
 
 /** O que fica da venda depois dos custos da própria venda. */
 export const liquidoVenda = (v: Venda) =>
@@ -326,10 +326,8 @@ export interface LinhaCategoria {
 export interface Estatisticas {
   gasto: number;
   recebido: number;
-  aReceber: number;
   lucro: number;
   vendasConcluidas: number;
-  vendasPendentes: number;
   inventarioUnidades: number;
   inventarioCusto: number;
   inventarioProdutos: number;
@@ -355,7 +353,7 @@ function correspondeTexto(p: Produto | undefined, texto?: string) {
 
 /**
  * Calcula todas as estatísticas para um período e filtros.
- * Lucro e recebido contam só vendas concluídas; as pendentes aparecem como "a receber".
+ * Lucro e recebido contam as vendas concluídas.
  * O inventário é sempre o estado atual (não depende do período).
  */
 export function estatisticas(d: Dados, f: Filtro, hoje: string): Estatisticas {
@@ -404,9 +402,7 @@ export function estatisticas(d: Dados, f: Filtro, hoje: string): Estatisticas {
       correspondeTexto(produtoPorId.get(v.produto_id), f.texto),
   );
   const concluidas = vendasFiltradas.filter((v) => v.estado === 'concluida');
-  const pendentes = vendasFiltradas.filter((v) => v.estado === 'pendente');
   const recebido = soma(concluidas.map(liquidoVenda));
-  const aReceber = soma(pendentes.map(liquidoVenda));
   const lucro = soma(concluidas.map((v) => lucroVenda(v, produtoPorId.get(v.produto_id))));
   const custoVendido = soma(concluidas.map((v) => custoVenda(v, produtoPorId.get(v.produto_id))));
 
@@ -550,10 +546,8 @@ export function estatisticas(d: Dados, f: Filtro, hoje: string): Estatisticas {
   return {
     gasto,
     recebido,
-    aReceber,
     lucro,
     vendasConcluidas: concluidas.length,
-    vendasPendentes: pendentes.length,
     inventarioUnidades,
     inventarioCusto: arred(inventarioCusto),
     inventarioProdutos: inventario.length,

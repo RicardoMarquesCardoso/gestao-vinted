@@ -31,7 +31,7 @@ Este README explica **o que a app faz, como está construída e porquê**, para 
 | Ecrã | Para quê |
 |---|---|
 | **Painel** | Botões *Registar venda* e *Registar compra*, a lista **"O que fazer"** (anunciar, baixar preços, rever), os números do período, alertas de limites, acertos por fazer e vendas recentes. |
-| **Produtos** | Stock e vendidos num só sítio. Filtros *Por anunciar / Anunciados / Pendentes / Vendidos* (podem combinar-se à vontade; ao abrir estão ligados Por anunciar e Anunciados). Produtos iguais aparecem agrupados com o custo médio. Cada produto mostra o plano (*vender* ou *guardar até…*). Os sets LEGO mostram o ano de retirada (Brickset). A pesquisa sugere produtos e categorias/subcategorias (ex.: *LEGO › Speed Champions*) enquanto se escreve; escolher uma categoria liga-a como filtro. |
+| **Produtos** | Stock e vendidos num só sítio. Filtros *Por anunciar / Anunciados / Vendidos* (podem combinar-se à vontade; ao abrir estão ligados Por anunciar e Anunciados). Produtos iguais aparecem agrupados com o custo médio. Cada produto mostra o plano (*vender* ou *guardar até…*). Os sets LEGO mostram o ano de retirada (Brickset). A pesquisa sugere produtos e categorias/subcategorias (ex.: *LEGO › Speed Champions*) enquanto se escreve; escolher uma categoria liga-a como filtro. |
 | **Detalhe do produto** | Fotografias, imagem oficial do set, plano e preço sugerido, ciclo do set (lançamento, retirada real ou prevista e PVP, do Brickset), dados da compra, **Vendas** (deste produto e dos outros exemplares do mesmo set, com valor e lucro) e **Em stock** (outros exemplares do set por vender). Botões ✏️ (editar), 📷, *Anunciar/Retirar* e *Vendi*. |
 | **Anunciar** | Escolhe a conta e o preço, e mostra o **título e a descrição prontos a copiar** para a Vinted. |
 | **Vendi** | Venda rápida: só preço e conta. |
@@ -178,7 +178,7 @@ erDiagram
 | `membros` | Emails autorizados | `email` |
 
 **Estados de um produto:** `por_anunciar` → `anunciado` → `vendido`. Também pode ficar `devolvido` ou `cancelado`.
-**Estados de uma venda:** `pendente` (feita mas não concluída), `concluida`, `cancelada` ou `devolvida`.
+**Estados de uma venda:** `concluida`, `cancelada` ou `devolvida`. Não há estado intermédio: na Vinted um produto passa diretamente de anunciado a vendido, por isso uma venda nova fica logo `concluida`.
 
 ### O que está em `definicoes`
 
@@ -210,7 +210,7 @@ lucro da venda  = líquido − custo unitário × unidades vendidas
 ```
 
 - Numa compra com vários produtos, o valor divide-se **em partes iguais** ou **pelo preço de cada um**. Os portes repartem-se em proporção ao preço, e os cêntimos que sobram vão para o último produto, para a soma bater certo (`distribuirCompra`).
-- Só contam para o lucro as vendas **pendentes** e **concluídas**.
+- Só contam para o lucro as vendas **concluídas**.
 
 ### Acertos (`src/lib/acertos.ts`)
 

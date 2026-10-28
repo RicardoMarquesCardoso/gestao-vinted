@@ -98,7 +98,7 @@ export function dadosExemplo(hoje: string): Dados {
     { ...vBase, id: id(305), produto_id: p('Carro de bombeiros', 1).id, data_venda: d(20), data_conclusao: d(16), preco_venda: 31, conta_id: principal, pessoa_id: ricardo, estado: 'concluida', portes: 0 },
     { ...vBase, id: id(306), produto_id: p('Ninjago — Dragão do Lloyd').id, data_venda: d(18), data_conclusao: d(14), preco_venda: 48, conta_id: contaAna, pessoa_id: ana, estado: 'concluida', portes: 0, outros_custos: 2.4, notas: 'Custo das peças em falta' },
     { ...vBase, id: id(307), produto_id: p('Minifiguras série 25 (lote)').id, quantidade: 2, data_venda: d(6), data_conclusao: d(2), preco_venda: 11, conta_id: principal, pessoa_id: ricardo, estado: 'concluida', portes: 0 },
-    { ...vBase, id: id(308), produto_id: p('Minifiguras série 25 (lote)').id, quantidade: 1, data_venda: d(1), preco_venda: 6, conta_id: principal, pessoa_id: ricardo, estado: 'pendente', portes: 0 },
+    { ...vBase, id: id(308), produto_id: p('Minifiguras série 25 (lote)').id, quantidade: 1, data_venda: d(1), preco_venda: 6, conta_id: principal, pessoa_id: ricardo, estado: 'concluida', portes: 0 },
     { ...vBase, id: id(309), produto_id: p('Hogwarts: primeira aula de voo').id, data_venda: d(25), preco_venda: 33, conta_id: contaAna, pessoa_id: ana, estado: 'cancelada', portes: 0, notas: 'Comprador desistiu' },
   ];
 

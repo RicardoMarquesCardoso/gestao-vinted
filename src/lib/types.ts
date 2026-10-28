@@ -15,7 +15,7 @@
 //   Historico: registo de todas as alterações (nunca se apaga).
 
 export type EstadoProduto = 'por_anunciar' | 'anunciado' | 'vendido' | 'devolvido' | 'cancelado';
-export type EstadoVenda = 'pendente' | 'concluida' | 'cancelada' | 'devolvida';
+export type EstadoVenda = 'concluida' | 'cancelada' | 'devolvida';
 export type TipoPeriodo = 'mensal' | 'semanal' | 'anual' | 'rolante' | 'personalizado';
 export type Distribuicao = 'igual' | 'individual';
 /** Quem pagou: uma pessoa (pessoa_id), a conta conjunta, ou dividido em partes iguais. */
@@ -175,7 +175,6 @@ export const ESTADOS_PRODUTO: { valor: EstadoProduto; nome: string }[] = [
 ];
 
 export const ESTADOS_VENDA: { valor: EstadoVenda; nome: string }[] = [
-  { valor: 'pendente', nome: 'Pendente' },
   { valor: 'concluida', nome: 'Concluída' },
   { valor: 'cancelada', nome: 'Cancelada' },
   { valor: 'devolvida', nome: 'Devolvida' },

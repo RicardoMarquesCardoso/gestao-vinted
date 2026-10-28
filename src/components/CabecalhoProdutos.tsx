@@ -1,7 +1,7 @@
-// Topo do ecrã Produtos: título, botões (exportar, registar compra) e os 4 filtros
-// Por anunciar / Anunciados / Pendentes / Vendidos, que se podem ligar ao mesmo tempo (em qualquer combinação).
+// Topo do ecrã Produtos: título, botões (exportar, registar compra) e os 3 filtros
+// Por anunciar / Anunciados / Vendidos, que se podem ligar ao mesmo tempo (em qualquer combinação).
 // Cada filtro é um botão com ícone e contagem (no computador aparece também o nome).
-// Os ícones seguem o estilo Lucide (traço de 2 px, 24×24): package-open, megaphone, clock e circle-check.
+// Os ícones seguem o estilo Lucide (traço de 2 px, 24×24): package-open, megaphone e circle-check.
 
 import type { ReactNode } from 'react';
 import { BotaoTopo } from './ui';
@@ -9,7 +9,6 @@ import { BotaoTopo } from './ui';
 export interface VerProdutos {
   porAnunciar: boolean;
   anunciados: boolean;
-  pendentes: boolean;
   vendidos: boolean;
 }
 
@@ -33,16 +32,6 @@ const BOTOES: { k: keyof VerProdutos; nome: string; icone: ReactNode }[] = [
       <>
         <path d="m3 11 18-5v12L3 14v-3z" />
         <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
-      </>
-    ),
-  },
-  {
-    k: 'pendentes',
-    nome: 'Pendentes',
-    icone: (
-      <>
-        <circle cx="12" cy="12" r="10" />
-        <path d="M12 6v6l4 2" />
       </>
     ),
   },

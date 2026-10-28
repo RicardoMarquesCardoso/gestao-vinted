@@ -93,7 +93,7 @@ export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?
   // Validar, guardar a venda e atualizar o estado do(s) produto(s) afetado(s)
   async function submeter() {
     if (!produto) return aviso('Escolhe o produto vendido.', 'erro');
-    if ((f.estado === 'pendente' || f.estado === 'concluida') && qtd > disponiveis)
+    if (f.estado === 'concluida' && qtd > disponiveis)
       return aviso(`Só há ${disponiveis} unidade(s) disponível(eis) deste produto.`, 'erro');
     const v: Venda = {
       id: existente?.id ?? crypto.randomUUID(),
@@ -224,7 +224,7 @@ export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?
       <details className="mais-detalhes" open={detalhesAbertos || undefined}>
         <summary>Mais detalhes</summary>
         <div className="grelha-form">
-          <Campo rotulo="Estado" ajuda="Pendente: ainda à espera da confirmação">
+          <Campo rotulo="Estado" ajuda="Concluída, ou cancelada / devolvida se a venda não se fez">
             <select value={f.estado} onChange={(e) => mudar('estado', e.target.value as EstadoVenda)}>
               {ESTADOS_VENDA.map((e) => (
                 <option key={e.valor} value={e.valor}>

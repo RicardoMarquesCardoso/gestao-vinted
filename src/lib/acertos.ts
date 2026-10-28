@@ -119,7 +119,7 @@ export function calcularAcertos(d: Dados): ResultadoAcertos {
   const emStock = new Map<string, number>();
   for (const p of d.produtos) {
     if (p.estado !== 'por_anunciar' && p.estado !== 'anunciado') continue;
-    const vendidas = d.vendas.filter((v) => v.produto_id === p.id && (v.estado === 'pendente' || v.estado === 'concluida')).reduce((a, v) => a + v.quantidade, 0);
+    const vendidas = d.vendas.filter((v) => v.produto_id === p.id && v.estado === 'concluida').reduce((a, v) => a + v.quantidade, 0);
     const restantes = Math.max(p.quantidade - vendidas, 0);
     if (!restantes) continue;
     const custo = ((p.preco_compra + p.custos_adicionais) / Math.max(p.quantidade, 1)) * restantes;

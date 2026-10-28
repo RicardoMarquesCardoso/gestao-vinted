@@ -1,5 +1,5 @@
 // Ecrã "Produtos": stock e vendidos num só sítio, com os filtros Por anunciar / Anunciados /
-// Pendentes / Vendidos, pesquisa com sugestões (produtos e categorias/subcategorias) e ordenação.
+// Vendidos, pesquisa com sugestões (produtos e categorias/subcategorias) e ordenação.
 //
 // Produtos iguais (mesmo n.º de set ou mesmo nome) aparecem agrupados num só cartão com o
 // custo médio; tocar abre o grupo com cada unidade.
@@ -32,7 +32,7 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
   const [verOutros, setVerOutros] = useState(false);
   const [ordem, setOrdem] = useState<Ordem>('recentes');
   const [aberto, setAberto] = useState<string | null>(null);
-  const [ver, setVer] = useState<VerProdutos>({ porAnunciar: inicial === 'por_vender', anunciados: inicial === 'por_vender', pendentes: false, vendidos: inicial === 'vendidos' });
+  const [ver, setVer] = useState<VerProdutos>({ porAnunciar: inicial === 'por_vender', anunciados: inicial === 'por_vender', vendidos: inicial === 'vendidos' });
 
   // Vendas válidas de cada produto (a mais recente primeiro)
   const vendasDe = useMemo(() => {
@@ -52,13 +52,12 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
     if (m.retirada) return m.retirado ? `retirado ${m.retirada.slice(0, 4)}` : `sai ${m.retirada.slice(0, 4)}`;
     return m.retirado ? 'retirado' : null;
   };
-  const temVenda = (p: Produto, estado: 'pendente' | 'concluida') => (vendasDe.get(p.id) ?? []).some((v) => v.estado === estado);
+  const vendido = (p: Produto) => vendasDe.has(p.id);
   const contagens = useMemo(
     () => ({
       porAnunciar: dados.produtos.filter((p) => p.estado === 'por_anunciar').length,
       anunciados: dados.produtos.filter((p) => p.estado === 'anunciado').length,
-      pendentes: dados.produtos.filter((p) => temVenda(p, 'pendente')).length,
-      vendidos: dados.produtos.filter((p) => temVenda(p, 'concluida')).length,
+      vendidos: dados.produtos.filter(vendido).length,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [dados.produtos, vendasDe],
@@ -69,7 +68,7 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
     () =>
       dados.produtos.filter(
         (p) =>
-          (ver.porAnunciar && p.estado === 'por_anunciar') || (ver.anunciados && p.estado === 'anunciado') || (ver.pendentes && temVenda(p, 'pendente')) || (ver.vendidos && temVenda(p, 'concluida')) || (verOutros && (p.estado === 'cancelado' || p.estado === 'devolvido')),
+          (ver.porAnunciar && p.estado === 'por_anunciar') || (ver.anunciados && p.estado === 'anunciado') || (ver.vendidos && vendido(p)) || (verOutros && (p.estado === 'cancelado' || p.estado === 'devolvido')),
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [dados.produtos, ver, verOutros, vendasDe],
@@ -87,7 +86,7 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
           )),
     );
     // Data da última atividade: a venda mais recente (se estiver a ver vendidos) ou a compra
-    const data = (p: Produto) => (ver.vendidos || ver.pendentes ? vendasDe.get(p.id)?.[0]?.data_venda : undefined) || p.data_compra || p.criado_em || '';
+    const data = (p: Produto) => (ver.vendidos ? vendasDe.get(p.id)?.[0]?.data_venda : undefined) || p.data_compra || p.criado_em || '';
     return r.sort((a, b) =>
       ordem === 'nome'
         ? a.nome.localeCompare(b.nome)
@@ -163,7 +162,6 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
             <EtiquetaProduto estado={p.estado} />
             {p.quantidade > 1 && <span className="chip">{disp}/{p.quantidade} un.</span>}
             {dias !== null && <span className={`chip ${dias > 60 ? 'chip-alerta' : ''}`}>{dias} dias</span>}
-            {temVenda(p, 'pendente') && <span className="chip chip-alerta">venda pendente</span>}
             {emInventario(p) && disp > 0 && <EtiquetaPlano p={p} ctx={ctxPlano} />}
           </div>
           {vendasDe.has(p.id) && !emInventario(p) ? (
@@ -199,7 +197,6 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
               {p.condicao ? <span className="mudo"> · {p.condicao}</span> : null}
             </span>
             <small className="mudo">
-              {temVenda(p, 'pendente') ? 'venda pendente · ' : ''}
               {p.estado === 'vendido' && vendasDe.has(p.id) ? `vendido ${fmtData(vendasDe.get(p.id)![0].data_venda)} · ` : ''}
               {fmtData(p.data_compra)}
               {p.conta_id ? ` · ${nomeConta(p.conta_id)}` : ''}

@@ -83,7 +83,7 @@ export function Painel() {
         <div className="kpi">
           <span>Recebido</span>
           <strong>{fmtEuro(e.recebido)}</strong>
-          <small>{e.vendasPendentes ? `+ ${fmtEuro(e.aReceber)} pendente` : 'sem vendas pendentes'}</small>
+          <small>líquido das vendas</small>
         </div>
         <div className="kpi">
           <span>Gasto em compras</span>

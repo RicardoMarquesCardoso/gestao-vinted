@@ -324,7 +324,7 @@ input[type='checkbox'] { width: 18px; height: 18px; min-height: 0; accent-color:
   display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 99px; font-size: 0.74rem; font-weight: 600;
   white-space: nowrap; background: var(--superficie-2); color: var(--texto-2);
 }
-.et-anunciado, .et-v-pendente { background: var(--primario-suave); color: var(--primario); }
+.et-anunciado { background: var(--primario-suave); color: var(--primario); }
 .et-vendido, .et-v-concluida { background: color-mix(in srgb, var(--positivo) 14%, transparent); color: var(--positivo); }
 .et-devolvido, .et-v-devolvida { background: var(--aviso-fundo); color: var(--aviso); }
 .et-cancelado, .et-v-cancelada { background: var(--superficie-2); color: var(--texto-3); text-decoration: line-through; }

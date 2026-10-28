@@ -107,8 +107,8 @@ create table if not exists public.vendas (
   comissao numeric(12,2) not null default 0,
   portes numeric(12,2) not null default 0,
   outros_custos numeric(12,2) not null default 0,
-  estado text not null default 'pendente'
-    check (estado in ('pendente','concluida','cancelada','devolvida')),
+  estado text not null default 'concluida'
+    check (estado in ('concluida','cancelada','devolvida')),
   notas text,
   criado_em timestamptz not null default now()
 );

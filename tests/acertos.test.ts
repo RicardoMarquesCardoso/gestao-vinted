@@ -52,8 +52,8 @@ test('prejuízo é coberto pela conta conjunta', () => {
   assert.deepEqual(r.transferencias, [{ de: J, para: R, valor: 5 }]);
 });
 
-test('vendas pendentes não contam; acertos feitos abatem', () => {
-  assert.equal(calcularAcertos(cenario({}, { estado: 'pendente' })).transferencias.length, 0);
+test('vendas canceladas não contam; acertos feitos abatem', () => {
+  assert.equal(calcularAcertos(cenario({}, { estado: 'cancelada' })).transferencias.length, 0);
   const d = cenario({}, {});
   d.acertos.push({ id: 'a1', data: '2026-10-02', de: A, para: R, valor: 20, notas: null });
   assert.deepEqual(calcularAcertos(d).transferencias, [{ de: A, para: J, valor: 10 }]);
