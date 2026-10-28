@@ -236,12 +236,14 @@ test('plano: vender já quando o lucro compensa, guardar quando ainda vai valori
     brickset: {
       '1': ['2025-01-01', '2026-12-31', 100, null, 'Retail'] as never, // sai em breve
       '2': ['2018-01-01', '2020-12-31', 50, null, 'Retired'] as never, // retirado há muito
+      '3': ['2025-01-01', '2029-12-31', 100, null, 'Retail'] as never, // ainda vai ser vendido muito tempo
+      '4': ['2025-01-01', '2026-12-31', 60, null, 'Retail'] as never, // set pequeno a sair em breve
     },
-    bricklink: { '1': { n: [80, 10] as [number, number] }, '2': { n: [55, 10] as [number, number] } },
+    bricklink: { '1': { n: [80, 10] as [number, number] }, '2': { n: [55, 10] as [number, number] }, '3': { n: [80, 10] as [number, number] }, '4': { n: [55, 10] as [number, number] } },
   };
   const ctx = (ps: Produto[]) => ({ dados: { produtos: ps, vendas: [], definicoes: [] }, mercado: merc, hoje: hojeT });
-  // Comprado a 60, mercado a 80 → +33%: vender já
-  const a = produto({ id: 'a', set_numero: '1', preco_compra: 60, estado: 'por_anunciar', condicao: 'Novo e selado' });
+  // Comprado a 60, mercado a 80 → +33%, e só sai de produção em 2029: vender já
+  const a = produto({ id: 'a', set_numero: '3', preco_compra: 60, estado: 'por_anunciar', condicao: 'Novo e selado' });
   const pa = sugerirPlano(a, ctx([a]));
   assert.equal(pa.acao, 'vender');
   assert.equal(pa.precoSugerido, 86); // 80 × 1,08
@@ -250,6 +252,9 @@ test('plano: vender já quando o lucro compensa, guardar quando ainda vai valori
   const pb = sugerirPlano(b, ctx([b]));
   assert.equal(pb.acao, 'guardar');
   assert.ok(pb.ate! > hojeT);
+  // Comprado a 40 (+37% já), sai em dez/26, mas esperar só dá ~+10 € → vender
+  const a2 = produto({ id: 'a2', set_numero: '4', preco_compra: 40, estado: 'por_anunciar', condicao: 'Novo e selado' });
+  assert.equal(sugerirPlano(a2, ctx([a2])).acao, 'vender');
   // Comprado a 52, retirado há anos, mercado 55 (+6%), valoriza 7%/ano → vender para libertar o dinheiro
   const c = produto({ id: 'c', set_numero: '2', preco_compra: 52, estado: 'por_anunciar', condicao: 'Novo e selado' });
   assert.equal(sugerirPlano(c, ctx([c])).acao, 'vender');
@@ -317,5 +322,22 @@ test('PVP como referência: com desconto se à venda, inteiro se retirado', () =
   const pl = sugerirPlano(p, { dados: { produtos: [p], vendas: [], definicoes: [] }, mercado: merc, hoje: '2026-10-27' });
   assert.equal(pl.referencia?.fonte, 'pvp');
   assert.equal(Math.round(pl.referencia!.preco), Math.round(164.99 * Math.pow(1.2, 88 / 365))); // 3 meses depois de retirado
-  assert.equal(pl.acao, 'vender');
+  assert.equal(pl.acao, 'vender'); // retirado há 3 meses, mas esperar até jan/27 só dá ~+9 €
+});
+
+test('plano: set prestes a sair (ex.: Arkham Asylum) → guardar, mesmo com lucro já bom', () => {
+  const merc = { brickset: { '76300': ['2025-09-01', '2026-12-31', 299.99, null, 'Retail'] as never }, bricklink: {} };
+  const p = produto({ id: 'k', set_numero: '76300', preco_compra: 189, estado: 'por_anunciar', condicao: null });
+  const pl = sugerirPlano(p, { dados: { produtos: [p], vendas: [], definicoes: [] }, mercado: merc, hoje: '2026-10-28' });
+  assert.equal(Math.round(pl.referencia!.preco), 240); // 80% do PVP enquanto está à venda
+  assert.equal(pl.acao, 'guardar');
+  assert.equal(pl.ate!.slice(0, 7), '2027-07'); // ~6 meses depois da retirada
+  assert.match(pl.motivo, /compensa esperar/);
+  // Set pequeno (PVP 25 €) a sair na mesma altura → vender
+  const merc2 = { brickset: { '1': ['2025-01-01', '2026-12-31', 25, null, 'Retail'] as never }, bricklink: {} };
+  const q = produto({ id: 'q', set_numero: '1', preco_compra: 10, estado: 'por_anunciar', condicao: null });
+  assert.equal(sugerirPlano(q, { dados: { produtos: [q], vendas: [], definicoes: [] }, mercado: merc2, hoje: '2026-10-28' }).acao, 'vender');
+  // Sai só daqui a 14 meses → ainda não é altura de guardar
+  const merc3 = { brickset: { '76300': ['2025-09-01', '2027-12-31', 299.99, null, 'Retail'] as never }, bricklink: {} };
+  assert.equal(sugerirPlano(p, { dados: { produtos: [p], vendas: [], definicoes: [] }, mercado: merc3, hoje: '2026-10-28' }).acao, 'vender');
 });

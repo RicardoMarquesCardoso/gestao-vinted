@@ -339,6 +339,10 @@ const CAMPOS_REGRAS: { k: keyof RegrasPlano; nome: string; ajuda: string; pct: b
   { k: 'valorizacaoDepois', nome: 'Valorização depois disso', ajuda: 'por ano', pct: true },
   { k: 'descontoEbay', nome: 'Desconto sobre os preços pedidos no eBay', ajuda: 'vende-se abaixo do pedido', pct: true },
   { k: 'valorizacaoPokemon', nome: 'Valorização dos produtos Pokémon selados', ajuda: 'por ano', pct: true },
+  { k: 'mesesAntesRetirada', nome: 'Guardar sets que saem de produção dentro de', ajuda: 'meses', pct: false },
+  { k: 'mesesDepoisRetirada', nome: 'Guardar até depois da retirada', ajuda: 'meses', pct: false },
+  { k: 'valorMinGuardar', nome: 'Só guardar sets que valham pelo menos', ajuda: '€ hoje', pct: false },
+  { k: 'ganhoMinGuardar', nome: 'Só guardar se esperar render mais', ajuda: '€ por unidade', pct: false },
 ];
 
 /** Editar as regras que decidem "vender já" ou "guardar" e os preços sugeridos. */

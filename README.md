@@ -267,7 +267,9 @@ flowchart TD
   B -- não --> V1[VENDER<br/>usado, Hot Wheels, Funko…]
   B -- sim --> R{Há preço de referência?}
   R -- não --> V2[VENDER<br/>custo + margem, ver reação]
-  R -- sim --> L{Lucro agora ≥ 20%?}
+  R -- sim --> W{LEGO a sair de produção?<br/>sai nos próximos 6 meses ou saiu há menos de 6,<br/>vale ≥ 50 € e esperar dá ≥ +30 €}
+  W -- sim --> G2[GUARDAR ATÉ ~6 meses<br/>depois da retirada]
+  W -- não --> L{Lucro agora ≥ 20%?}
   L -- sim --> V3[VENDER JÁ<br/>o dinheiro volta mais depressa]
   L -- não --> P{Vai valorizar ≥ 12%/ano<br/>até chegar aos 20%?}
   P -- sim --> G[GUARDAR ATÉ data X]
@@ -275,7 +277,8 @@ flowchart TD
 ```
 
 - **Preço de referência**, por esta ordem: as nossas vendas do mesmo produto nos últimos 2 anos (as do último ano pesam mais) → BrickLink → **eBay** (mediana dos anúncios de novos na Europa, menos 10% por serem preços pedidos) → TCGplayer (Pokémon) → PVP da Brickset: com 20% de desconto se ainda estiver à venda na LEGO, ou, se já foi retirado, o PVP valorizado desde a retirada com as mesmas taxas das regras (no máximo o dobro do PVP).
-- **Valorização esperada:**
+- **Subida da retirada ("pop"):** um set LEGO perto da retirada (sai nos próximos 6 meses ou saiu há menos de 6, pela data real do Brickset) guarda-se até ~6 meses depois da retirada, mesmo que já dê lucro, se valer pelo menos 50 € hoje, se esperar render pelo menos +30 € por unidade e se o dinheiro preso render ≥ 12%/ano. O valor esperado depois da retirada nunca é menor do que o PVP valorizado. Os 4 números editam-se em Definições.
+- **Valorização esperada** (taxas fixas iguais para todos os sets, editáveis em Definições; não é uma previsão por set):
   - **LEGO:** ~0% enquanto a LEGO ainda o vende; ~20%/ano nos 2 anos depois de ser retirado; ~7%/ano depois disso.
   - **Pokémon selado:** ~15%/ano.
   - A data de retirada vem da Brickset (real, ou prevista para os sets ainda à venda). Sem ela, estima-se como ano de lançamento + 2,5 anos.

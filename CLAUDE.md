@@ -30,6 +30,7 @@ Guardar os dados que permitam estas análises desde já, mesmo que ainda não ap
 - Cálculos de investimento em `src/lib/investimento.ts`: rentabilidade anualizada = lucro ÷ (custo × dias ÷ 365). Contam os vendidos e o stock.
 - **Planos e tarefas** (`src/lib/plano.ts`): cada produto em stock tem o plano "vender" ou "guardar até X", e o Painel mostra "O que fazer" (anunciar a X €, baixar para Y €, rever).
   - **Princípio:** vender logo que o lucro previsto compense (`margemVender`), porque o dinheiro volta mais depressa para reinvestir.
+  - **Exceção, a subida da retirada:** sets LEGO que saem de produção nos próximos 6 meses (ou saíram há menos de 6) guardam-se até ~6 meses depois da retirada, se valerem ≥ 50 € e esperar der ≥ +30 € (regras `mesesAntesRetirada`, `mesesDepoisRetirada`, `valorMinGuardar`, `ganhoMinGuardar`). As taxas de valorização são fixas e genéricas: aplicá-las a todos os sets fazia quase tudo "guardar", por isso a janela é restrita. Previsões por set (ex.: BrickEconomy, API paga) seriam o passo seguinte.
   - Só se guarda quando vender agora dá pouco e a valorização esperada (por fase: à venda / retirado há menos de 2 anos / depois) rende pelo menos `rentabMinGuardar` por ano.
   - Preço de referência: as nossas vendas (2 anos) → BrickLink → eBay com desconto → TCGplayer (Pokémon) → PVP (×0,8 se ainda à venda; se retirado, PVP valorizado desde a retirada pelas taxas das regras, máx. ×2).
   - **Anuncia-se 1 unidade de cada produto de cada vez**: se já há um igual anunciado, não se sugere anunciar outro.

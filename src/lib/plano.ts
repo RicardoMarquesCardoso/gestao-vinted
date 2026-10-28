@@ -1,9 +1,11 @@
 // Plano para cada produto em stock (vender já / guardar até X) e lista de tarefas.
 //
 // Ideia base, para dar mais retorno: o dinheiro que volta depressa pode ser reinvestido.
-// Por isso vende-se logo que o lucro previsto compense; só se guarda quando vender agora
-// não dá margem suficiente e se espera que o set valorize mais depressa do que a
-// rentabilidade mínima pedida.
+// Exceção, nos sets LEGO: quando o set está perto da retirada (sai nos próximos 6 meses ou saiu
+// há menos de 6), guarda-se até ~6 meses depois da retirada, para apanhar a subida ("pop") que
+// costuma vir quando deixa de haver nas lojas. Só para sets que valem a pena (≥ 50 € hoje e pelo
+// menos +30 € esperando); as minifiguras e sets pequenos continuam a vender-se logo.
+// Fora disso, vende-se logo que o lucro previsto chegue à margem pedida.
 import { produtoNovo } from './anuncio';
 import { chaveComparacao, custoUnitario, diasEntre, emInventario, somarDias, unidadesDisponiveis, vendaValida } from './calc';
 import { fmtEuro } from './format';
@@ -38,6 +40,14 @@ export interface RegrasPlano {
   valorizacaoPokemon: number;
   /** Desconto sobre os preços pedidos no eBay (os anúncios costumam vender abaixo do preço pedido). */
   descontoEbay: number;
+  /** Guardar sets que saem de produção dentro deste n.º de meses (ou saíram há menos disto)… */
+  mesesAntesRetirada: number;
+  /** …até este n.º de meses depois da retirada. */
+  mesesDepoisRetirada: number;
+  /** Só guardar sets que valham pelo menos isto hoje (€). */
+  valorMinGuardar: number;
+  /** Só guardar se esperar render pelo menos mais isto (€ por unidade). */
+  ganhoMinGuardar: number;
 }
 
 export const REGRAS_PADRAO: RegrasPlano = {
@@ -52,6 +62,10 @@ export const REGRAS_PADRAO: RegrasPlano = {
   valorizacaoDepois: 0.07,
   valorizacaoPokemon: 0.15,
   descontoEbay: 0.1,
+  mesesAntesRetirada: 6,
+  mesesDepoisRetirada: 6,
+  valorMinGuardar: 50,
+  ganhoMinGuardar: 30,
 };
 
 /** Decisão tomada por vocês para um produto/set (sobrepõe-se à sugestão). */
@@ -146,16 +160,51 @@ export function referencia(p: Produto, ctx: Contexto): Referencia | null {
   // a tarefa "baixar o preço" corrige ao fim de algum tempo sem vender.
   if (m?.pvp && novo && m.retirado === false) return { preco: m.pvp * 0.8, fonte: 'pvp', texto: `ainda à venda (PVP ${Math.round(m.pvp)} €, com desconto ~20%)` };
   if (m?.pvp && novo && m.retirado === true) {
-    const anos = m.retirada ? Math.max(diasEntre(m.retirada, ctx.hoje), 0) / 365 : 0;
-    const fator = Math.min(Math.pow(1 + r.valorizacaoRetirado, Math.min(anos, 2)) * Math.pow(1 + r.valorizacaoDepois, Math.max(anos - 2, 0)), 2);
+    const preco = precoPvp(m.pvp, m.retirada ?? ctx.hoje, ctx.hoje, r);
     return {
-      preco: m.pvp * fator,
+      preco,
       fonte: 'pvp',
-      texto: `retirado${m.retirada ? ` em ${mesAno(m.retirada)}` : ''}, PVP ${Math.round(m.pvp)} € → estimado ~${Math.round(m.pvp * fator)} € hoje`,
+      texto: `retirado${m.retirada ? ` em ${mesAno(m.retirada)}` : ''}, PVP ${Math.round(m.pvp)} € → estimado ~${Math.round(preco)} € hoje`,
     };
   }
   return null;
 }
+
+/**
+ * Preço estimado de um set novo numa data, a partir do PVP: 80% do PVP enquanto a LEGO o vende
+ * (há sempre promoções); depois de retirado, o PVP valorizado pelas taxas das regras desde a
+ * retirada (no máximo o dobro do PVP).
+ */
+function precoPvp(pvp: number, retirada: string, data: string, r: RegrasPlano): number {
+  if (data < retirada) return pvp * 0.8;
+  const anos = diasEntre(retirada, data) / 365;
+  return pvp * Math.min(Math.pow(1 + r.valorizacaoRetirado, Math.min(anos, 2)) * Math.pow(1 + r.valorizacaoDepois, Math.max(anos - 2, 0)), 2);
+}
+
+/**
+ * Valor esperado de uma unidade mês a mês (posição 0 = hoje, até 60 meses), seguindo as fases do set.
+ * Se a referência é o PVP, usa a fórmula do PVP em cada data (inclui o salto dos 80% para 100% na
+ * retirada). Senão, parte do preço de referência e aplica a valorização de cada fase.
+ */
+function caminhoValor(p: Produto, ref: Referencia, ctx: Contexto, r: RegrasPlano, retirada: string | null) {
+  const m = infoMercado(ctx.mercado, p.set_numero, ctx.hoje);
+  const pvp = m?.pvp && m.retirada ? { pvp: m.pvp, retirada: m.retirada } : null;
+  const datas = [ctx.hoje];
+  const valores = [ref.preco];
+  for (let i = 1; i <= 60; i++) {
+    const antes = datas[i - 1];
+    const d = somarDias(antes, 30);
+    datas.push(d);
+    if (pvp && ref.fonte === 'pvp') valores.push(precoPvp(pvp.pvp, pvp.retirada, d, r));
+    else {
+      // Valoriza pela fase do set; depois da retirada, nunca abaixo do valor estimado pelo PVP (o "pop")
+      const v = valores[i - 1] * Math.pow(1 + taxa(antes, retirada, r), 1 / 12);
+      valores.push(pvp && d >= pvp.retirada ? Math.max(v, precoPvp(pvp.pvp, pvp.retirada, d, r)) : v);
+    }
+  }
+  return { datas, valores };
+}
+
 
 /** Data em que o set sai (ou saiu) de produção: Brickset ou, sem isso, lançamento + ~2,5 anos. */
 function dataRetirada(p: Produto, ctx: Contexto): { data: string; estimada: boolean } | null {
@@ -200,11 +249,39 @@ export function sugerirPlano(p: Produto, ctx: Contexto): Plano {
 
   if (!paraInvestir(p)) return vender(ref ? `Não é para guardar (${p.set_numero ? 'usado' : 'sem n.º de set'}): vender pelo melhor preço.` : 'Não é para guardar: vender com margem sobre o custo.');
   if (!ref) return vender(`Sem preço de referência: anunciar com ${pct(r.margemVender + r.margemNegociar)} sobre o custo e ver a reação.`);
+
+  // LEGO perto da retirada: comparar vender agora com esperar até ~6 meses depois da retirada.
+  // Só com a data de retirada do Brickset (não estimada), para sets que valem a pena, se o ganho
+  // de esperar for grande e se o dinheiro preso render pelo menos rentabMinGuardar por ano.
+  const retLego = ehPokemon(p) ? null : dataRetirada(p, ctx);
+  if (retLego && !retLego.estimada) {
+    const inicio = somarDias(ctx.hoje, -Math.round(r.mesesDepoisRetirada * 30.4));
+    const fim = somarDias(ctx.hoje, Math.round(r.mesesAntesRetirada * 30.4));
+    if (retLego.data >= inicio && retLego.data <= fim) {
+      const ate = somarDias(retLego.data, Math.round(r.mesesDepoisRetirada * 30.4));
+      const { datas, valores } = caminhoValor(p, ref, ctx, r, retLego.data);
+      const t = Math.max(datas.findIndex((d) => d >= ate), 1);
+      const ganho = valores[t] - valores[0];
+      const rentab = Math.pow(valores[t] / valores[0], 12 / t) - 1;
+      if (valores[0] >= r.valorMinGuardar && ganho >= r.ganhoMinGuardar && rentab >= r.rentabMinGuardar) {
+        const fase = retLego.data > ctx.hoje ? `Sai de produção em ${mesAno(retLego.data)}.` : `Saiu de produção em ${mesAno(retLego.data)}.`;
+        return {
+          ...base,
+          acao: 'guardar',
+          ate,
+          precoSugerido: Math.max(arredEuro(valores[t] * (1 + r.margemNegociar)), chao),
+          motivo:
+            `Vender agora dá ~${pct(Math.max(margemAgora!, -1))} (${ref.texto}). ${fase} ` +
+            `Esperando até ${mesAno(ate)} deve valer ~${Math.round(valores[t])} € (+${Math.round(ganho)} €, ~${pct(valores[t] / custo - 1)} de lucro): compensa esperar pela subida da retirada.`,
+        };
+      }
+    }
+  }
   if (margemAgora! >= r.margemVender) return vender(`Já dá ~${pct(margemAgora!)} de lucro (${ref.texto}). Vender liberta o dinheiro para reinvestir.`);
 
   // Pouca margem agora: ver se guardar compensa
   // Pokémon não tem datas de retirada: usa uma valorização anual fixa. LEGO: depende da fase do set.
-  const ret = ehPokemon(p) ? null : dataRetirada(p, ctx);
+  const ret = retLego;
   const taxaMes = (d: string) => (ehPokemon(p) ? r.valorizacaoPokemon : taxa(d, ret?.data ?? null, r));
   const alvo = custo * (1 + r.margemVender);
   let valor = ref.preco;
