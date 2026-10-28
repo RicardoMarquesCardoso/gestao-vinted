@@ -667,7 +667,8 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .linha-botoes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
 
 /* Quatro filtros de produtos: ícone + contagem (+ nome no computador), numa só linha */
-.abas-produtos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 4px; background: var(--superficie-2); border-radius: 14px; }
+/* Filtros de Produtos: cada botão ocupa uma parte igual da barra, seja qual for o número de filtros */
+.abas-produtos { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; padding: 4px; background: var(--superficie-2); border-radius: 14px; }
 .abas-produtos button {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
   min-height: 64px; padding: 8px 4px; border: 0; border-radius: 11px; background: transparent;
