@@ -148,7 +148,7 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
       <button className="produto" onClick={() => abrir({ tipo: 'detalhe', id: p.id })}>
         <ImagemProduto p={p} />
         <div className="produto-info">
-          <div className="produto-nome">{p.nome}</div>
+          <div className="produto-nome" title={p.nome}>{p.nome}</div>
           {/* Só categoria e n.º do set; a retirada fica no detalhe do produto, para o cartão ficar limpo */}
           <div className="produto-meta">{[categoria(p), p.set_numero].filter(Boolean).join(' · ')}</div>
           <div className="produto-linha">
@@ -310,7 +310,7 @@ function GrupoProdutos(props: { grupo: Grupo; aberto: boolean; alternar(): void;
           <span className="grupo-qtd">×{g.unidades}</span>
         </span>
         <div className="produto-info">
-          <div className="produto-nome">{p.nome}{nomes.size > 1 ? ' e variantes' : ''}</div>
+          <div className="produto-nome" title={p.nome}>{p.nome}{nomes.size > 1 ? ' e variantes' : ''}</div>
           <div className="produto-meta">{[categoria(p), p.set_numero].filter(Boolean).join(' · ')}</div>
           <div className="produto-linha">
             {props.sinal}
