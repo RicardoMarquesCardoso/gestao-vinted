@@ -768,3 +768,18 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
   .item-compra .ic-cat { grid-column: 1; grid-row: 2; }
 }
 .item-compra > .btn-icone:hover { color: var(--negativo, #d33); }
+
+/* ---------- "Vale a pena?" (pages/Avaliar.tsx) ---------- */
+.avaliar-set { display: flex; gap: 12px; align-items: center; margin: 4px 0 16px; min-width: 0; }
+.avaliar-set > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.avaliar-img { width: 72px; height: 72px; object-fit: contain; border-radius: 8px; flex: none; }
+.avaliar-links { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 4px; }
+.avaliar-veredicto { display: flex; align-items: center; gap: 8px; margin: 0 0 2px; font-size: 1.1rem; }
+.avaliar-bolinha { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+.avaliar-bom .avaliar-bolinha { background: var(--sinal-verde); }
+.avaliar-talvez .avaliar-bolinha { background: var(--sinal-amarelo); }
+.avaliar-mau .avaliar-bolinha { background: var(--sinal-vermelho); }
+.avaliar-motivo { margin: 0 0 12px; color: var(--texto-2); }
+.avaliar-fontes li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; font-size: 0.9rem; }
+.avaliar-fontes li > span:last-child { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.avaliar-resultado .nota { margin-bottom: 0; }

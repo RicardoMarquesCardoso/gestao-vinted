@@ -32,12 +32,13 @@ Este README explica **o que a app faz, como está construída e porquê**, para 
 |---|---|
 | **Painel** | Botões *Registar venda* e *Registar compra*, a lista **"O que fazer"** (anunciar, baixar preços, rever), os números do período, alertas de limites, acertos por fazer e vendas recentes. |
 | **Produtos** | Stock e vendidos num só sítio. Filtros *Por anunciar / Anunciados / Vendidos* (podem combinar-se à vontade; ao abrir estão ligados Por anunciar e Anunciados). Produtos iguais aparecem agrupados com o custo médio. Cada produto mostra uma **bolinha tipo semáforo** e a próxima ação numa só linha (ver *Sinal dos produtos*). Por baixo do nome, só a categoria e o número do set (sem a palavra "Set"); a retirada do set fica no detalhe do produto. A pesquisa sugere produtos e categorias/subcategorias (ex.: *LEGO › Speed Champions*) enquanto se escreve; escolher uma categoria liga-a como filtro. |
-| **Detalhe do produto** | Fotografias, imagem oficial do set (ou do produto no TCGplayer, nos Pokémon), plano e preço sugerido, ciclo do set (lançamento, retirada real ou prevista e PVP, do Brickset), dados da compra, **Vendas** (deste produto e dos outros exemplares do mesmo set, com valor e lucro) e **Em stock** (outros exemplares do set por vender). Botões ✏️ (editar), 📷, *Anunciar/Retirar* e *Vendi*. |
+| **Detalhe do produto** | Fotografias, imagem oficial do set (com links para o site da LEGO, a Brickset e a **pesquisa do set na Vinted**) (ou do produto no TCGplayer, nos Pokémon), plano e preço sugerido, ciclo do set (lançamento, retirada real ou prevista e PVP, do Brickset), dados da compra, **Vendas** (deste produto e dos outros exemplares do mesmo set, com valor e lucro) e **Em stock** (outros exemplares do set por vender). Botões ✏️ (editar), 📷, *Anunciar/Retirar* e *Vendi*. |
 | **Anunciar** | Escolhe a conta e o preço, e mostra o **título e a descrição prontos a copiar** para a Vinted. |
 | **Vendi** | Venda rápida: só preço e conta. |
 | **Acertos** | Tipo Splitwise: quem deve quanto a quem, com as transferências mínimas. |
 | **Contas** | As contas da Vinted com as barras dos limites (30 vendas / 2000 € por ano). Botão ✏️ para editar cada conta. |
-| **Compras** | Lista das compras. É a única forma de entrar produtos novos. |
+| **Compras** | Lista das compras. É a única forma de entrar produtos novos. Tem o atalho **Vale a pena?**. |
+| **Vale a pena?** | Avaliar uma compra (ex.: um set em promoção) **antes de comprar**: escreve-se o n.º do set, o preço e os portes, e a app mostra por quanto se vende, em quantos dias, o lucro, quanto rende por ano, um veredicto e o **preço máximo a pagar**. Tem links para ver o set na Vinted e nos vendidos do eBay. Está no menu (em *Mais*, no telemóvel). |
 | **Análises** | Lucro por mês, conta e categoria; **investimento** (rentabilidade por ano, dinheiro parado, valor do stock); tabela por set; lotes de compra; idade do stock; tempo até vender. |
 | **Definições** | Texto dos anúncios, regras das sugestões, pessoas, listas, exportação, dados de exemplo e histórico de alterações. |
 
@@ -66,6 +67,9 @@ flowchart LR
     PT[PokemonPriceTracker<br/>preços Pokémon]
     EB[eBay Europa<br/>preços pedidos LEGO]
   end
+  subgraph Supabase Edge Functions
+    EF[ebay-set<br/>eBay de 1 set, na hora]
+  end
 
   P -- "1. descarrega o site" --> A
   A -- "2. entrar" --> AU
@@ -75,6 +79,8 @@ flowchart LR
   G -- "diário" --> EB & PT & BS & BL
   G -- "grava catálogos JSON" --> P
   G -- "lista dos nossos sets" --> DB
+  A -- "Vale a pena?" --> EF
+  EF -- "Browse API" --> EB
 ```
 
 Há **três peças principais**:
@@ -196,6 +202,7 @@ Para não ter de mudar a estrutura da base de dados a cada nova ideia, as config
 | `tarefas_adiadas` | Tarefas escondidas até uma data |
 | `pokemon_ids` | Associação manual de produtos Pokémon ao TCGplayer |
 | `token_mercado` | Código que deixa a tarefa automática ler a lista dos nossos sets |
+| `sets_avaliar` | Sets que acompanhamos sem os ter (botão *Acompanhar* do **Vale a pena?**): a tarefa diária vai buscar o eBay deles |
 
 ---
 
@@ -304,6 +311,35 @@ Um grupo de produtos iguais mostra o sinal da unidade mais urgente. Ao passar o 
 
 **Anuncia-se uma unidade de cada vez.** Se já há um produto igual anunciado (mesmo n.º de set ou nome), as outras unidades não aparecem como "Anunciar" até essa ser vendida.
 
+### Vale a pena? Avaliar uma compra (`src/lib/avaliar.ts`, ecrã `pages/Avaliar.tsx`)
+
+Escreve-se o n.º do set, o preço da promoção e os portes. A app calcula:
+
+```
+preço de venda esperado = a primeira que existir de:
+    1. as nossas vendas deste set (as mesmas dos planos)
+    2. eBay: mediana pedida AGORA (função ebay-set) ou a do dia × a % a que costumamos vender (calibrarEbay)
+    3. PVP × a % do PVP a que costumamos vender (calibrarPvp), à parte para sets à venda e retirados
+dias até vender        = mediana (compra → venda) das nossas vendas deste set; senão do tema (≥ 3); senão de todas
+lucro                  = venda esperada − (preço + portes)
+rende por ano          = (lucro ÷ custo) × 365 ÷ dias até vender (mínimo 7 dias)
+pagar no máximo        = venda esperada ÷ (1 + margem "vender já" das regras) − portes, arredondado para baixo
+```
+
+**Veredicto:** 🟢 *Vale a pena* se o lucro for pelo menos a margem "vender já" das regras (20%) **e** pelo menos 5 € (cada conta só tem 30 vendas por ano, por isso uma venda com pouco lucro gasta uma vaga); 🔴 *Não compensa* abaixo da margem mínima (5%) ou com menos de 2 € de lucro; 🟡 *Talvez* no meio. Se já houver unidades do set em stock, avisa que esta vai demorar mais (anuncia-se uma de cada vez). Mostra também quantas vendas ainda cabem este ano nas contas ativas.
+
+**Porquê esta ordem e o PVP medido — o "teste com o passado" (out/2026).** Para cada uma das 102 vendas de LEGO com data, calculou-se o que cada fonte teria previsto e comparou-se com o preço real:
+
+| Fonte | Vendas | Erro típico | Desvio | Acerta a ±20% |
+|---|---|---|---|---|
+| As nossas vendas anteriores | 40 | 11% | −3% | 85% |
+| eBay × 0,64 | 102 | 12% | +3% | 70% |
+| PVP (como nos planos) | 102 | 20% | +18% | 54% |
+
+E, a comparar o preço de venda com o PVP pela fase do set na data da venda: **ainda à venda ~0,73 × PVP; retirado há < 1 ano ~0,79; 1–2 anos ~0,80; > 2 anos ~0,83** (os planos assumem 0,80 / 1,10 / 1,33 / 1,48). Ou seja, **nas nossas vendas quase não houve subida depois da retirada**. Ressalvas: poucos sets retirados (32 vendas), vendemos depressa (mediana ~30 dias) e os que valorizam podem estar guardados. Por isso o **Vale a pena?** usa o rácio medido; os **planos ainda não foram alterados** (seria preciso mostrar primeiro o impacto no stock).
+
+**Links:** *Ver na Vinted* abre a pesquisa `lego <n.º>` na Vinted, mais baratos primeiro e só novos (com e sem etiquetas); no telemóvel abre na app da Vinted, se estiver instalada. *Vendidos no eBay* abre os anúncios vendidos no eBay.de. São só links que nós abrimos à mão: **a app não lê nada da Vinted nem do site do eBay** (termos de uso).
+
 ---
 
 ## 8. Dados externos (catálogo e mercado)
@@ -314,6 +350,16 @@ Estes dados são preparados por **GitHub Actions** (pasta `.github/workflows/`).
 |---|---|---|---|
 | `public/catalogo-sets.json` | `scripts/catalogo.py` | Mensal | ~26 mil sets LEGO (Rebrickable): nome, ano, tema. Preenche o formulário ao escrever o n.º do set. |
 | `public/mercado-sets.json` | `scripts/mercado.py` | Diário (5h43 UTC) | **eBay**: mediana dos preços pedidos por cada set nosso, novo, nas lojas eBay da Alemanha, França, Espanha e Itália. **PokemonPriceTracker**: preço dos produtos Pokémon selados (TCGplayer, EUA). **Brickset**: lançamento, retirada (real ou prevista), PVP. **BrickLink**: preparado, sem acesso. |
+
+### eBay na hora (função `ebay-set` no Supabase)
+
+O ecrã **Vale a pena?** precisa do eBay de sets que talvez nunca tivemos, e a tarefa diária só vai buscar os nossos. Por isso há uma **Edge Function** no Supabase (`supabase/functions/ebay-set/index.ts`), um pequeno programa que corre na nuvem do Supabase quando é chamado:
+
+1. A app chama-a com o token da sessão; a função confirma com `e_membro` que quem pede é membro (senão recusa).
+2. Usa as chaves do eBay **guardadas nos segredos do Supabase** (não no código nem no telemóvel) e faz a mesma pesquisa da tarefa diária (novos, preço fixo, eBay DE/FR/ES/IT, n.º do set no título, sem partes).
+3. Devolve a mediana do preço pedido e o n.º de anúncios. A app aplica o mesmo desconto real (`calibrarEbay`).
+
+Se as chaves ainda não estiverem no Supabase, a função responde `sem_chaves` e a app usa o eBay da tarefa diária. Nesse caso, o botão **Acompanhar** junta o set a `definicoes.sets_avaliar`, e a função SQL `sets_mercado` passa a incluí-lo na lista da tarefa diária.
 
 ### As chaves (segredos)
 
@@ -326,6 +372,8 @@ Ficam em **GitHub → Settings → Secrets and variables → Actions**. Se uma f
 | `BRICKLINK_CONSUMER_KEY`, `BRICKLINK_CONSUMER_SECRET`, `BRICKLINK_TOKEN`, `BRICKLINK_TOKEN_SECRET` | BrickLink. **Sem acesso:** a API só está disponível para vendedores com loja na BrickLink. |
 | `POKEMONPRICETRACKER_API_KEY` | PokemonPriceTracker (plano grátis: 100 pedidos por dia). |
 | `EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET` | eBay Browse API: o *App ID* e o *Cert ID* do "Production keyset" de uma conta grátis em developer.ebay.com. |
+
+**Segredos do Supabase** (*Edge Functions → Secrets*): `EBAY_CLIENT_ID` e `EBAY_CLIENT_SECRET`, os mesmos valores do GitHub, para a função `ebay-set`. Os segredos do GitHub não se conseguem ler de volta, por isso copiam-se de novo a partir de developer.ebay.com.
 
 Para correr a tarefa à mão: **Actions → "Atualizar dados de mercado" → Run workflow**.
 
@@ -347,7 +395,8 @@ Se o eBay recusar as chaves, a tarefa não falha: grava o motivo em `ebay_erro` 
 
 - **Só os membros veem os dados.** Todas as tabelas têm **RLS** (*Row Level Security*): regras na própria base de dados que só deixam ler e escrever a quem tem **sessão iniciada** e cujo email está na tabela **`membros`**. Estão definidas em `supabase/schema.sql`.
 - **A chave do Supabase no código é pública por natureza** (*publishable*). Sozinha não dá acesso a nada, por causa das regras acima. A chave secreta (`service_role`) e a palavra-passe da base de dados **nunca** entram no código.
-- **O repositório é público**, por isso as chaves dos serviços externos ficam só nos segredos do GitHub.
+- **O repositório é público**, por isso as chaves dos serviços externos ficam só nos segredos do GitHub e do Supabase (Edge Functions), nunca no código.
+- **A função `ebay-set`** só responde a quem tem sessão e é membro (confirma com `e_membro`, usando o token de quem pede).
 - **Histórico imutável:** a tabela `historico` só aceita linhas novas. Nem a app consegue alterar ou apagar o histórico.
 - **Fotografias privadas:** o bucket `fotos` só é acessível com sessão.
 - **Apagar pede sempre confirmação.**
@@ -371,10 +420,11 @@ src/
     acertos.ts              saldos e transferências tipo Splitwise
     investimento.ts         rentabilidade anualizada, dados de mercado (useMercado)
     plano.ts                planos vender/guardar, preço sugerido, tarefas
+    avaliar.ts              "Vale a pena?": avaliar uma compra, PVP medido, tempo até vender, links Vinted/eBay
     anuncio.ts              texto dos anúncios
     anuncios.ts             registo automático do tempo anunciado
     store.ts                "contrato" de dados: Supabase ou demonstração
-    supabase.ts             ligação ao Supabase (sessão, tabelas, fotografias)
+    supabase.ts             ligação ao Supabase (sessão, tabelas, fotografias, função ebay-set)
     format.ts               formatar euros, datas, números
     csv.ts                  exportar para CSV (Excel em português)
     sample.ts               dados de exemplo
@@ -395,7 +445,7 @@ src/
     Graficos.tsx            gráficos de barras simples
   pages/                    ecrãs
     Painel.tsx  Inventario.tsx (Produtos)  Compras.tsx  Contas.tsx  Acertos.tsx
-    Analises.tsx  Definicoes.tsx  ReverNomes.tsx  Entrar.tsx
+    Analises.tsx  Definicoes.tsx  ReverNomes.tsx  Entrar.tsx  Avaliar.tsx (Vale a pena?)
 public/                     ficheiros copiados tal como estão (ícones, manifest, catálogos JSON)
 docs/                       versão publicada (gerada; não editar à mão)
 scripts/
@@ -404,6 +454,7 @@ scripts/
   mercado.py                gera os dados de mercado (GitHub Action diária)
 .github/workflows/          as GitHub Actions (catalogo.yml, mercado.yml)
 supabase/schema.sql         tabelas, regras de segurança e funções da base de dados
+supabase/functions/ebay-set Edge Function: eBay de um set, na hora (só para membros)
 tests/                      testes automáticos dos cálculos
 CLAUDE.md                   notas e regras para o Claude quando altera a app
 ```
@@ -451,6 +502,10 @@ O ficheiro `CLAUDE.md` tem a visão do projeto e as regras que o Claude segue se
 
 Para acrescentar alguém, junta o email à tabela `membros` e cria-lhe o utilizador.
 
+### eBay na hora (para o Vale a pena?)
+
+No Supabase: **Edge Functions → Secrets → Add new secret**, e criar `EBAY_CLIENT_ID` e `EBAY_CLIENT_SECRET` com o *App ID* e o *Cert ID* do "Production keyset" (developer.ebay.com). A função `ebay-set` já está publicada; para a voltar a publicar depois de a alterar, usa-se o Supabase (o Claude faz isso).
+
 ### Publicar no GitHub Pages
 
 No repositório: **Settings → Pages → Source: Deploy from a branch → Branch: `main`, pasta `/docs`**.
@@ -472,4 +527,5 @@ No ecrã de entrada: **Experimentar com dados de exemplo**. Os dados ficam só n
 - **Sincronização:** não é instantânea. A app atualiza de minuto a minuto e ao voltar a ela.
 - **Preços Pokémon:** vêm do TCGplayer, que é o mercado dos EUA. A API do Cardmarket não aceita novos pedidos, e um plano pago da PokemonPriceTracker daria preços do Cardmarket.
 - **Sugestões LEGO:** sem a BrickLink, não há preços de **venda** reais de mercado. A referência são as nossas vendas, os anúncios do eBay (preços pedidos) e o PVP da Brickset (valorizado se o set já foi retirado). Os valores das regras devem ser afinados com os dados reais de tempo anunciado.
-- **Próximo passo planeado:** sugerir **compras** a partir das promoções do dia, comparando o preço da promoção com o histórico de vendas, a valorização esperada e o tempo até vender.
+- **Compras:** já existe o **Vale a pena?** (avaliar uma promoção à mão). Próximos passos: lista de desejos com preço-alvo (a partir de `sets_avaliar`), guardar cada estimativa para repetir o teste com o passado, e decidir se os planos devem usar o PVP medido em vez das taxas de valorização (mostrar primeiro o impacto no stock).
+- **Vinted e eBay vendidos:** não há acesso automático (termos de uso). Podem enviar-se capturas de ecrã ao Claude para registar preços observados.

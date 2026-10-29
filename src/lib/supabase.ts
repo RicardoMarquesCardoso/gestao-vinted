@@ -237,6 +237,34 @@ export async function rpc<T>(funcao: string, args: object = {}): Promise<T> {
   return (await res.json()) as T;
 }
 
+// ---------- Funções na nuvem (Edge Functions) ----------
+
+export interface RespostaEbay {
+  set?: string;
+  mediana?: number | null; // mediana do preço PEDIDO em EUR (sets novos, eBay DE/FR/ES/IT)
+  anuncios?: number;
+  lojas?: Record<string, number>;
+  erro?: 'sem_chaves' | 'sem_permissao' | 'set_invalido' | 'ebay';
+  detalhe?: string;
+}
+
+/**
+ * Preços do eBay de um set, pedidos no momento à função "ebay-set" (supabase/functions/ebay-set).
+ * As chaves do eBay ficam nos segredos do Supabase; a app só envia o token da sessão.
+ */
+export async function ebayAoVivo(set: string): Promise<RespostaEbay> {
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/ebay-set`, {
+    method: 'POST',
+    headers: await cabecalhos({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ set }),
+  });
+  try {
+    return (await res.json()) as RespostaEbay;
+  } catch {
+    return { erro: 'ebay', detalhe: `HTTP ${res.status}` };
+  }
+}
+
 // ---------- Fotografias (Storage) ----------
 
 const BUCKET = 'fotos';

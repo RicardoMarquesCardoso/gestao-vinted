@@ -1,10 +1,12 @@
 // Janela de detalhe de um produto: fotografias, imagem oficial, plano (vender/guardar),
-// ciclo de vida do set (lançamento, retirada e PVP, do Brickset), dados da compra, vendas feitas e botões de ação (✏️ editar, 📷, Anunciar/Retirar, Vendi).
+// ciclo de vida do set (lançamento, retirada e PVP, do Brickset), links (LEGO, Brickset, Vinted), dados da compra, vendas feitas e botões de ação (✏️ editar, 📷, Anunciar/Retirar, Vendi).
 // As vendas mostram também as dos outros exemplares do mesmo set (com o valor e o lucro de cada
 // uma), e "Em stock" lista os exemplares desse set que ainda estão por vender.
 
 import { LinhaPlano, LinhaPokemon } from './planos';
 import { ehPokemon } from '../lib/plano';
+import { urlVinted } from '../lib/avaliar';
+import { produtoNovo } from '../lib/anuncio';
 import { custoTotalProduto, custoUnitario, diasEntre, emInventario, liquidoVenda, lucroVenda, unidadesDisponiveis } from '../lib/calc';
 import { fmtData, fmtEuro, fmtMesAno, hoje } from '../lib/format';
 import { infoMercado, useMercado } from '../lib/investimento';
@@ -109,7 +111,9 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
           <figcaption className="mudo">
             Imagem de referência do set ·{' '}
             <a href={`https://www.lego.com/pt-pt/search?q=${encodeURIComponent(p.set_numero ?? '')}`} target="_blank" rel="noreferrer">site da LEGO</a> ·{' '}
-            <a href={`https://brickset.com/sets/${encodeURIComponent(p.set_numero ?? '')}-1`} target="_blank" rel="noreferrer">Brickset</a>
+            <a href={`https://brickset.com/sets/${encodeURIComponent(p.set_numero ?? '')}-1`} target="_blank" rel="noreferrer">Brickset</a> ·{' '}
+            {/* Pesquisa deste set na Vinted, mais baratos primeiro, mesma condição (só um link; a app não lê a Vinted) */}
+            <a href={urlVinted(p.set_numero ?? '', produtoNovo(p))} target="_blank" rel="noreferrer">Vinted</a>
           </figcaption>
         </figure>
       )}

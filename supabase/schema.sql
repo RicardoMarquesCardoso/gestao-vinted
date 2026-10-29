@@ -243,3 +243,22 @@ language sql stable security definer set search_path = public as $$
 $$;
 revoke all on function public.pokemon_mercado(text) from public;
 grant execute on function public.pokemon_mercado(text) to anon, authenticated;
+
+-- ---------------------------------------------------------------------
+-- 6) Lista de sets para a tarefa diária de mercado (scripts/mercado.py)
+--    Os nossos sets + os que acompanhamos sem os ter (definicoes.sets_avaliar,
+--    botão "Acompanhar" do ecrã "Vale a pena?"). Protegida pelo token_mercado.
+-- ---------------------------------------------------------------------
+create or replace function public.sets_mercado(token text)
+returns setof text
+language sql stable security definer set search_path to 'public' as $$
+  select s from (
+    select distinct trim(p.set_numero) as s from public.produtos p
+    where p.set_numero is not null and trim(p.set_numero) <> ''
+    union
+    select distinct trim(x) from public.definicoes d, jsonb_array_elements_text(
+      case when jsonb_typeof(d.valor) = 'array' then d.valor else '[]'::jsonb end) as x
+    where d.chave = 'sets_avaliar' and trim(x) ~ '^\d{3,7}(-\d+)?$'
+  ) t
+  where exists (select 1 from public.definicoes d where d.chave = 'token_mercado' and d.valor #>> '{}' = token);
+$$;

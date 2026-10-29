@@ -66,6 +66,8 @@ export function Compras() {
       <div className="pagina-topo-icones">
         <h1>Compras</h1>
         <div className="botoes">
+          {/* Avaliar uma promoção antes de comprar (pages/Avaliar.tsx) */}
+          <a className="btn" href="#/avaliar">Vale a pena?</a>
           <BotaoTopo titulo="Exportar CSV" icone="descarregar" onClick={exportar} />
           <BotaoTopo titulo="Registar compra" icone="mais" primario onClick={() => abrir({ tipo: 'compra' })} />
         </div>
