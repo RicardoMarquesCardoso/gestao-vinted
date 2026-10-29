@@ -792,3 +792,6 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .avaliar-otimo .avaliar-bolinha { background: var(--sinal-verde); }
 .avaliar-escaloes + .avaliar-motivo { margin-top: 8px; font-size: 0.88rem; }
 .avaliar-escalao.avaliar-bom .avaliar-bolinha { background: var(--sinal-amarelo); }
+.avaliar-nao .avaliar-bolinha { background: var(--texto-3); opacity: 0.5; }
+.avaliar-promo .linha-principal small { white-space: normal; }
+.avaliar-resultado .linha-botoes { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }

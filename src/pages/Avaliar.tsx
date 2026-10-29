@@ -1,6 +1,8 @@
-// Ecrã "Vale a pena?": até que preço compensa comprar um set, e quantas unidades.
+// Ecrã "Vale a pena?", com dois modos:
+//   - "Um set": até que preço compensa comprar um set, e quantas unidades (este ficheiro);
+//   - "Promoção da loja": X% de desconto sobre o PVP numa lista de sets (components/AvaliarPromocao.tsx).
 //
-// Escreve-se só o n.º do set. A app:
+// Um set: escreve-se só o n.º do set. A app:
 //   1. mostra o set (nome e imagem do catálogo, lançamento, retirada e PVP);
 //   2. pergunta ao eBay os preços desse set NO MOMENTO (função ebay-set no Supabase, API oficial);
 //   3. calcula com lib/avaliar.ts (precosCompra) por quanto se vende, em quantos dias, e os
@@ -12,8 +14,11 @@
 // "Acompanhar" guarda o set em definicoes.sets_avaliar: a tarefa diária passa a ir buscar o eBay
 // dele, mesmo sem o termos em stock (útil enquanto a função ao vivo não tiver as chaves).
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { AvaliarPromocao } from '../components/AvaliarPromocao';
 import { useCatalogoSets } from '../components/catalogo';
+import { precoEbay, useEbayVivo } from '../components/ebayVivo';
+import type { EstadoEbay } from '../components/ebayVivo';
 import { Cartao, ImagemReferencia, urlReferencia } from '../components/ui';
 import { CHAVE_SETS_AVALIAR, ERRO_TIPICO, precosCompra, urlEbayVendidos, urlVinted } from '../lib/avaliar';
 import type { Escalao, NomeEscalao } from '../lib/avaliar';
@@ -21,46 +26,42 @@ import { usoConta } from '../lib/calc';
 import { fmtEuro, fmtMesAno, hoje, plural } from '../lib/format';
 import { useMercado } from '../lib/investimento';
 import { regrasPlano } from '../lib/plano';
-import { ebayAoVivo } from '../lib/supabase';
-import type { RespostaEbay } from '../lib/supabase';
 import { useDados } from '../state';
 
 const SET_VALIDO = /^\d{3,7}(-\d+)?$/;
-// Respostas do eBay já pedidas nesta sessão (não repetir o pedido ao voltar ao mesmo set)
-const cacheEbay = new Map<string, Promise<RespostaEbay>>();
 
 const NOME_FONTE = { vendas: 'As nossas vendas', ebay: 'eBay', pvp: 'PVP' } as const;
 const NOME_ESCALAO: Record<NomeEscalao, string> = { rara: 'Oportunidade rara', otimo: 'Muito bom', bom: 'Bom' };
 const BASE_TEMPO = { set: 'pelas nossas vendas deste set', tema: 'pelas vendas do mesmo tema', geral: 'pela média de todas as vendas' } as const;
 
 export function Avaliar() {
+  const [modo, setModo] = useState<'set' | 'promo'>('set');
+  return (
+    <div className="pagina">
+      <h1>Vale a pena?</h1>
+      <div className="segmentos" role="radiogroup" aria-label="Modo">
+        <button role="radio" aria-checked={modo === 'set'} className={modo === 'set' ? 'ativo' : ''} onClick={() => setModo('set')}>Um set</button>
+        <button role="radio" aria-checked={modo === 'promo'} className={modo === 'promo' ? 'ativo' : ''} onClick={() => setModo('promo')}>Promoção da loja</button>
+      </div>
+      {modo === 'set' ? <UmSet /> : <AvaliarPromocao />}
+    </div>
+  );
+}
+
+function UmSet() {
   const { dados, store, guardar, lista, aviso } = useDados();
   const mercado = useMercado();
   const procurarSet = useCatalogoSets();
   const [set, setSet] = useState('');
-  const [ebay, setEbay] = useState<{ set: string; r: RespostaEbay | 'a_procurar' } | null>(null);
   const h = hoje();
   const n = set.trim();
   const valido = SET_VALIDO.test(n);
   const oficial = valido ? procurarSet(n) : undefined;
 
-  // Pedir o eBay ao vivo quando se pára de escrever o n.º (meio segundo), só com sessão real
-  useEffect(() => {
-    if (!valido || store.modo !== 'supabase') return;
-    const t = setTimeout(() => {
-      setEbay({ set: n, r: 'a_procurar' });
-      let pedido = cacheEbay.get(n);
-      if (!pedido) {
-        pedido = ebayAoVivo(n).catch((e): RespostaEbay => ({ erro: 'ebay', detalhe: e instanceof Error ? e.message : String(e) }));
-        cacheEbay.set(n, pedido);
-      }
-      void pedido.then((r) => setEbay((atual) => (atual?.set === n ? { set: n, r } : atual)));
-    }, 500);
-    return () => clearTimeout(t);
-  }, [n, valido, store.modo]);
-
-  const respostaEbay = ebay?.set === n && ebay.r !== 'a_procurar' ? ebay.r : null;
-  const aoVivo: [number, number] | null = respostaEbay?.mediana ? [respostaEbay.mediana, respostaEbay.anuncios ?? 0] : null;
+  // eBay na hora para este set (pedido meio segundo depois de se parar de escrever), só com sessão real
+  const respostas = useEbayVivo(valido ? [n] : [], store.modo === 'supabase');
+  const estadoN: EstadoEbay | undefined = valido ? respostas[n] : undefined;
+  const aoVivo = precoEbay(estadoN);
 
   const a = useMemo(
     () => (valido ? precosCompra({ set: n, tema: oficial?.tema, ebayAoVivo: aoVivo }, { dados, mercado, hoje: h }) : null),
@@ -105,8 +106,7 @@ export function Avaliar() {
   const bom = a?.escaloes.find((e) => e.nome === 'bom');
 
   return (
-    <div className="pagina">
-      <h1>Vale a pena?</h1>
+    <>
       <p className="nota">Escreve o n.º do set para ver até que preço compensa comprá-lo, e quantas unidades.</p>
 
       <label className="campo avaliar-campo">
@@ -171,7 +171,7 @@ export function Avaliar() {
           )}
 
           <p className="nota">
-            {estadoEbay(store.modo, ebay?.set === n ? ebay.r : null)}
+            {estadoEbay(store.modo, estadoN ?? null)}
             {a.tempo && ` Tempo até vender ${BASE_TEMPO[a.tempo.base]} (${a.tempo.n}).`}
             {vagas !== null && ` Restam ${vagas} vendas este ano nas contas ativas.`}
           </p>
@@ -183,7 +183,7 @@ export function Avaliar() {
           {aAcompanhar ? '★ A acompanhar este set (deixar)' : '☆ Acompanhar este set'}
         </button>
       )}
-    </div>
+    </>
   );
 }
 
@@ -215,7 +215,7 @@ function LinhaEscalao({ e, venda, dias }: { e: Escalao; venda: number; dias: num
 }
 
 /** Uma frase sobre o eBay ao vivo, para se saber se o valor do eBay é de agora ou do dia. */
-function estadoEbay(modo: string, r: RespostaEbay | 'a_procurar' | null): string {
+function estadoEbay(modo: string, r: EstadoEbay | null): string {
   if (modo !== 'supabase') return 'Modo demonstração: sem eBay ao vivo.';
   if (r === 'a_procurar') return 'A procurar no eBay…';
   if (!r) return '';

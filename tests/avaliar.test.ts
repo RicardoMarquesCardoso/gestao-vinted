@@ -3,7 +3,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { avaliarCompra, calibrarPvp, estimativas, precosCompra, tempoAteVender, urlEbayVendidos, urlVinted, RACIO_PVP_A_VENDA } from '../src/lib/avaliar.ts';
+import { avaliarCompra, avaliarPromocao, calibrarPvp, estimativas, extrairSets, precosCompra, tempoAteVender, urlEbayVendidos, urlVinted, RACIO_PVP_A_VENDA } from '../src/lib/avaliar.ts';
 import type { Mercado } from '../src/lib/investimento.ts';
 import type { Produto, Venda } from '../src/lib/types.ts';
 
@@ -181,4 +181,42 @@ test('lucro mínimo de 5 € limita o preço de sets baratos', () => {
   const dados = { produtos: [produto({ id: 'p1', set_numero: '30000' })], vendas: [venda({ produto_id: 'p1', preco_venda: 12 })], definicoes: [] };
   const r = precosCompra({ set: '30000' }, { dados, mercado: null, hoje: HOJE });
   assert.equal(r.escaloes[2].precoMax, 7); // 12 ÷ 1,2 = 10, mas 12 − 5 = 7
+});
+
+test('extrair sets de um texto copiado de uma loja', () => {
+  const texto = `LEGO Star Wars 75375 Millennium Falcon 84,99 € 63,74 €
+  LEGO Technic 42151 Bugatti — PVP 49,99€ · EAN 5702017416441 · 1.299,99 € · Idade 9+ · 2024
+  75375 outra vez; 10280-1 Flower Bouquet; 99999 não existe`;
+  const existe = (n: string) => ['75375', '42151', '10280'].includes(n);
+  assert.deepEqual(extrairSets(texto, existe), ['75375', '42151', '10280']);
+});
+
+test('promoção de 25% sobre o PVP: quais comprar, por ordem e a diversificar por tema', () => {
+  // 4 sets com PVP 100 €; vendemos A a 110, B a 95, C a 120, D a 130; o tema de C e D é o mesmo de A
+  const brickset: Record<string, unknown> = {};
+  const produtos: Produto[] = [];
+  const vendas: Venda[] = [];
+  const precoVenda: Record<string, number> = { '11111': 110, '22222': 95, '33333': 120, '44444': 130 };
+  Object.entries(precoVenda).forEach(([set, pv], i) => {
+    brickset[set] = ['2025-01-01', '2027-12-31', 100, null, null];
+    produtos.push(produto({ id: `p${i}`, set_numero: set }));
+    vendas.push(venda({ id: `v${i}`, produto_id: `p${i}`, preco_venda: pv }));
+  });
+  produtos.push(produto({ id: 'stock', set_numero: '99999', estado: 'por_anunciar', preco_compra: 5000 }));
+  const ctx = { dados: { produtos, vendas, definicoes: [] }, mercado: mercado({ brickset: brickset as never }), hoje: HOJE };
+  const tema = (n: string) => (n === '22222' ? 'City' : 'Star Wars');
+  const r = avaliarPromocao(['11111', '22222', '33333', '44444'], 0.25, ctx, { tema });
+  // Preço na promoção = 75 €. B (95 €) dá 27% → bom; A 47% → muito bom; C 60%, D 73% → muito bom
+  assert.deepEqual(r.map((l) => [l.set, l.preco, l.escalao, l.comprar]), [
+    ['44444', 75, 'otimo', 2],
+    ['33333', 75, 'otimo', 2],
+    ['22222', 75, 'bom', 1],
+    ['11111', 75, 'otimo', 0], // 3.º Star Wars: fica de fora para diversificar
+  ]);
+  assert.match(r[3].motivo, /diversificar/);
+  // B vende-se a 95 €: "bom" até 95 ÷ 1,2 = 79 € → compensa a partir de 21% sobre o PVP de 100 €
+  assert.equal(r.find((l) => l.set === '22222')!.descontoMinimo, 0.21);
+  const a10 = avaliarPromocao(['22222'], 0.1, ctx, { tema });
+  assert.equal(a10[0].comprar, 0);
+  assert.match(a10[0].motivo, /a partir de 21%/);
 });

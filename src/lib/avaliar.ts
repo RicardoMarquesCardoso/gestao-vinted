@@ -356,6 +356,100 @@ export function precosCompra(ped: Omit<PedidoAvaliacao, 'preco' | 'portes'>, ctx
   return { ...base, escaloes };
 }
 
+// ---------- Promoções de lojas: "a 25% na Fnac, que sets compro?" ----------
+//
+// Nas lojas grandes (Fnac, Continente, Toys R Us…) o preço de partida é o PVP, por isso uma
+// promoção é só uma percentagem de desconto. Cola-se a lista de sets (ou o texto copiado da
+// página da loja) e a app diz, para cada um: preço na promoção = PVP × (1 − desconto), se compensa,
+// em que escalão e quantas unidades. Os que compensam aparecem primeiro, ordenados pelo lucro
+// "seguro" (o lucro mesmo que a venda fique abaixo do esperado pelo erro típico da fonte).
+// Para diversificar, no máximo MAX_POR_TEMA_PROMO compras do mesmo tema numa promoção.
+
+export const MAX_POR_TEMA_PROMO = 2;
+
+/**
+ * Tira os n.º de set de um texto qualquer (uma lista escrita à mão ou o texto copiado da página da
+ * loja). Só aceita números de 4 a 6 algarismos que não façam parte de preços nem de códigos de
+ * barras, e que o "existe" reconheça como set (ex.: está na Brickset). Sem repetidos, pela ordem.
+ */
+export function extrairSets(texto: string, existe: (n: string) => boolean): string[] {
+  const vistos = new Set<string>();
+  for (const m of texto.matchAll(/(?<![\d.,])(\d{4,6})(?:-\d{1,2})?(?![\d]|[.,]\d)/g)) {
+    const n = m[1];
+    if (!vistos.has(n) && existe(n)) vistos.add(n);
+  }
+  return [...vistos];
+}
+
+export interface LinhaPromo {
+  set: string;
+  tema: string | null;
+  pvp: number | null;
+  preco: number | null; // preço na promoção
+  precos: PrecosCompra;
+  /** Melhor escalão que o preço da promoção cumpre (null = não compensa). */
+  escalao: NomeEscalao | null;
+  comprar: number;
+  lucro: number | null; // por unidade, ao preço da promoção
+  margem: number | null;
+  /** Lucro sobre o custo se a venda ficar abaixo do esperado pelo erro típico da fonte. */
+  margemSegura: number | null;
+  rentabAnual: number | null;
+  /** Desconto mínimo sobre o PVP a partir do qual compensa (escalão "bom"); null se nunca. */
+  descontoMinimo: number | null;
+  motivo: string;
+}
+
+/** Desconto mínimo sobre o PVP para pagar no máximo "precoMax" (arredondado ao 1% acima). */
+const descontoPara = (pvp: number | null, precoMax: number | undefined) =>
+  pvp && precoMax && precoMax > 0 && precoMax < pvp * 0.99 ? Math.ceil((1 - precoMax / pvp) * 100) / 100 : pvp && precoMax && precoMax >= pvp * 0.99 ? 0 : null;
+
+/** Avalia uma lista de sets numa promoção de X% sobre o PVP. */
+export function avaliarPromocao(
+  sets: string[],
+  desconto: number,
+  ctx: ContextoAvaliacao,
+  opcoes: { tema?: (n: string) => string | null | undefined; ebayAoVivo?: (n: string) => [number, number] | null | undefined } = {},
+): LinhaPromo[] {
+  const linhas = sets.map((set): LinhaPromo => {
+    const tema = opcoes.tema?.(set) ?? null;
+    const precos = precosCompra({ set, tema, ebayAoVivo: opcoes.ebayAoVivo?.(set) ?? null }, ctx);
+    const pvp = precos.mercado?.pvp ?? null;
+    const preco = pvp ? Math.round(pvp * (1 - desconto) * 100) / 100 : null;
+    const base = { set, tema, pvp, preco, precos, descontoMinimo: descontoPara(pvp, precos.escaloes.find((e) => e.nome === 'bom')?.precoMax) };
+    if (!preco) return { ...base, escalao: null, comprar: 0, lucro: null, margem: null, margemSegura: null, rentabAnual: null, motivo: 'Sem PVP na Brickset.' };
+    if (!precos.venda) return { ...base, escalao: null, comprar: 0, lucro: null, margem: null, margemSegura: null, rentabAnual: null, motivo: 'Sem dados para estimar o preço de venda.' };
+    const venda = precos.venda.preco;
+    const lucro = venda - preco;
+    const margem = lucro / preco;
+    const margemSegura = (venda * (1 - ERRO_TIPICO[precos.venda.fonte]) - preco) / preco;
+    const rentabAnual = precos.tempo ? (margem * 365) / Math.max(precos.tempo.dias, 7) : null;
+    // O melhor escalão cujo preço máximo o preço da promoção cumpre (rara → otimo → bom)
+    const e = precos.escaloes.find((x) => preco <= x.precoMax) ?? null;
+    let motivo: string;
+    const aPartir = base.descontoMinimo !== null ? ` Compensa a partir de ${Math.round(base.descontoMinimo * 100)}%.` : ' Não compensa com nenhum desconto.';
+    if (!e) motivo = (lucro <= 0 ? 'Vende-se por menos do que custa na promoção.' : `Lucro de ${Math.round(margem * 100)}%: pouco.`) + aPartir;
+    else if (e.comprar === 0) motivo = e.limite ?? 'Não comprar.';
+    else motivo = e.limite ?? '';
+    return { ...base, escalao: e?.nome ?? null, comprar: e?.comprar ?? 0, lucro, margem, margemSegura, rentabAnual, motivo };
+  });
+  // Ordem: os que compensam primeiro, pelo lucro seguro; depois os outros, pelo lucro
+  linhas.sort((a, b) => (b.comprar > 0 ? 1 : 0) - (a.comprar > 0 ? 1 : 0) || (b.margemSegura ?? -9) - (a.margemSegura ?? -9));
+  // Diversificar por tema: no máximo MAX_POR_TEMA_PROMO compras do mesmo tema
+  const porTema = new Map<string, number>();
+  for (const l of linhas) {
+    if (l.comprar === 0 || !l.tema) continue;
+    const t = normalizar(l.tema);
+    const ja = porTema.get(t) ?? 0;
+    if (ja >= MAX_POR_TEMA_PROMO) {
+      l.comprar = 0;
+      l.motivo = `Já há ${MAX_POR_TEMA_PROMO} do tema ${l.tema} nesta lista (diversificar).`;
+    } else porTema.set(t, ja + 1);
+  }
+  linhas.sort((a, b) => (b.comprar > 0 ? 1 : 0) - (a.comprar > 0 ? 1 : 0) || (b.margemSegura ?? -9) - (a.margemSegura ?? -9));
+  return linhas;
+}
+
 // ---------- Links para ver o set noutros sites (abertos por nós, à mão) ----------
 
 /**

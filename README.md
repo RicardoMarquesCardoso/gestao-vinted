@@ -345,6 +345,22 @@ Mostra ainda quantas vendas cabem este ano nas contas ativas (30 por conta) e de
 
 (`avaliarCompra` continua disponível para avaliar um preço concreto: lucro, margem, rentabilidade e veredicto.)
 
+#### Promoção da loja (modo do mesmo ecrã, `components/AvaliarPromocao.tsx`, `avaliarPromocao`)
+
+Para promoções de lojas grandes (Fnac, Continente, Toys R Us…), em que se parte sempre do **PVP**: escreve-se o desconto (ex.: 25%) e cola-se a lista de sets — os números, ou o **texto copiado da página da loja** (selecionar tudo → copiar → colar); `extrairSets` encontra os n.º de set no meio do texto (ignora preços, códigos de barras e números que não são sets). Para cada set:
+
+```
+preço na promoção  = PVP (Brickset, LEGO Alemanha) × (1 − desconto)
+escalão / unidades = os mesmos do modo "Um set" (bom / muito bom / oportunidade rara, a diversificar)
+compensa a partir de = 1 − (preço máximo do escalão "bom" ÷ PVP)
+```
+
+Os que compensam aparecem primeiro, pelo **lucro seguro** (o lucro mesmo que a venda fique abaixo do esperado pelo erro típico da fonte). **Diversificar por tema:** no máximo 2 compras do mesmo tema por promoção. Mostra o total a gastar, descarrega para Excel (CSV) e tem o botão *Acompanhar os sem eBay*.
+
+A app **não abre o link da loja**: o browser não deixa uma página ler outros sites, e fazê-lo num servidor seria recolha automática (termos de uso).
+
+Com os dados de out/2026: nos 124 sets que já tivemos, compensa comprar a partir de **~44% de desconto** (mediana; metade entre 35% e 50%). A 25%, só 12 compensavam, quase todos sets que vendemos bem acima do PVP.
+
 **Porquê esta ordem e o PVP medido — o "teste com o passado" (out/2026).** Para cada uma das 102 vendas de LEGO com data, calculou-se o que cada fonte teria previsto e comparou-se com o preço real:
 
 | Fonte | Vendas | Erro típico | Desvio | Acerta a ±20% |
@@ -460,6 +476,8 @@ src/
     PesquisaProdutos.tsx    pesquisa de Produtos com sugestões e filtro de categoria
     CabecalhoProdutos.tsx   topo e filtros do ecrã Produtos
     Graficos.tsx            gráficos de barras simples
+    AvaliarPromocao.tsx     Vale a pena? → Promoção da loja (X% sobre o PVP numa lista de sets)
+    ebayVivo.ts             eBay na hora para um ou vários sets (função ebay-set), com memória
   pages/                    ecrãs
     Painel.tsx  Inventario.tsx (Produtos)  Compras.tsx  Contas.tsx  Acertos.tsx
     Analises.tsx  Definicoes.tsx  ReverNomes.tsx  Entrar.tsx  Avaliar.tsx (Vale a pena?)
