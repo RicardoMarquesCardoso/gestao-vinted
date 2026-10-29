@@ -1,5 +1,6 @@
 # GitHub Action: todos os dias corre scripts/mercado.py, que vai buscar dados de
-# mercado (Brickset, BrickLink, PokemonPriceTracker) e grava public/ e docs/mercado-sets.json.
+# mercado (Brickset, BrickLink, PokemonPriceTracker, eBay) e grava public/ e docs/mercado-sets.json
+# (incluindo o histórico do eBay, ebay_hist, que a app usa para comparar cada venda com o eBay da altura).
 # As chaves vêm dos "secrets" do repositório (Settings → Secrets and variables → Actions);
 # se uma faltar, essa fonte é simplesmente ignorada. Pode correr-se à mão em Actions → Run workflow.
 name: Atualizar dados de mercado (eBay, Pokémon, Brickset, BrickLink)

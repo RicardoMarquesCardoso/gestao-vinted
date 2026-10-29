@@ -16,6 +16,12 @@ export interface Mercado {
   /** eBay europeu: [mediana do preço PEDIDO em EUR por sets novos, n.º de anúncios] */
   ebay?: Record<string, [number, number]>;
   ebay_atualizado?: string | null;
+  /**
+   * Histórico do eBay por set: [data, mediana do preço pedido, n.º de anúncios]. A tarefa diária
+   * acrescenta uma linha quando o preço muda, ou pelo menos uma vez por semana. Começou a 28/10/2026.
+   * Serve para comparar cada venda com o eBay DA ALTURA dessa venda (calibrarEbay).
+   */
+  ebay_hist?: Record<string, [string, number, number][]>;
   /** Produtos Pokémon selados: chave = o nosso nome em minúsculas. Preço do TCGplayer (EUA). */
   pokemon?: Record<string, PrecoPokemon>;
   brickset_atualizado?: string | null;
@@ -152,17 +158,49 @@ export const descontoEbayEfetivo = (d: Pick<Dados, 'produtos' | 'vendas'> & Part
 //
 // Os preços do eBay são PEDIDOS, e nós vendemos na Vinted, por isso recebemos bastante menos.
 // Para saber quanto menos, comparamos as nossas vendas com o preço pedido no eBay para os mesmos
-// sets: para cada set, preço médio a que vendemos ÷ mediana pedida no eBay. A mediana desses
-// rácios (todos os sets) dá a percentagem que costumamos conseguir; o desconto é o resto.
-// Ex.: vendemos a 63% do pedido no eBay → desconto de 37%. Recalcula-se sozinho a cada venda.
+// sets: para cada set, preço médio a que vendemos ÷ preço pedido no eBay. A mediana desses rácios
+// (todos os sets) dá a percentagem que costumamos conseguir; o desconto é o resto.
+//
+// IMPORTANTE: comparar com o eBay DA MESMA ALTURA. Uma venda de há um ano não se pode comparar
+// com o preço pedido hoje: se entretanto o set foi retirado, o eBay subiu e parecia que vendemos
+// "barato" (em out/2026: 0,57 nesses sets contra 0,67 nos que não mudaram de fase). Por isso, para
+// cada venda usa-se, por esta ordem:
+//   1. o eBay do histórico (ebay_hist) mais próximo da data da venda, até 30 dias de diferença;
+//   2. se ainda não há histórico dessa altura, o eBay de hoje, MAS só se o set ainda está à venda
+//      na LEGO (não mudou de fase desde a venda, por isso o preço é comparável);
+//   3. senão, a venda não entra na conta.
+// Com o tempo, as vendas novas passam todas a usar o histórico. Recalcula-se sozinho a cada venda.
 
 /** Mínimo de sets comparáveis para confiar na calibração (abaixo disto usa-se a regra). */
 export const MIN_SETS_CALIBRACAO = 10;
+/** Diferença máxima, em dias, entre a venda e o registo do eBay com que se compara. */
+export const TOLERANCIA_EBAY_DIAS = 30;
 
 export interface CalibracaoEbay {
   desconto: number; // ex.: 0.37
   sets: number; // quantos sets entraram na conta
   dias: number; // janela usada: vendas dos últimos 365 dias (ou 730, se houver poucas)
+  naData: number; // sets comparados com o eBay da altura da venda (histórico)
+  mesmaFase: number; // sets comparados com o eBay de hoje (ainda à venda na LEGO)
+}
+
+/**
+ * Preço do eBay de um set numa data: o registo do histórico mais próximo dessa data, se tiver no
+ * máximo TOLERANCIA_EBAY_DIAS de diferença. Devolve [mediana pedida, n.º de anúncios] ou null.
+ */
+export function ebayNaData(m: Mercado | null, set: string, data: string): [number, number] | null {
+  const h = m?.ebay_hist?.[numeroBase(set)];
+  if (!h?.length) return null;
+  let melhor: [number, number] | null = null;
+  let distancia = Infinity;
+  for (const [d, mediana, n] of h) {
+    const x = Math.abs(diasEntre(d, data));
+    if (x < distancia) {
+      distancia = x;
+      melhor = [mediana, n];
+    }
+  }
+  return distancia <= TOLERANCIA_EBAY_DIAS ? melhor : null;
 }
 
 let cacheCal: { vendas: unknown; produtos: unknown; mercado: unknown; hoje: string; r: CalibracaoEbay | null } | null = null;
@@ -173,27 +211,34 @@ export function calibrarEbay(dados: Pick<Dados, 'produtos' | 'vendas'>, mercado:
   if (cacheCal && cacheCal.vendas === dados.vendas && cacheCal.produtos === dados.produtos && cacheCal.mercado === mercado && cacheCal.hoje === hoje) return cacheCal.r;
   const produtos = new Map(dados.produtos.map((p) => [p.id, p]));
   const medir = (dias: number): CalibracaoEbay | null => {
-    const porSet = new Map<string, number[]>();
+    // Para cada set: os rácios venda ÷ eBay comparável, e se algum veio do histórico
+    const porSet = new Map<string, { racios: number[]; naData: boolean }>();
     for (const v of dados.vendas) {
       const p = produtos.get(v.produto_id);
       if (!p?.set_numero || !vendaValida(v) || !produtoNovo(p) || !(v.preco_venda > 0)) continue;
       if (v.notas?.includes('data de venda desconhecida') || diasEntre(v.data_venda, hoje) > dias) continue;
-      const lista = porSet.get(p.set_numero.trim()) ?? [];
-      lista.push(v.preco_venda / (v.quantidade || 1));
-      porSet.set(p.set_numero.trim(), lista);
-    }
-    const racios: number[] = [];
-    for (const [set, precos] of porSet) {
-      const e = infoMercado(mercado, set, hoje)?.ebay;
+      const set = numeroBase(p.set_numero);
+      let e = ebayNaData(mercado, set, v.data_venda);
+      const naData = !!e && e[1] >= 3;
+      if (!naData) {
+        // Sem histórico dessa altura: o eBay de hoje só serve se o set ainda está à venda na LEGO
+        const info = infoMercado(mercado, set, hoje);
+        e = info?.retirada && info.retirada > hoje ? info.ebay : null;
+      }
       if (!e || e[1] < 3 || !(e[0] > 0)) continue;
-      racios.push(precos.reduce((a, b) => a + b, 0) / precos.length / e[0]);
+      const x = porSet.get(set) ?? { racios: [], naData: false };
+      x.racios.push(v.preco_venda / (v.quantidade || 1) / e[0]);
+      x.naData ||= naData;
+      porSet.set(set, x);
     }
+    const racios = [...porSet.values()].map((x) => x.racios.reduce((a, b) => a + b, 0) / x.racios.length);
     if (racios.length < MIN_SETS_CALIBRACAO) return null;
     racios.sort((a, b) => a - b);
     const n = racios.length;
     const mediana = n % 2 ? racios[(n - 1) / 2] : (racios[n / 2 - 1] + racios[n / 2]) / 2;
+    const naData = [...porSet.values()].filter((x) => x.naData).length;
     // Entre 0% e 70% de desconto, arredondado às centésimas
-    return { desconto: Math.round(Math.min(Math.max(1 - mediana, 0), 0.7) * 100) / 100, sets: n, dias };
+    return { desconto: Math.round(Math.min(Math.max(1 - mediana, 0), 0.7) * 100) / 100, sets: n, dias, naData, mesmaFase: n - naData };
   };
   // Preferir as vendas do último ano (preços mais atuais); se forem poucas, os últimos 2 anos
   const r = medir(365) ?? medir(730);

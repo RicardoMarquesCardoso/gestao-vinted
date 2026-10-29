@@ -20,6 +20,9 @@ O QUE GERA (public/mercado-sets.json e docs/mercado-sets.json)
              Preços de venda dos últimos 6 meses na Europa, em EUR (sem IVA), novo (n) e usado (u).
              Só para os sets que temos ou já vendemos.
   ebay:      {"75192": [mediana do preço pedido em EUR, n.º de anúncios], ...}
+  ebay_hist: {"75192": [["2026-10-28", mediana, n.º de anúncios], ...], ...}
+             Histórico do eBay: uma linha nova quando o preço muda, ou pelo menos 1 por semana.
+             A app compara cada venda com o eBay da altura dessa venda (calibrarEbay).
              Anúncios ativos de sets novos no eBay europeu (DE, FR, ES, IT). Só os nossos sets.
   pokemon:   {"30th celebration etb": {"id": ..., "nome": ..., "set": ..., "usd": 59.9, "eur": 55.1, "auto": true}, ...}
              Preço de mercado (TCGplayer, EUA) dos produtos Pokémon selados que temos em stock.
@@ -349,6 +352,27 @@ def ebay(sets, cid, segredo):
     return res
 
 
+def acrescentar_historico(hist, novos, hoje):
+    """Junta ao histórico do eBay o valor de hoje de cada set.
+
+    Para o ficheiro não crescer sem necessidade, só se grava uma linha nova quando a mediana muda
+    mais de 1% ou o n.º de anúncios muda bastante, ou quando a última linha tem 7 dias ou mais
+    (assim há sempre um registo a menos de uma semana de qualquer data, para comparar com as vendas).
+    """
+    for numero, (mediana_, n) in novos.items():
+        linhas = hist.setdefault(numero, [])
+        if linhas:
+            data, m0, n0 = linhas[-1]
+            if data == hoje:
+                linhas[-1] = [hoje, mediana_, n]  # a tarefa correu 2 vezes no mesmo dia
+                continue
+            mudou = abs(mediana_ - m0) > 0.01 * m0 or abs(n - n0) > max(2, 0.1 * n0)
+            if not mudou and (datetime.date.fromisoformat(hoje) - datetime.date.fromisoformat(data)).days < 7:
+                continue
+        linhas.append([hoje, mediana_, n])
+    return hist
+
+
 # ============================================================================ principal
 
 anterior = {}
@@ -365,6 +389,7 @@ saida.update({
     'bricklink': anterior.get('bricklink', {}),
     'pokemon': anterior.get('pokemon', {}),
     'ebay': anterior.get('ebay', {}),
+    'ebay_hist': anterior.get('ebay_hist', {}),
 })
 token = os.environ.get('VINTEDUO_TOKEN')
 
@@ -389,6 +414,7 @@ if os.environ.get('EBAY_CLIENT_ID') and os.environ.get('EBAY_CLIENT_SECRET') and
         # .strip(): ignora espaços ou mudanças de linha que tenham vindo agarrados ao colar as chaves
         novos = ebay(nossos, os.environ['EBAY_CLIENT_ID'].strip(), os.environ['EBAY_CLIENT_SECRET'].strip())
         saida['ebay'] = {**saida['ebay'], **novos}  # mantém os anteriores se algum pedido falhar
+        saida['ebay_hist'] = acrescentar_historico(saida['ebay_hist'], novos, HOJE.isoformat())
         saida['ebay_atualizado'] = HOJE.isoformat()
         saida['ebay_erro'] = None
     except urllib.error.HTTPError as e:

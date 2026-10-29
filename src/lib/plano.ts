@@ -59,7 +59,7 @@ export const REGRAS_PADRAO: RegrasPlano = {
   valorizacaoRetirado: 0.2,
   valorizacaoDepois: 0.07,
   valorizacaoPokemon: 0.15,
-  descontoEbay: 0.37, // medido em out/2026: vendemos a ~63% do preço pedido no eBay (61 sets)
+  descontoEbay: 0.37, // reserva: em out/2026 vendemos a ~63% do preço pedido no eBay, comparando com o eBay da mesma altura (22 sets)
   mesesAntesRetirada: 6,
   mesesDepoisRetirada: 6,
 };

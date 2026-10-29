@@ -384,7 +384,7 @@ function CartaoRegrasPlano() {
       </div>
       <p className="mudo pequeno">
         {cal
-          ? `Desconto sobre o eBay calculado com as vossas vendas: vendem a ~${Math.round((1 - cal.desconto) * 100)}% do preço pedido no eBay (${cal.sets} sets, vendas ${cal.dias === 365 ? 'do último ano' : 'dos últimos 2 anos'}), por isso usa-se ${Math.round(cal.desconto * 100)}%. Atualiza-se sozinho a cada venda.`
+          ? `Desconto sobre o eBay calculado com as vossas vendas: vendem a ~${Math.round((1 - cal.desconto) * 100)}% do preço pedido no eBay (${cal.sets} sets, vendas ${cal.dias === 365 ? 'do último ano' : 'dos últimos 2 anos'}), por isso usa-se ${Math.round(cal.desconto * 100)}%. Cada venda compara-se com o eBay da mesma altura: ${cal.naData} sets pelo histórico do eBay, ${cal.mesmaFase} pelo eBay de hoje (sets ainda à venda na LEGO). Atualiza-se sozinho a cada venda.`
           : `Desconto sobre o eBay: ainda não há ${MIN_SETS_CALIBRACAO} sets vendidos com preço no eBay para o calcular, por isso usa-se o valor de reserva.`}
       </p>
       <div className="linha-botoes">

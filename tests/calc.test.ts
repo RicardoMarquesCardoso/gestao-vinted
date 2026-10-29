@@ -376,24 +376,54 @@ test('sinal (semáforo): verde a correr, amarelo ação, azul guardado, vermelho
   assert.deepEqual([sinais(ctx([a2, e])).get('a2')!.cor], ['verde']);
 });
 
-import { calibrarEbay, descontoEbayEfetivo } from '../src/lib/investimento.ts';
+import { calibrarEbay, descontoEbayEfetivo, ebayNaData } from '../src/lib/investimento.ts';
+import type { LinhaBrickset } from '../src/lib/investimento.ts';
 
 test('eBay: o desconto real mede-se nas nossas vendas (mediana dos rácios por set)', () => {
   const ebay: Record<string, [number, number]> = {};
+  const brickset: Record<string, LinhaBrickset> = {};
   const ps: Produto[] = [];
   const vs: Venda[] = [];
-  // 12 sets: o eBay pede 100 €, nós vendemos a 60 € (rácio 0,6), menos um a 90 € (não mexe na mediana)
+  // 12 sets ainda à venda na LEGO (o eBay de hoje é comparável): o eBay pede 100 €, nós vendemos
+  // a 60 € (rácio 0,6), menos um a 90 € (não mexe na mediana)
   for (let i = 0; i < 12; i++) {
     const set = String(10000 + i);
     ebay[set] = [100, 50];
+    brickset[set] = ['2025-01-01', '2027-12-31', 100, null, null];
     ps.push(produto({ id: `p${i}`, set_numero: set, estado: 'vendido', condicao: 'Novo e selado' }));
     vs.push(venda({ id: `v${i}`, produto_id: `p${i}`, preco_venda: i === 0 ? 90 : 60, data_venda: '2026-09-01' }));
   }
-  const m = { brickset: {}, bricklink: {}, ebay };
+  const m = { brickset, bricklink: {}, ebay };
   const cal = calibrarEbay({ produtos: ps, vendas: vs }, m, '2026-10-28');
-  assert.deepEqual(cal, { desconto: 0.4, sets: 12, dias: 365 });
+  assert.deepEqual(cal, { desconto: 0.4, sets: 12, dias: 365, naData: 0, mesmaFase: 12 });
   // Com poucos sets não se confia: usa-se a regra (reserva)
   const poucos = calibrarEbay({ produtos: ps.slice(0, 5), vendas: vs.slice(0, 5) }, m, '2026-10-28');
   assert.equal(poucos, null);
   assert.equal(descontoEbayEfetivo({ produtos: ps.slice(0, 5), vendas: vs.slice(0, 5), definicoes: [] }, m, '2026-10-28'), 0.37);
+});
+
+test('eBay: cada venda compara-se com o eBay da mesma altura', () => {
+  const ps: Produto[] = [];
+  const vs: Venda[] = [];
+  const brickset: Record<string, LinhaBrickset> = {};
+  const ebay: Record<string, [number, number]> = {};
+  const ebay_hist: Record<string, [string, number, number][]> = {};
+  for (let i = 0; i < 12; i++) {
+    const set = String(20000 + i);
+    // Sets retirados em 2025: hoje o eBay pede 150 €, mas na altura da venda pedia 100 €
+    brickset[set] = ['2023-01-01', '2025-06-30', 80, null, null];
+    ebay[set] = [150, 40];
+    ebay_hist[set] = [['2026-08-20', 100, 30], ['2026-10-28', 150, 40]];
+    ps.push(produto({ id: `p${i}`, set_numero: set, estado: 'vendido', condicao: 'Novo e selado' }));
+    vs.push(venda({ id: `v${i}`, produto_id: `p${i}`, preco_venda: 70, data_venda: '2026-09-01' }));
+  }
+  const m = { brickset, bricklink: {}, ebay, ebay_hist };
+  // 70 ÷ 100 (eBay de 20/08, a 12 dias da venda) = 0,70 → desconto de 30% (com o eBay de hoje daria 53%)
+  assert.deepEqual(calibrarEbay({ produtos: ps, vendas: vs }, m, '2026-10-28'), { desconto: 0.3, sets: 12, dias: 365, naData: 12, mesmaFase: 0 });
+  // Sem histórico dessa altura e com o set já retirado, a venda não entra (o eBay de hoje não é comparável)
+  const semHist = { brickset, bricklink: {}, ebay };
+  assert.equal(calibrarEbay({ produtos: ps, vendas: vs }, semHist, '2026-10-28'), null);
+  // O histórico só conta até 30 dias da venda
+  assert.deepEqual(ebayNaData(m, '20000', '2026-09-10'), [100, 30]);
+  assert.equal(ebayNaData({ ...m, ebay_hist: { '20000': [['2026-06-01', 90, 10]] } }, '20000', '2026-09-10'), null);
 });

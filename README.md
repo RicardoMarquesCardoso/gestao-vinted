@@ -289,7 +289,12 @@ flowchart TD
   - **LEGO:** ~0% enquanto a LEGO ainda o vende; ~20%/ano nos 2 anos depois de ser retirado; ~7%/ano depois disso.
   - **Pokémon selado:** ~15%/ano.
   - A data de retirada vem da Brickset (real, ou prevista para os sets ainda à venda). Sem ela, estima-se como ano de lançamento + 2,5 anos.
-- **Desconto real sobre o eBay** (`calibrarEbay` em `src/lib/investimento.ts`): os preços do eBay são pedidos, e nós vendemos na Vinted. Para cada set que já vendemos e que tem preço no eBay, calcula-se *preço médio a que vendemos ÷ mediana pedida no eBay*. A mediana desses rácios dá a percentagem que costumamos conseguir, e o desconto é o resto. Usam-se as vendas de sets novos do último ano (ou dos últimos 2 anos, se houver poucas) e é preciso pelo menos 10 sets; com menos, usa-se a regra de reserva "Desconto sobre o eBay" (37% por defeito). Recalcula-se sozinho a cada venda e aparece nas Definições. Em out/2026: vendemos a ~64% do eBay (50 sets) → desconto de 36%. O mesmo desconto entra no valor estimado do stock.
+- **Desconto real sobre o eBay** (`calibrarEbay` em `src/lib/investimento.ts`): os preços do eBay são pedidos, e nós vendemos na Vinted. Para cada set que já vendemos, calcula-se *preço a que vendemos ÷ preço pedido no eBay* **na mesma altura**; a mediana desses rácios (por set) dá a percentagem que costumamos conseguir, e o desconto é o resto. Comparar uma venda antiga com o eBay de hoje enganava: se o set foi retirado entretanto, o eBay subiu e parecia que vendemos barato (out/2026: 0,57 nesses sets contra 0,67 nos que não mudaram de fase). Por isso cada venda compara-se com:
+  1. o **histórico do eBay** (`ebay_hist` em `mercado-sets.json`) mais próximo da data da venda, até 30 dias de diferença;
+  2. se ainda não há histórico dessa altura (começou a 28/10/2026), o eBay de hoje, **só se o set ainda está à venda na LEGO** (não mudou de fase desde a venda);
+  3. senão, a venda não entra.
+
+  Usam-se as vendas de sets novos do último ano (ou dos últimos 2 anos, se houver poucas) e é preciso pelo menos 10 sets; com menos, usa-se a regra de reserva "Desconto sobre o eBay" (37%). **Ajusta-se sozinho a cada venda**: cada venda nova entra logo, comparada com o eBay do dia em que foi feita. As Definições mostram quantos sets vieram do histórico e quantos do eBay de hoje. Em out/2026: vendemos a ~63% do eBay (22 sets comparáveis) → desconto de 37%. O mesmo desconto entra no valor estimado do stock e no **Vale a pena?**.
 - **Preço sugerido** = referência + 8% (margem para negociar), nunca abaixo de custo + 5%.
 - **Baixar o preço:** ao fim de **60 dias** anunciado sem mudar de preço, sugere baixar 7%.
 
@@ -349,7 +354,7 @@ Estes dados são preparados por **GitHub Actions** (pasta `.github/workflows/`).
 | Ficheiro | Gerado por | Quando | Conteúdo |
 |---|---|---|---|
 | `public/catalogo-sets.json` | `scripts/catalogo.py` | Mensal | ~26 mil sets LEGO (Rebrickable): nome, ano, tema. Preenche o formulário ao escrever o n.º do set. |
-| `public/mercado-sets.json` | `scripts/mercado.py` | Diário (5h43 UTC) | **eBay**: mediana dos preços pedidos por cada set nosso, novo, nas lojas eBay da Alemanha, França, Espanha e Itália. **PokemonPriceTracker**: preço dos produtos Pokémon selados (TCGplayer, EUA). **Brickset**: lançamento, retirada (real ou prevista), PVP. **BrickLink**: preparado, sem acesso. |
+| `public/mercado-sets.json` | `scripts/mercado.py` | Diário (5h43 UTC) | **eBay**: mediana dos preços pedidos por cada set nosso, novo, nas lojas eBay da Alemanha, França, Espanha e Itália. Guarda também o **histórico do eBay** (`ebay_hist`: uma linha por set quando o preço muda, ou pelo menos uma por semana). **PokemonPriceTracker**: preço dos produtos Pokémon selados (TCGplayer, EUA). **Brickset**: lançamento, retirada (real ou prevista), PVP. **BrickLink**: preparado, sem acesso. |
 
 ### eBay na hora (função `ebay-set` no Supabase)
 
