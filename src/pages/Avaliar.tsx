@@ -1,6 +1,6 @@
 // Ecrã "Vale a pena?": avaliar uma compra (por exemplo, um set em promoção) antes de comprar.
 //
-// Escreve-se o n.º do set, o preço e os portes. A app:
+// Escreve-se o n.º do set e o preço (sem portes, a pedido do Ricardo). A app:
 //   1. mostra o set (nome e imagem do catálogo, lançamento, retirada e PVP);
 //   2. pergunta ao eBay os preços desse set NO MOMENTO (função ebay-set no Supabase, API oficial);
 //   3. calcula com lib/avaliar.ts o preço de venda esperado, o tempo até vender, o lucro,
@@ -35,7 +35,6 @@ export function Avaliar() {
   const procurarSet = useCatalogoSets();
   const [set, setSet] = useState('');
   const [preco, setPreco] = useState('');
-  const [portes, setPortes] = useState('');
   const [ebay, setEbay] = useState<{ set: string; r: RespostaEbay | 'a_procurar' } | null>(null);
   const h = hoje();
   const n = set.trim();
@@ -64,10 +63,10 @@ export function Avaliar() {
   const a = useMemo(
     () =>
       valido && valorPreco > 0
-        ? avaliarCompra({ set: n, preco: valorPreco, portes: lerNumero(portes), tema: oficial?.tema, ebayAoVivo: aoVivo }, { dados, mercado, hoje: h })
+        ? avaliarCompra({ set: n, preco: valorPreco, tema: oficial?.tema, ebayAoVivo: aoVivo }, { dados, mercado, hoje: h })
         : null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [valido, n, valorPreco, portes, oficial?.tema, aoVivo?.[0], aoVivo?.[1], dados, mercado, h],
+    [valido, n, valorPreco, oficial?.tema, aoVivo?.[0], aoVivo?.[1], dados, mercado, h],
   );
 
   // Vendas que ainda cabem este ano nas contas ativas (cada compra vai gastar uma)
@@ -117,10 +116,6 @@ export function Avaliar() {
         <label className="campo">
           <span className="campo-rotulo">Preço da promoção</span>
           <Dinheiro valor={preco} mudar={setPreco} />
-        </label>
-        <label className="campo">
-          <span className="campo-rotulo">Portes</span>
-          <Dinheiro valor={portes} mudar={setPortes} />
         </label>
       </div>
 

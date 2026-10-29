@@ -38,7 +38,7 @@ Este README explica **o que a app faz, como está construída e porquê**, para 
 | **Acertos** | Tipo Splitwise: quem deve quanto a quem, com as transferências mínimas. |
 | **Contas** | As contas da Vinted com as barras dos limites (30 vendas / 2000 € por ano). Botão ✏️ para editar cada conta. |
 | **Compras** | Lista das compras. É a única forma de entrar produtos novos. Tem o atalho **Vale a pena?**. |
-| **Vale a pena?** | Avaliar uma compra (ex.: um set em promoção) **antes de comprar**: escreve-se o n.º do set, o preço e os portes, e a app mostra por quanto se vende, em quantos dias, o lucro, quanto rende por ano, um veredicto e o **preço máximo a pagar**. Tem links para ver o set na Vinted e nos vendidos do eBay. Está no menu (em *Mais*, no telemóvel). |
+| **Vale a pena?** | Avaliar uma compra (ex.: um set em promoção) **antes de comprar**: escreve-se o n.º do set e o preço, e a app mostra por quanto se vende, em quantos dias, o lucro, quanto rende por ano, um veredicto e o **preço máximo a pagar**. Tem links para ver o set na Vinted e nos vendidos do eBay. Está no menu (em *Mais*, no telemóvel). |
 | **Análises** | Lucro por mês, conta e categoria; **investimento** (rentabilidade por ano, dinheiro parado, valor do stock); tabela por set; lotes de compra; idade do stock; tempo até vender. |
 | **Definições** | Texto dos anúncios, regras das sugestões, pessoas, listas, exportação, dados de exemplo e histórico de alterações. |
 
@@ -318,7 +318,7 @@ Um grupo de produtos iguais mostra o sinal da unidade mais urgente. Ao passar o 
 
 ### Vale a pena? Avaliar uma compra (`src/lib/avaliar.ts`, ecrã `pages/Avaliar.tsx`)
 
-Escreve-se o n.º do set, o preço da promoção e os portes. A app calcula:
+Escreve-se o n.º do set e o preço da promoção. A app calcula:
 
 ```
 preço de venda esperado = a primeira que existir de:
@@ -326,9 +326,9 @@ preço de venda esperado = a primeira que existir de:
     2. eBay: mediana pedida AGORA (função ebay-set) ou a do dia × a % a que costumamos vender (calibrarEbay)
     3. PVP × a % do PVP a que costumamos vender (calibrarPvp), à parte para sets à venda e retirados
 dias até vender        = mediana (compra → venda) das nossas vendas deste set; senão do tema (≥ 3); senão de todas
-lucro                  = venda esperada − (preço + portes)
+lucro                  = venda esperada − preço
 rende por ano          = (lucro ÷ custo) × 365 ÷ dias até vender (mínimo 7 dias)
-pagar no máximo        = venda esperada ÷ (1 + margem "vender já" das regras) − portes, arredondado para baixo
+pagar no máximo        = venda esperada ÷ (1 + margem "vender já" das regras), arredondado para baixo
 ```
 
 **Veredicto:** 🟢 *Vale a pena* se o lucro for pelo menos a margem "vender já" das regras (20%) **e** pelo menos 5 € (cada conta só tem 30 vendas por ano, por isso uma venda com pouco lucro gasta uma vaga); 🔴 *Não compensa* abaixo da margem mínima (5%) ou com menos de 2 € de lucro; 🟡 *Talvez* no meio. Se já houver unidades do set em stock, avisa que esta vai demorar mais (anuncia-se uma de cada vez). Mostra também quantas vendas ainda cabem este ano nas contas ativas.
