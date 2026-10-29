@@ -114,9 +114,10 @@ const MENU: { rota: string; nome: string; icone: ReactNode; principal?: boolean 
   { rota: '/', nome: 'Painel', principal: true, icone: <path d="M3 13h8V3H3zm0 8h8v-6H3zm10 0h8V11h-8zm0-18v6h8V3z" /> },
   { rota: '/produtos', nome: 'Produtos', principal: true, icone: <path d="M4 7h16v13H4zM2 3h20v4H2zm7 7h6v2H9z" /> },
   { rota: '/analises', nome: 'Análises', principal: true, icone: <path d="M4 20V10h3v10zm6.5 0V4h3v16zM17 20v-7h3v7z" /> },
-  { rota: '/contas', nome: 'Contas', principal: true, icone: <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-3.3 0-10 1.7-10 5v3h20v-3c0-3.3-6.7-5-10-5z" /> },
-  // "Vale a pena?": avaliar uma compra (promoção) antes de comprar. Ícone: uma etiqueta de preço.
-  { rota: '/avaliar', nome: 'Vale a pena?', icone: <path d="M21.4 11.6l-9-9A2 2 0 0 0 11 2H4a2 2 0 0 0-2 2v7c0 .6.2 1.1.6 1.4l9 9c.4.4.9.6 1.4.6s1-.2 1.4-.6l7-7c.4-.4.6-.9.6-1.4s-.2-1-.6-1.4zM6.5 8a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z" /> },
+  // "Vale a pena?": até que preço comprar um set. Ícone: uma etiqueta de preço. Na barra de baixo no
+  // lugar das Contas (pedido do Ricardo); as Contas passaram para "Mais".
+  { rota: '/avaliar', nome: 'Vale a pena?', principal: true, icone: <path d="M21.4 11.6l-9-9A2 2 0 0 0 11 2H4a2 2 0 0 0-2 2v7c0 .6.2 1.1.6 1.4l9 9c.4.4.9.6 1.4.6s1-.2 1.4-.6l7-7c.4-.4.6-.9.6-1.4s-.2-1-.6-1.4zM6.5 8a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z" /> },
+  { rota: '/contas', nome: 'Contas', icone: <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-3.3 0-10 1.7-10 5v3h20v-3c0-3.3-6.7-5-10-5z" /> },
   { rota: '/compras', nome: 'Compras', icone: <path d="M7 4h14l-2 9H8.2l-.4 2H19v2H5.4l1.2-6L5 3H2V1h4.6zM8 20a2 2 0 1 0 0 .01zm9 0a2 2 0 1 0 0 .01z" /> },
   { rota: '/acertos', nome: 'Acertos', icone: <path d="M7 7h11l-3-3 1.4-1.4L22.8 9l-6.4 6.4L15 14l3-3H7zm10 10H6l3 3-1.4 1.4L1.2 15l6.4-6.4L9 10l-3 3h11z" /> },
   { rota: '/definicoes', nome: 'Definições', icone: <path d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.3 7.3 0 0 0-1.7-1L15 3h-4l-.4 2.7a7.3 7.3 0 0 0-1.7 1l-2.5-1-2 3.5L6.5 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1c.5.4 1.1.7 1.7 1L11 21h4l.4-2.7c.6-.3 1.2-.6 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" /> },
@@ -219,7 +220,7 @@ function Estrutura({ aoSair }: { aoSair(): void }) {
             <span>{m.nome}</span>
           </a>
         ))}
-        <a href="#/mais" className={['/mais', '/avaliar', '/compras', '/analises', '/definicoes', '/rever-nomes'].includes(base) ? 'ativo' : ''}>
+        <a href="#/mais" className={['/mais', '/contas', '/compras', '/analises', '/definicoes', '/rever-nomes'].includes(base) ? 'ativo' : ''}>
           <Icone><path d="M4 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm8 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm8 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" /></Icone>
           <span>Mais</span>
         </a>
