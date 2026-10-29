@@ -1,6 +1,17 @@
-// "Vale a pena?": avaliar uma compra (por exemplo, um set em promoção) ANTES de comprar.
+// "Vale a pena?": até que preço compensa comprar um set, e quantas unidades.
 //
-// Escreve-se o n.º do set e o preço da promoção, e a app responde:
+// Escreve-se só o n.º do set, e a app responde (precosCompra):
+//   - por quanto se espera vender e em quantos dias;
+//   - os preços de compra por escalão: "bom" (lucro ≥ margem "vender já" das regras, 20%),
+//     "muito bom" (≥ 40%) e "oportunidade rara" (≥ 75%), e quantas unidades comprar em cada um.
+//
+// DIVERSIFICAR (pedido do Ricardo): acumular muitas unidades do mesmo set não compensa, a não
+// ser numa oportunidade de outro mundo. Anuncia-se uma unidade de cada vez, por isso cada unidade
+// a mais demora mais a vender e prende dinheiro. Regras:
+//   - "bom" → ter 1 unidade; "muito bom" → até 2; "oportunidade rara" → até 3 (contando o stock);
+//   - nunca ter mais de 10% do dinheiro em stock num só set (maxCapitalPorSet).
+//
+// Também se pode avaliar um preço concreto (avaliarCompra), com estes resultados:
 //   - por quanto se espera vender (e de onde vem esse valor);
 //   - quanto tempo deve demorar a vender (pelo nosso histórico);
 //   - o lucro, a margem e a rentabilidade por ano (o tempo conta tanto como o lucro);
@@ -23,7 +34,7 @@
 // Tudo isto são funções puras (sem ecrã), testadas em tests/avaliar.test.ts.
 
 import { produtoNovo } from './anuncio';
-import { diasEntre, emInventario, unidadesDisponiveis, vendaValida } from './calc';
+import { custoUnitario, diasEntre, emInventario, unidadesDisponiveis, vendaValida } from './calc';
 import { descontoEbayEfetivo, infoMercado } from './investimento';
 import type { InfoMercado, Mercado } from './investimento';
 import { referencia, regrasPlano } from './plano';
@@ -147,8 +158,13 @@ export function calibrarPvp(ctx: ContextoAvaliacao): CalibracaoPvp {
 
 /**
  * Dias entre a compra e a venda, pelo nosso histórico de produtos novos: a mediana das vendas
- * deste set; se nunca o vendemos, a do mesmo tema (pelo menos 3 vendas); senão, a de tudo.
+ * deste set; se nunca o vendemos, a do mesmo tema (pelo menos 5 vendas); senão, a de tudo.
+ * Atenção: as datas de compra importadas da folha ficaram no dia 1 do mês, e o tempo inclui os
+ * sets guardados de propósito, por isso é uma estimativa grosseira. Quando houver dados suficientes
+ * do tempo ANUNCIADO (produtos.anuncios, desde 27/10/2026), deve passar a usar-se esse.
  */
+export const MIN_VENDAS_TEMA = 5;
+
 export function tempoAteVender(ctx: ContextoAvaliacao, set: string, tema?: string | null): TempoVenda | null {
   const produtos = new Map(ctx.dados.produtos.map((p) => [p.id, p]));
   const linhas: { set: string; tema: string; dias: number }[] = [];
@@ -166,7 +182,7 @@ export function tempoAteVender(ctx: ContextoAvaliacao, set: string, tema?: strin
   const temaNosso = ctx.dados.produtos.find((p) => p.set_numero && numeroBase(p.set_numero) === n && p.tema)?.tema;
   const t = normalizar(temaNosso ?? tema);
   const doTema = t ? linhas.filter((l) => l.tema && (l.tema === t || l.tema.startsWith(t) || t.startsWith(l.tema))).map((l) => l.dias) : [];
-  if (doTema.length >= 3) return { dias: Math.round(mediana(doTema)!), base: 'tema', n: doTema.length };
+  if (doTema.length >= MIN_VENDAS_TEMA) return { dias: Math.round(mediana(doTema)!), base: 'tema', n: doTema.length };
   const todos = linhas.map((l) => l.dias);
   return todos.length ? { dias: Math.round(mediana(todos)!), base: 'geral', n: todos.length } : null;
 }
@@ -256,6 +272,88 @@ export function avaliarCompra(ped: PedidoAvaliacao, ctx: ContextoAvaliacao): Ava
   if (emStock > 0 && veredicto !== 'mau') motivo += ` Já têm ${emStock} em stock e só se anuncia um de cada vez, por isso esta unidade vai demorar mais.`;
 
   return { ...base, venda, lucro, margem, rentabAnual, veredicto, motivo, precoMaximo };
+}
+
+// ---------- Preços de compra e quantidades ----------
+
+export type NomeEscalao = 'rara' | 'otimo' | 'bom';
+
+export interface Escalao {
+  nome: NomeEscalao;
+  margem: number; // lucro mínimo sobre o custo neste escalão
+  /** Pagar no máximo isto por unidade (arredondado para baixo ao meio euro). */
+  precoMax: number;
+  /** Unidades a ter no total neste escalão (1, 2 ou 3) e quantas comprar (descontado o stock e o limite de capital). */
+  alvo: number;
+  comprar: number;
+  /** Porque se compra menos do que o alvo (stock, limite de capital). */
+  limite: string | null;
+}
+
+export interface PrecosCompra {
+  venda: Estimativa | null;
+  estimativas: Estimativa[];
+  tempo: TempoVenda | null;
+  emStock: number;
+  /** Dinheiro já investido neste set (unidades em stock) e no stock todo. */
+  custoNoSet: number;
+  capitalStock: number;
+  /** Do melhor para o pior: rara, otimo, bom. Vazio se não houver preço de venda. */
+  escaloes: Escalao[];
+  mercado: InfoMercado | null;
+}
+
+/** Quantas unidades ter, no máximo, em cada escalão. */
+export const UNIDADES_ESCALAO: Record<NomeEscalao, number> = { rara: 3, otimo: 2, bom: 1 };
+
+/**
+ * Até que preço compensa comprar um set novo, e quantas unidades, por escalão de lucro.
+ * Preço máximo = venda esperada ÷ (1 + margem), e nunca mais do que venda − 5 € (lucro mínimo
+ * para valer uma das 30 vendas por ano da conta).
+ */
+export function precosCompra(ped: Omit<PedidoAvaliacao, 'preco' | 'portes'>, ctx: ContextoAvaliacao): PrecosCompra {
+  const r = regrasPlano(ctx.dados.definicoes);
+  const set = numeroBase(ped.set);
+  const lista = estimativas(ctx, set, ped.ebayAoVivo);
+  const venda = lista[0] ?? null;
+  // Stock: unidades por vender de todos os produtos, e as deste set (novos)
+  let capitalStock = 0;
+  let custoNoSet = 0;
+  let emStock = 0;
+  for (const p of ctx.dados.produtos) {
+    if (!emInventario(p)) continue;
+    const disp = unidadesDisponiveis(p, ctx.dados.vendas);
+    if (disp <= 0) continue;
+    capitalStock += custoUnitario(p) * disp;
+    if (p.set_numero && numeroBase(p.set_numero) === set && produtoNovo(p)) {
+      custoNoSet += custoUnitario(p) * disp;
+      emStock += disp;
+    }
+  }
+  const base = { venda, estimativas: lista, tempo: tempoAteVender(ctx, set, ped.tema), emStock, custoNoSet, capitalStock, mercado: infoMercado(ctx.mercado, set, ctx.hoje) };
+  if (!venda) return { ...base, escaloes: [] };
+
+  const margens: Record<NomeEscalao, number> = { rara: r.margemCompraRara, otimo: r.margemCompraOtima, bom: r.margemVender };
+  const escaloes = (['rara', 'otimo', 'bom'] as NomeEscalao[]).map((nome): Escalao => {
+    const margem = margens[nome];
+    const precoMax = Math.max(meioEuroAbaixo(Math.min(venda.preco / (1 + margem), venda.preco - LUCRO_MINIMO)), 0);
+    const alvo = UNIDADES_ESCALAO[nome];
+    let comprar = Math.max(alvo - emStock, 0);
+    let limite: string | null = emStock > 0 && comprar < alvo ? `já têm ${emStock} em stock` : null;
+    // Limite de capital: (já neste set + k × preço) ≤ máx. × (stock + k × preço)
+    if (comprar > 0 && precoMax > 0 && capitalStock > 0) {
+      const cabe = Math.floor((r.maxCapitalPorSet * capitalStock - custoNoSet) / (precoMax * (1 - r.maxCapitalPorSet)));
+      // Pelo menos 1 se ainda não há nenhuma: o limite serve para não acumular, não para impedir de ter o set
+      const maximo = emStock === 0 ? Math.max(cabe, 1) : Math.max(cabe, 0);
+      if (maximo < comprar) {
+        comprar = maximo;
+        limite = `mais de ${Math.round(r.maxCapitalPorSet * 100)}% do dinheiro em stock num só set`;
+      }
+    }
+    if (precoMax <= 0) comprar = 0;
+    return { nome, margem, precoMax, alvo, comprar, limite };
+  });
+  return { ...base, escaloes };
 }
 
 // ---------- Links para ver o set noutros sites (abertos por nós, à mão) ----------

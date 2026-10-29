@@ -342,6 +342,9 @@ const CAMPOS_REGRAS: { k: keyof RegrasPlano; nome: string; ajuda: string; pct: b
   { k: 'valorizacaoPokemon', nome: 'Valorização dos produtos Pokémon selados', ajuda: 'por ano', pct: true },
   { k: 'mesesAntesRetirada', nome: 'Guardar sets que saem de produção dentro de', ajuda: 'meses', pct: false },
   { k: 'mesesDepoisRetirada', nome: 'Guardar até depois da retirada', ajuda: 'meses', pct: false },
+  { k: 'margemCompraOtima', nome: 'Comprar 2 unidades só com lucro de', ajuda: 'ou mais (Vale a pena?)', pct: true },
+  { k: 'margemCompraRara', nome: 'Comprar 3 unidades só com lucro de', ajuda: 'ou mais: oportunidade rara', pct: true },
+  { k: 'maxCapitalPorSet', nome: 'Máximo do dinheiro em stock num só set', ajuda: 'para diversificar', pct: true },
 ];
 
 /** Editar as regras que decidem "vender já" ou "guardar" e os preços sugeridos. */

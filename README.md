@@ -38,7 +38,7 @@ Este README explica **o que a app faz, como está construída e porquê**, para 
 | **Acertos** | Tipo Splitwise: quem deve quanto a quem, com as transferências mínimas. |
 | **Contas** | As contas da Vinted com as barras dos limites (30 vendas / 2000 € por ano). Botão ✏️ para editar cada conta. |
 | **Compras** | Lista das compras. É a única forma de entrar produtos novos. Tem o atalho **Vale a pena?**. |
-| **Vale a pena?** | Avaliar uma compra (ex.: um set em promoção) **antes de comprar**: escreve-se o n.º do set e o preço, e a app mostra por quanto se vende, em quantos dias, o lucro, quanto rende por ano, um veredicto e o **preço máximo a pagar**. Tem links para ver o set na Vinted e nos vendidos do eBay. Está no menu (em *Mais*, no telemóvel). |
+| **Vale a pena?** | Antes de comprar: escreve-se só o n.º do set e a app mostra por quanto se vende, em quantos dias, e **até que preço compensa comprar e quantas unidades** (bom / muito bom / oportunidade rara), a diversificar. Tem links para ver o set na Vinted e nos vendidos do eBay. Está no menu (em *Mais*, no telemóvel). |
 | **Análises** | Lucro por mês, conta e categoria; **investimento** (rentabilidade por ano, dinheiro parado, valor do stock); tabela por set; lotes de compra; idade do stock; tempo até vender. |
 | **Definições** | Texto dos anúncios, regras das sugestões, pessoas, listas, exportação, dados de exemplo e histórico de alterações. |
 
@@ -316,22 +316,34 @@ Um grupo de produtos iguais mostra o sinal da unidade mais urgente. Ao passar o 
 
 **Anuncia-se uma unidade de cada vez.** Se já há um produto igual anunciado (mesmo n.º de set ou nome), as outras unidades não aparecem como "Anunciar" até essa ser vendida.
 
-### Vale a pena? Avaliar uma compra (`src/lib/avaliar.ts`, ecrã `pages/Avaliar.tsx`)
+### Vale a pena? Até que preço comprar, e quantas unidades (`src/lib/avaliar.ts`, ecrã `pages/Avaliar.tsx`)
 
-Escreve-se o n.º do set e o preço da promoção. A app calcula:
+Escreve-se só o n.º do set. A app calcula (`precosCompra`):
 
 ```
 preço de venda esperado = a primeira que existir de:
     1. as nossas vendas deste set (as mesmas dos planos)
     2. eBay: mediana pedida AGORA (função ebay-set) ou a do dia × a % a que costumamos vender (calibrarEbay)
     3. PVP × a % do PVP a que costumamos vender (calibrarPvp), à parte para sets à venda e retirados
-dias até vender        = mediana (compra → venda) das nossas vendas deste set; senão do tema (≥ 3); senão de todas
-lucro                  = venda esperada − preço
-rende por ano          = (lucro ÷ custo) × 365 ÷ dias até vender (mínimo 7 dias)
-pagar no máximo        = venda esperada ÷ (1 + margem "vender já" das regras), arredondado para baixo
+dias até vender        = mediana (compra → venda) das nossas vendas deste set; senão do tema (≥ 5 vendas); senão de todas
+preço máximo (escalão) = venda esperada ÷ (1 + margem do escalão), e nunca mais do que venda − 5 €
 ```
 
-**Veredicto:** 🟢 *Vale a pena* se o lucro for pelo menos a margem "vender já" das regras (20%) **e** pelo menos 5 € (cada conta só tem 30 vendas por ano, por isso uma venda com pouco lucro gasta uma vaga); 🔴 *Não compensa* abaixo da margem mínima (5%) ou com menos de 2 € de lucro; 🟡 *Talvez* no meio. Se já houver unidades do set em stock, avisa que esta vai demorar mais (anuncia-se uma de cada vez). Mostra também quantas vendas ainda cabem este ano nas contas ativas.
+| Escalão | Lucro mínimo (regra) | Unidades a ter (contando o stock) |
+|---|---|---|
+| 🟡 Bom | 20% (`margemVender`) | 1 |
+| 🟢 Muito bom | 40% (`margemCompraOtima`) | até 2 |
+| 🟢 Oportunidade rara | 75% (`margemCompraRara`) | até 3 |
+
+Acima do preço do escalão **Bom** não compensa comprar.
+
+**Diversificar (decisão do Ricardo):** acumular muitas unidades do mesmo set só compensa numa oportunidade de outro mundo. Anuncia-se uma unidade de cada vez, por isso cada unidade a mais demora mais a vender e prende dinheiro. Além das unidades por escalão, **nunca se fica com mais de 10% do dinheiro em stock num só set** (`maxCapitalPorSet`); se ainda não há nenhuma unidade, deixa-se sempre comprar 1. As três regras editam-se em Definições. Cada linha mostra também o lucro e quanto rende por ano a esse preço (com várias unidades, o dinheiro fica preso em média (n + 1) ÷ 2 vezes o tempo de uma venda).
+
+Mostra ainda quantas vendas cabem este ano nas contas ativas (30 por conta) e de onde vem o preço de venda, com o erro típico de cada fonte.
+
+**Limitação:** os dias até vender vêm das datas de compra, que na importação da folha ficaram no dia 1 do mês, e incluem sets guardados de propósito. Servem só como ordem de grandeza. Quando houver dados suficientes do tempo **anunciado** (desde 27/10/2026), passa a usar-se esse.
+
+(`avaliarCompra` continua disponível para avaliar um preço concreto: lucro, margem, rentabilidade e veredicto.)
 
 **Porquê esta ordem e o PVP medido — o "teste com o passado" (out/2026).** Para cada uma das 102 vendas de LEGO com data, calculou-se o que cada fonte teria previsto e comparou-se com o preço real:
 

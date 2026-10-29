@@ -46,6 +46,15 @@ export interface RegrasPlano {
   mesesAntesRetirada: number;
   /** …até este n.º de meses depois da retirada. */
   mesesDepoisRetirada: number;
+  /**
+   * Compras (ecrã "Vale a pena?"): diversificar. Por defeito compra-se 1 unidade de cada set
+   * (com lucro ≥ margemVender). Só com lucro de pelo menos margemCompraOtima se aceitam 2, e com
+   * margemCompraRara ("oportunidade de outro mundo") 3, contando as que já estão em stock.
+   */
+  margemCompraOtima: number;
+  margemCompraRara: number;
+  /** Nunca ter mais do que esta parte do dinheiro em stock num só set. */
+  maxCapitalPorSet: number;
 }
 
 export const REGRAS_PADRAO: RegrasPlano = {
@@ -62,6 +71,9 @@ export const REGRAS_PADRAO: RegrasPlano = {
   descontoEbay: 0.37, // reserva: em out/2026 vendemos a ~63% do preço pedido no eBay, comparando com o eBay da mesma altura (22 sets)
   mesesAntesRetirada: 6,
   mesesDepoisRetirada: 6,
+  margemCompraOtima: 0.4,
+  margemCompraRara: 0.75,
+  maxCapitalPorSet: 0.1,
 };
 
 /** Decisão tomada por vocês para um produto/set (sobrepõe-se à sugestão). */

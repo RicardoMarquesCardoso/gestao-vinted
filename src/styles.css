@@ -783,3 +783,12 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .avaliar-fontes li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; font-size: 0.9rem; }
 .avaliar-fontes li > span:last-child { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .avaliar-resultado .nota { margin-bottom: 0; }
+.avaliar-campo { max-width: 240px; }
+.avaliar-resumo { margin: 0 0 8px; }
+.avaliar-escalao { display: flex; align-items: center; gap: 10px; padding: 10px 0; }
+.avaliar-escalao .linha-principal { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.avaliar-comprar { white-space: nowrap; font-weight: 600; }
+.avaliar-rara .avaliar-bolinha { background: var(--sinal-verde); box-shadow: 0 0 0 3px color-mix(in srgb, var(--sinal-verde) 30%, transparent); }
+.avaliar-otimo .avaliar-bolinha { background: var(--sinal-verde); }
+.avaliar-escaloes + .avaliar-motivo { margin-top: 8px; font-size: 0.88rem; }
+.avaliar-escalao.avaliar-bom .avaliar-bolinha { background: var(--sinal-amarelo); }

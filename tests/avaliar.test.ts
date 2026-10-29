@@ -3,7 +3,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { avaliarCompra, calibrarPvp, estimativas, tempoAteVender, urlEbayVendidos, urlVinted, RACIO_PVP_A_VENDA } from '../src/lib/avaliar.ts';
+import { avaliarCompra, calibrarPvp, estimativas, precosCompra, tempoAteVender, urlEbayVendidos, urlVinted, RACIO_PVP_A_VENDA } from '../src/lib/avaliar.ts';
 import type { Mercado } from '../src/lib/investimento.ts';
 import type { Produto, Venda } from '../src/lib/types.ts';
 
@@ -78,17 +78,21 @@ test('tempo até vender: o set, depois o tema, depois tudo', () => {
     produto({ id: 'b', set_numero: '2', tema: 'Star Wars', data_compra: '2026-01-01' }),
     produto({ id: 'c', set_numero: '3', tema: 'Star Wars', data_compra: '2026-01-01' }),
     produto({ id: 'd', set_numero: '4', tema: 'City', data_compra: '2026-01-01' }),
+    produto({ id: 'e', set_numero: '5', tema: 'Star Wars', data_compra: '2026-01-01' }),
+    produto({ id: 'f', set_numero: '6', tema: 'Star Wars', data_compra: '2026-01-01' }),
   ];
   const vendas = [
     venda({ id: '1', produto_id: 'a', data_venda: '2026-01-11' }), // 10 dias
     venda({ id: '2', produto_id: 'b', data_venda: '2026-01-21' }), // 20
     venda({ id: '3', produto_id: 'c', data_venda: '2026-01-31' }), // 30
     venda({ id: '4', produto_id: 'd', data_venda: '2026-04-11' }), // 100
+    venda({ id: '5', produto_id: 'e', data_venda: '2026-01-21' }), // 20
+    venda({ id: '6', produto_id: 'f', data_venda: '2026-01-21' }), // 20
   ];
   const ctx = { dados: { produtos, vendas, definicoes: [] }, mercado: null, hoje: HOJE };
   assert.deepEqual(tempoAteVender(ctx, '2'), { dias: 20, base: 'set', n: 1 });
-  assert.deepEqual(tempoAteVender(ctx, '9', 'StarWars'), { dias: 20, base: 'tema', n: 3 });
-  assert.deepEqual(tempoAteVender(ctx, '9', 'Ninjago'), { dias: 25, base: 'geral', n: 4 });
+  assert.deepEqual(tempoAteVender(ctx, '9', 'StarWars'), { dias: 20, base: 'tema', n: 5 });
+  assert.deepEqual(tempoAteVender(ctx, '9', 'Ninjago'), { dias: 20, base: 'geral', n: 6 });
 });
 
 test('veredicto, rentabilidade e preço máximo', () => {
@@ -133,4 +137,48 @@ test('links da Vinted e do eBay', () => {
   assert.equal(urlVinted('75321-1'), 'https://www.vinted.pt/catalog?search_text=lego%2075321&order=price_low_to_high&status_ids[]=6&status_ids[]=1');
   assert.equal(urlVinted('75321', false), 'https://www.vinted.pt/catalog?search_text=lego%2075321&order=price_low_to_high');
   assert.match(urlEbayVendidos('75321'), /ebay\.de.*_nkw=lego%2075321.*LH_Sold=1/);
+});
+
+test('preços de compra por escalão e quantidades a diversificar', () => {
+  // Vendemos o set a 60 € em 30 dias; o stock tem 800 € noutro set (10% = 80 €)
+  const dados = {
+    produtos: [
+      produto({ id: 'p1', set_numero: '10280', data_compra: '2026-05-02' }),
+      produto({ id: 'outro', set_numero: '99999', estado: 'por_anunciar', preco_compra: 800 }),
+    ],
+    vendas: [venda({ produto_id: 'p1', preco_venda: 60, data_venda: '2026-06-01' })],
+    definicoes: [],
+  };
+  const r = precosCompra({ set: '10280' }, { dados, mercado: null, hoje: HOJE });
+  assert.deepEqual(
+    r.escaloes.map((e) => [e.nome, e.precoMax, e.alvo, e.comprar]),
+    [
+      ['rara', 34, 3, 2], // 60 ÷ 1,75 = 34,3; 3 unidades passavam dos 10% do stock → 2
+      ['otimo', 42.5, 2, 2], // 60 ÷ 1,4
+      ['bom', 50, 1, 1], // 60 ÷ 1,2
+    ],
+  );
+  assert.match(r.escaloes[0].limite!, /10%/);
+});
+
+test('quantidades descontam o que já está em stock', () => {
+  const dados = {
+    produtos: [
+      produto({ id: 'p1', set_numero: '10280' }),
+      produto({ id: 'p2', set_numero: '10280', estado: 'anunciado', preco_compra: 40 }),
+      produto({ id: 'grande', set_numero: '99999', estado: 'por_anunciar', preco_compra: 5000 }),
+    ],
+    vendas: [venda({ produto_id: 'p1', preco_venda: 60 })],
+    definicoes: [],
+  };
+  const r = precosCompra({ set: '10280' }, { dados, mercado: null, hoje: HOJE });
+  assert.equal(r.emStock, 1);
+  assert.deepEqual(r.escaloes.map((e) => e.comprar), [2, 1, 0]); // já há 1: "bom" não compra mais
+  assert.match(r.escaloes[2].limite!, /já têm 1/);
+});
+
+test('lucro mínimo de 5 € limita o preço de sets baratos', () => {
+  const dados = { produtos: [produto({ id: 'p1', set_numero: '30000' })], vendas: [venda({ produto_id: 'p1', preco_venda: 12 })], definicoes: [] };
+  const r = precosCompra({ set: '30000' }, { dados, mercado: null, hoje: HOJE });
+  assert.equal(r.escaloes[2].precoMax, 7); // 12 ÷ 1,2 = 10, mas 12 − 5 = 7
 });
