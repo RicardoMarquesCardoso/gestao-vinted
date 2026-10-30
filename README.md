@@ -274,8 +274,8 @@ flowchart TD
   B -- não --> V1[VENDER<br/>usado, Hot Wheels, Funko…]
   B -- sim --> R{Há preço de referência?}
   R -- não --> V2[VENDER<br/>custo + margem, ver reação]
-  R -- sim --> W{LEGO a sair de produção?<br/>sai nos próximos 6 meses ou saiu há menos de 6,}
-  W -- sim --> G2[GUARDAR ATÉ ~6 meses<br/>depois da retirada]
+  R -- sim --> W{Exclusivo LEGO a sair de produção?<br/>sai nos próximos 6 meses ou saiu há menos de 12}
+  W -- sim --> G2[GUARDAR ATÉ ~12 meses<br/>depois da retirada]
   W -- não --> L{Lucro agora ≥ 20%?}
   L -- sim --> V3[VENDER JÁ<br/>o dinheiro volta mais depressa]
   L -- não --> P{Vai valorizar ≥ 12%/ano<br/>até chegar aos 20%?}
@@ -284,9 +284,10 @@ flowchart TD
 ```
 
 - **Preço de referência**, por esta ordem: as nossas vendas do mesmo produto nos últimos 2 anos (as do último ano pesam mais) → BrickLink → **eBay** (mediana dos anúncios de novos na Europa, com o **desconto real medido nas nossas vendas**, ver abaixo) → TCGplayer (Pokémon) → PVP da Brickset: com 20% de desconto se ainda estiver à venda na LEGO, ou, se já foi retirado, o PVP valorizado desde a retirada com as mesmas taxas das regras (no máximo o dobro do PVP).
-- **Subida da retirada ("pop"):** um set LEGO perto da retirada (sai nos próximos 6 meses ou saiu há menos de 6, pela data real do Brickset) guarda-se até ~6 meses depois da retirada, mesmo que já dê lucro e seja qual for o valor do set. O plano mostra uma estimativa do valor nessa data (nunca menor do que o PVP valorizado), só como informação. Os 2 números de meses editam-se em Definições. Análises mais finas por set (previsões de valor) precisam de dados como os da API do BrickEconomy.
+- **Subida da retirada ("pop"), só nos exclusivos LEGO:** um set **vendido só pela LEGO** (Brickset: "LEGO exclusive") perto da retirada (sai nos próximos 6 meses ou saiu há menos de 12, pela data real do Brickset) guarda-se até ~12 meses depois da retirada, mesmo que já dê lucro. Os sets vendidos nas lojas normais **não** se guardam por esta regra: vendem-se quando o lucro compensa. O plano mostra uma estimativa do valor nessa data, só como informação. Os 2 números de meses editam-se em Definições. Sets especiais que não são exclusivos (ex.: minifigura muito procurada) decidem-se à mão.
+  - **Porquê (out/2026):** analisaram-se 10 sets no BrickEconomy, comparando com o **PVP europeu** (o BrickEconomy usa o mercado dos EUA e o preço de lá, mais baixo). Os sets das lojas quase não subiram depois da retirada, mesmo os grandes: Lamborghini Countach 0%, Triwizard −10%, Dobby e Batmobile +15–25% e depois parados, Disney Duos +25%. Na Vinted recebe-se ~0,85 do valor do BrickEconomy (variando entre 0,6 e 1,3). Nos exclusivos LEGO não há promoções nas lojas a encher o mercado, e a subida demora 12–18 meses a construir-se. Nessa altura passaram de 18 para 4 os produtos guardados (828 € → 443 €).
 - **Valorização esperada** (taxas fixas iguais para todos os sets, editáveis em Definições; não é uma previsão por set):
-  - **LEGO:** ~0% enquanto a LEGO ainda o vende; ~20%/ano nos 2 anos depois de ser retirado; ~7%/ano depois disso.
+  - **LEGO:** ~0% enquanto a LEGO ainda o vende; ~5%/ano nos 2 anos depois de ser retirado; ~3%/ano depois disso (medido em out/2026; antes eram 20% e 7%, otimistas demais).
   - **Pokémon selado:** ~15%/ano.
   - A data de retirada vem da Brickset (real, ou prevista para os sets ainda à venda). Sem ela, estima-se como ano de lançamento + 2,5 anos.
 - **Desconto real sobre o eBay** (`calibrarEbay` em `src/lib/investimento.ts`): os preços do eBay são pedidos, e nós vendemos na Vinted. Para cada set que já vendemos, calcula-se *preço a que vendemos ÷ preço pedido no eBay* **na mesma altura**; a mediana desses rácios (por set) dá a percentagem que costumamos conseguir, e o desconto é o resto. Comparar uma venda antiga com o eBay de hoje enganava: se o set foi retirado entretanto, o eBay subiu e parecia que vendemos barato (out/2026: 0,57 nesses sets contra 0,67 nos que não mudaram de fase). Por isso cada venda compara-se com:

@@ -1,10 +1,18 @@
 // Plano para cada produto em stock (vender já / guardar até X) e lista de tarefas.
 //
 // Ideia base, para dar mais retorno: o dinheiro que volta depressa pode ser reinvestido.
-// Exceção, nos sets LEGO: quando o set está perto da retirada (sai nos próximos 6 meses ou saiu
-// há menos de 6), guarda-se até ~6 meses depois da retirada, para apanhar a subida ("pop") que
-// costuma vir quando deixa de haver nas lojas. Vale para qualquer set, seja qual for o valor.
+// Exceção, só nos sets EXCLUSIVOS LEGO (vendidos só pela LEGO, segundo a Brickset): quando o set
+// está perto da retirada (sai nos próximos 6 meses ou saiu há menos de 12), guarda-se até ~12
+// meses depois da retirada, para apanhar a subida ("pop") que vem quando deixa de haver à venda.
 // Fora disso, vende-se logo que o lucro previsto chegue à margem pedida.
+//
+// Porquê só os exclusivos (out/2026, 10 sets analisados no BrickEconomy, comparados com o PVP
+// europeu): os sets vendidos nas lojas normais quase não sobem depois da retirada, mesmo os grandes
+// (Lamborghini Countach 0%, Triwizard −10%, Dobby e Batmobile +15–25% e depois parados, Disney
+// Duos +25%), e na Vinted só se apanha uma parte disso (~0,85 do valor do BrickEconomy). Nos
+// exclusivos LEGO não há promoções nas lojas a inundar o mercado; a subida demora 12–18 meses a
+// construir-se, daí a janela de 12 meses. Para sets especiais que não são exclusivos (ex.: com uma
+// minifigura muito procurada), decide-se à mão (planos manuais).
 import { produtoNovo } from './anuncio';
 import { chaveComparacao, custoUnitario, diasEntre, emInventario, somarDias, unidadesDisponiveis, vendaValida } from './calc';
 import { fmtEuro } from './format';
@@ -65,12 +73,14 @@ export const REGRAS_PADRAO: RegrasPlano = {
   margemNegociar: 0.08,
   margemChao: 0.05,
   valorizacaoAVenda: 0,
-  valorizacaoRetirado: 0.2,
-  valorizacaoDepois: 0.07,
+  // Medido em out/2026: nas nossas vendas, ~0,73 do PVP antes da retirada e ~0,80–0,83 depois;
+  // no BrickEconomy, sets das lojas +0–25% sobre o PVP europeu em 1–2 anos, e depois parados.
+  valorizacaoRetirado: 0.05,
+  valorizacaoDepois: 0.03,
   valorizacaoPokemon: 0.15,
   descontoEbay: 0.37, // reserva: em out/2026 vendemos a ~63% do preço pedido no eBay, comparando com o eBay da mesma altura (22 sets)
   mesesAntesRetirada: 6,
-  mesesDepoisRetirada: 6,
+  mesesDepoisRetirada: 12,
   margemCompraOtima: 0.4,
   margemCompraRara: 0.75,
   maxCapitalPorSet: 0.1,
@@ -264,10 +274,11 @@ export function sugerirPlano(p: Produto, ctx: Contexto): Plano {
   if (!paraInvestir(p)) return vender(ref ? `Não é para guardar (${p.set_numero ? 'usado' : 'sem n.º de set'}): vender pelo melhor preço.` : 'Não é para guardar: vender com margem sobre o custo.');
   if (!ref) return vender(`Sem preço de referência: anunciar com ${pct(r.margemVender + r.margemNegociar)} sobre o custo e ver a reação.`);
 
-  // LEGO perto da retirada: guardar até ~6 meses depois da retirada, para apanhar a subida.
-  // Só com a data de retirada do Brickset (não estimada). O valor esperado é só informativo.
+  // Exclusivos LEGO perto da retirada: guardar até ~12 meses depois da retirada, para apanhar a
+  // subida. Só com a data de retirada do Brickset (não estimada). O valor esperado é só informativo.
   const retLego = ehPokemon(p) ? null : dataRetirada(p, ctx);
-  if (retLego && !retLego.estimada) {
+  const exclusivo = !!infoMercado(ctx.mercado, p.set_numero, ctx.hoje)?.exclusivoLego;
+  if (retLego && !retLego.estimada && exclusivo) {
     const inicio = somarDias(ctx.hoje, -Math.round(r.mesesDepoisRetirada * 30.4));
     const fim = somarDias(ctx.hoje, Math.round(r.mesesAntesRetirada * 30.4));
     if (retLego.data >= inicio && retLego.data <= fim) {

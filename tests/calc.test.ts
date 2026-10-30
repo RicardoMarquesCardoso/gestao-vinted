@@ -234,12 +234,13 @@ test('plano: vender já quando o lucro compensa, guardar quando ainda vai valori
   const hojeT = '2026-10-27';
   const merc = {
     brickset: {
-      '1': ['2025-01-01', '2026-12-31', 100, null, 'Retail'] as never, // sai em breve
+      '1': ['2025-01-01', '2026-12-31', 100, null, 'LEGO exclusive'] as never, // exclusivo, sai em breve
       '2': ['2018-01-01', '2020-12-31', 50, null, 'Retired'] as never, // retirado há muito
       '3': ['2025-01-01', '2029-12-31', 100, null, 'Retail'] as never, // ainda vai ser vendido muito tempo
-      '4': ['2025-01-01', '2026-12-31', 60, null, 'Retail'] as never, // set pequeno a sair em breve
+      '4': ['2025-01-01', '2026-12-31', 60, null, 'LEGO exclusive'] as never, // exclusivo pequeno a sair em breve
+      '6': ['2025-01-01', '2026-12-31', 100, null, 'Retail'] as never, // à venda nas lojas, sai em breve
     },
-    bricklink: { '1': { n: [80, 10] as [number, number] }, '2': { n: [55, 10] as [number, number] }, '3': { n: [80, 10] as [number, number] }, '4': { n: [55, 10] as [number, number] } },
+    bricklink: { '1': { n: [80, 10] as [number, number] }, '2': { n: [55, 10] as [number, number] }, '3': { n: [80, 10] as [number, number] }, '4': { n: [55, 10] as [number, number] }, '6': { n: [80, 10] as [number, number] } },
   };
   const ctx = (ps: Produto[]) => ({ dados: { produtos: ps, vendas: [], definicoes: [] }, mercado: merc, hoje: hojeT });
   // Comprado a 60, mercado a 80 → +33%, e só sai de produção em 2029: vender já
@@ -247,14 +248,18 @@ test('plano: vender já quando o lucro compensa, guardar quando ainda vai valori
   const pa = sugerirPlano(a, ctx([a]));
   assert.equal(pa.acao, 'vender');
   assert.equal(pa.precoSugerido, 86); // 80 × 1,08
-  // Comprado a 75, mercado a 80 (+7%) e sai em dez/26 → guardar
+  // Exclusivo LEGO comprado a 75, mercado a 80 (+7%) e sai em dez/26 → guardar
   const b = produto({ id: 'b', set_numero: '1', preco_compra: 75, estado: 'por_anunciar', condicao: 'Novo e selado' });
   const pb = sugerirPlano(b, ctx([b]));
   assert.equal(pb.acao, 'guardar');
   assert.ok(pb.ate! > hojeT);
-  // Set pequeno comprado a 40 (+37% já), mas sai em dez/26 → guardar na mesma (o valor não interessa)
+  // Exclusivo pequeno comprado a 40 (+37% já), mas sai em dez/26 → guardar na mesma (o valor não interessa)
   const a2 = produto({ id: 'a2', set_numero: '4', preco_compra: 40, estado: 'por_anunciar', condicao: 'Novo e selado' });
   assert.equal(sugerirPlano(a2, ctx([a2])).acao, 'guardar');
+  // O mesmo caso de b (+7%, sai em dez/26) num set à venda nas lojas → não se guarda pela retirada;
+  // a valorização esperada (5%/ano depois da retirada) não chega para guardar → vender
+  const b6 = produto({ id: 'b6', set_numero: '6', preco_compra: 75, estado: 'por_anunciar', condicao: 'Novo e selado' });
+  assert.equal(sugerirPlano(b6, ctx([b6])).acao, 'vender');
   // Comprado a 52, retirado há anos, mercado 55 (+6%), valoriza 7%/ano → vender para libertar o dinheiro
   const c = produto({ id: 'c', set_numero: '2', preco_compra: 52, estado: 'por_anunciar', condicao: 'Novo e selado' });
   assert.equal(sugerirPlano(c, ctx([c])).acao, 'vender');
@@ -321,25 +326,29 @@ test('PVP como referência: com desconto se à venda, inteiro se retirado', () =
   const p = produto({ id: 'r', set_numero: '10327', preco_compra: 90, estado: 'por_anunciar', condicao: null });
   const pl = sugerirPlano(p, { dados: { produtos: [p], vendas: [], definicoes: [] }, mercado: merc, hoje: '2026-10-27' });
   assert.equal(pl.referencia?.fonte, 'pvp');
-  assert.equal(Math.round(pl.referencia!.preco), Math.round(164.99 * Math.pow(1.2, 88 / 365))); // 3 meses depois de retirado
-  assert.equal(pl.acao, 'guardar'); // retirado há 3 meses: guardar até ~6 meses depois da retirada
-  assert.equal(pl.ate!.slice(0, 7), '2027-01');
+  assert.equal(Math.round(pl.referencia!.preco), Math.round(164.99 * Math.pow(1.05, 88 / 365))); // 3 meses depois de retirado
+  assert.equal(pl.acao, 'vender'); // não é exclusivo LEGO e já dá +84%: vender
+  // Se fosse exclusivo LEGO: retirado há 3 meses → guardar até ~12 meses depois da retirada
+  const mercEx = { brickset: { '10327': ['2023-06-01', '2026-07-31', 164.99, null, 'LEGO exclusive'] as never }, bricklink: {} };
+  const px = sugerirPlano(p, { dados: { produtos: [p], vendas: [], definicoes: [] }, mercado: mercEx, hoje: '2026-10-27' });
+  assert.equal(px.acao, 'guardar');
+  assert.equal(px.ate!.slice(0, 7), '2027-07');
 });
 
-test('plano: set prestes a sair → guardar até ~6 meses depois da retirada, seja qual for o valor', () => {
-  const merc = { brickset: { '76300': ['2025-09-01', '2026-12-31', 299.99, null, 'Retail'] as never }, bricklink: {} };
+test('plano: exclusivo LEGO prestes a sair → guardar até ~12 meses depois da retirada, seja qual for o valor', () => {
+  const merc = { brickset: { '76300': ['2025-09-01', '2026-12-31', 299.99, null, 'LEGO exclusive'] as never }, bricklink: {} };
   const p = produto({ id: 'k', set_numero: '76300', preco_compra: 189, estado: 'por_anunciar', condicao: null });
   const pl = sugerirPlano(p, { dados: { produtos: [p], vendas: [], definicoes: [] }, mercado: merc, hoje: '2026-10-28' });
   assert.equal(Math.round(pl.referencia!.preco), 240); // 80% do PVP enquanto está à venda
   assert.equal(pl.acao, 'guardar');
-  assert.equal(pl.ate!.slice(0, 7), '2027-07'); // ~6 meses depois da retirada
+  assert.equal(pl.ate!.slice(0, 7), '2027-12'); // ~12 meses depois da retirada
   assert.match(pl.motivo, /subida da retirada/);
-  // Set pequeno (PVP 25 €) a sair na mesma altura → também guardar
+  // Set pequeno (PVP 25 €) à venda nas lojas, a sair na mesma altura → vender (não é exclusivo)
   const merc2 = { brickset: { '1': ['2025-01-01', '2026-12-31', 25, null, 'Retail'] as never }, bricklink: {} };
   const q = produto({ id: 'q', set_numero: '1', preco_compra: 10, estado: 'por_anunciar', condicao: null });
-  assert.equal(sugerirPlano(q, { dados: { produtos: [q], vendas: [], definicoes: [] }, mercado: merc2, hoje: '2026-10-28' }).acao, 'guardar');
+  assert.equal(sugerirPlano(q, { dados: { produtos: [q], vendas: [], definicoes: [] }, mercado: merc2, hoje: '2026-10-28' }).acao, 'vender');
   // Sai só daqui a 14 meses → ainda não é altura de guardar
-  const merc3 = { brickset: { '76300': ['2025-09-01', '2027-12-31', 299.99, null, 'Retail'] as never }, bricklink: {} };
+  const merc3 = { brickset: { '76300': ['2025-09-01', '2027-12-31', 299.99, null, 'LEGO exclusive'] as never }, bricklink: {} };
   assert.equal(sugerirPlano(p, { dados: { produtos: [p], vendas: [], definicoes: [] }, mercado: merc3, hoje: '2026-10-28' }).acao, 'vender');
 });
 
@@ -349,7 +358,7 @@ test('sinal (semáforo): verde a correr, amarelo ação, azul guardado, vermelho
   const hojeT = '2026-10-27';
   const merc = {
     brickset: {
-      '1': ['2025-01-01', '2026-12-31', 100, null, 'Retail'] as never, // sai em breve → guardar
+      '1': ['2025-01-01', '2026-12-31', 100, null, 'LEGO exclusive'] as never, // exclusivo, sai em breve → guardar
       '2': ['2018-01-01', '2020-12-31', 50, null, 'Retired'] as never,
       '3': ['2025-01-01', '2029-12-31', 100, null, 'Retail'] as never,
       '5': ['2025-01-01', '2029-12-31', 100, null, 'Retail'] as never,

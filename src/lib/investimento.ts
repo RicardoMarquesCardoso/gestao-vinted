@@ -139,6 +139,12 @@ export interface InfoMercado {
   blUsado: [number, number] | null;
   /** eBay: [mediana do preço pedido (novos), n.º de anúncios] */
   ebay: [number, number] | null;
+  /**
+   * Set vendido só pela LEGO (lojas LEGO e lego.com), segundo a Brickset ("LEGO exclusive").
+   * Estes não aparecem nas promoções das lojas normais, e são os únicos para os quais a app
+   * sugere guardar perto da retirada (ver plano.ts).
+   */
+  exclusivoLego: boolean;
 }
 
 /** Desconto das regras (Definições → "descontoEbay"), usado só quando não há vendas para calibrar. */
@@ -266,6 +272,7 @@ export function infoMercado(m: Mercado | null, setNumero: string | null, hoje: s
     blNovo: bl?.n ?? null,
     blUsado: bl?.u ?? null,
     ebay: eb,
+    exclusivoLego: /lego exclusive/i.test(b?.[4] ?? ''),
   };
 }
 

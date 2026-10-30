@@ -340,7 +340,7 @@ const CAMPOS_REGRAS: { k: keyof RegrasPlano; nome: string; ajuda: string; pct: b
   { k: 'valorizacaoDepois', nome: 'Valorização depois disso', ajuda: 'por ano', pct: true },
   { k: 'descontoEbay', nome: 'Desconto sobre o eBay (reserva)', ajuda: 'só enquanto não há vendas para o calcular', pct: true },
   { k: 'valorizacaoPokemon', nome: 'Valorização dos produtos Pokémon selados', ajuda: 'por ano', pct: true },
-  { k: 'mesesAntesRetirada', nome: 'Guardar sets que saem de produção dentro de', ajuda: 'meses', pct: false },
+  { k: 'mesesAntesRetirada', nome: 'Guardar exclusivos LEGO que saem de produção dentro de', ajuda: 'meses', pct: false },
   { k: 'mesesDepoisRetirada', nome: 'Guardar até depois da retirada', ajuda: 'meses', pct: false },
   { k: 'margemCompraOtima', nome: 'Comprar 2 unidades só com lucro de', ajuda: 'ou mais (Vale a pena?)', pct: true },
   { k: 'margemCompraRara', nome: 'Comprar 3 unidades só com lucro de', ajuda: 'ou mais: oportunidade rara', pct: true },
