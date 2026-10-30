@@ -17,6 +17,24 @@ test('sets, preços e descontos: itens arrumados primeiro, texto completa', () =
     sets: ['75375', '42151', '10280'],
     precos: { '75375': 63.74, '42151': 37.49, '10280': null },
     descontos: { '75375': null, '42151': 0.3, '10280': 0.4 },
+    pvps: { '75375': null, '42151': null, '10280': null },
+  });
+});
+
+test('itens completos: set, pvp, preço final e desconto em %', () => {
+  const p: Promocao = {
+    id: '2', recebida: '2026-10-30T10:00:00Z', loja: 'Continente',
+    itens: [
+      { set: '75375', pvp: 84.99, preco: 63.74, desconto: 25 },
+      { set: '42151', pvp: 49.99, desconto: 30 },
+      { set: '10280', preco: 35.99 },
+    ],
+  };
+  assert.deepEqual(setsDaPromocao(p, existe), {
+    sets: ['75375', '42151', '10280'],
+    precos: { '75375': 63.74, '42151': null, '10280': 35.99 },
+    descontos: { '75375': 0.25, '42151': 0.3, '10280': null },
+    pvps: { '75375': 84.99, '42151': 49.99, '10280': null },
   });
 });
 

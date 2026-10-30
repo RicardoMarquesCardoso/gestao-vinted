@@ -27,8 +27,14 @@ export interface Promocao {
   texto?: string;
   /** % de desconto sobre o PVP (ex.: 25), quando é igual para todos os sets. */
   desconto?: number;
-  /** Ou a lista já arrumada: set e, se houver, preço na loja e/ou desconto próprio (%, ex.: 30). */
-  itens?: { set?: string | number; preco?: number | string | null; desconto?: number | string | null }[];
+  /**
+   * Ou a lista arrumada, um item por set:
+   *   set      n.º do set (obrigatório)
+   *   pvp      preço original na loja, em € (opcional; senão usa-se o PVP da Brickset)
+   *   preco    preço final, já com desconto, em € (opcional)
+   *   desconto desconto em %, ex.: 30 (opcional; usado se não houver preço final)
+   */
+  itens?: { set?: string | number; pvp?: number | string | null; preco?: number | string | null; desconto?: number | string | null }[];
   valida_ate?: string;
 }
 
@@ -64,22 +70,24 @@ const numero = (v: unknown): number | null => {
 };
 
 /**
- * Sets, preços e descontos próprios de uma promoção: os da lista arrumada (itens) e os encontrados
+ * Sets, preços finais, descontos e PVP da loja de uma promoção: os da lista arrumada (itens) e os encontrados
  * no texto. Os itens têm prioridade (são exatos); o texto completa o que faltar.
  * Os descontos vêm em fração (30% → 0,3).
  */
 export function setsDaPromocao(
   p: Promocao,
   existe: (n: string) => boolean,
-): { sets: string[]; precos: Record<string, number | null>; descontos: Record<string, number | null> } {
+): { sets: string[]; precos: Record<string, number | null>; descontos: Record<string, number | null>; pvps: Record<string, number | null> } {
   const precos: Record<string, number | null> = {};
   const descontos: Record<string, number | null> = {};
+  const pvps: Record<string, number | null> = {};
   const sets: string[] = [];
   for (const i of p.itens ?? []) {
     const n = String(i?.set ?? '').trim().replace(/-\d+$/, '');
     if (!/^\d{3,7}$/.test(n) || sets.includes(n)) continue;
     sets.push(n);
     precos[n] = numero(i.preco);
+    pvps[n] = numero(i.pvp);
     const d = numero(i.desconto);
     descontos[n] = d !== null && d <= 90 ? d / 100 : null;
   }
@@ -88,9 +96,10 @@ export function setsDaPromocao(
       sets.push(i.set);
       precos[i.set] = null;
       descontos[i.set] = null;
+      pvps[i.set] = null;
     }
     if (precos[i.set] === null) precos[i.set] = i.preco;
     if (descontos[i.set] === null) descontos[i.set] = i.desconto;
   }
-  return { sets, precos, descontos };
+  return { sets, precos, descontos, pvps };
 }

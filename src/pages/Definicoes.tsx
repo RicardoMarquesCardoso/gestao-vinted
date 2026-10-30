@@ -461,14 +461,18 @@ function CartaoReceberPromocoes() {
       <pre className="codigo">{`{
   "token": "<código secreto>",
   "loja": "Continente",
-  "texto": "LEGO 75375 Millennium Falcon 63,74 €\nLEGO 42151 Bugatti 37,49 €",
-  "desconto": 25,
-  "valida_ate": "2026-11-10"
+  "valida_ate": "2026-11-10",
+  "itens": [
+    { "set": "75375", "pvp": 84.99, "preco": 63.74, "desconto": 25 },
+    { "set": "42151", "pvp": 49.99, "desconto": 30 },
+    { "set": "10280", "preco": 35.99 },
+    { "set": "76303", "desconto": 20 }
+  ]
 }`}</pre>
       <p className="mudo pequeno">
-        <code>texto</code>: a lista como se cola na app, e cada set pode ter o seu preço (<code>63,74 €</code>) ou o seu desconto (<code>-30%</code>). Em alternativa,{' '}
-        <code>itens</code>: <code>[{'{'}"set": "75375", "preco": 63.74{'}'}, {'{'}"set": "42151", "desconto": 30{'}'}]</code>. <code>desconto</code> (geral, % sobre o PVP, para os sets
-        sem preço nem desconto próprio) e <code>valida_ate</code> são opcionais. Guardar o código só na outra app; nunca o publicar.
+        Em cada item: <code>set</code> (obrigatório); <code>pvp</code> = preço original na loja (€); <code>preco</code> = preço final, já com desconto (€); <code>desconto</code> = desconto
+        em % (ex.: 30). Basta um de <code>preco</code> ou <code>desconto</code>. Sem <code>pvp</code>, usa-se o PVP da Brickset. Se vierem os dois, conta o <code>preco</code>.{' '}
+        <code>valida_ate</code> é opcional. Em vez de <code>itens</code> pode enviar-se <code>texto</code> (a lista como se cola na app). Guardar o código só na outra app; nunca o publicar.
       </p>
     </Cartao>
   );

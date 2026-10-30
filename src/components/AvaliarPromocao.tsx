@@ -53,7 +53,7 @@ export function AvaliarPromocao({ idInicial }: { idInicial?: string }) {
   }
 
   // Sets reconhecidos (os que a Brickset ou o catálogo conhecem) e o preço de cada um, se houver
-  const { sets, precos, descontos } = useMemo(
+  const { sets, precos, descontos, pvps } = useMemo(
     () => setsDaPromocao({ ...(promo ?? { id: '', recebida: '', loja: '' }), texto }, (n) => !!mercado?.brickset[n] || !!catalogo(n)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [texto, promo, mercado, catalogo.carregado],
@@ -66,10 +66,10 @@ export function AvaliarPromocao({ idInicial }: { idInicial?: string }) {
   const linhas = useMemo(
     () =>
       sets.length
-        ? avaliarPromocao(sets, d, { dados, mercado, hoje: h }, { tema: (n) => catalogo(n)?.tema, ebayAoVivo: (n) => precoEbay(ebay[n]), precos, descontos })
+        ? avaliarPromocao(sets, d, { dados, mercado, hoje: h }, { tema: (n) => catalogo(n)?.tema, ebayAoVivo: (n) => precoEbay(ebay[n]), precos, descontos, pvps })
         : [],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sets, precos, descontos, d, dados, mercado, h, chaveEbay, catalogo.carregado],
+    [sets, precos, descontos, pvps, d, dados, mercado, h, chaveEbay, catalogo.carregado],
   );
   const aComprar = linhas.filter((l) => l.comprar > 0);
   const total = aComprar.reduce((a, l) => a + l.comprar * (l.preco ?? 0), 0);
@@ -91,6 +91,7 @@ export function AvaliarPromocao({ idInicial }: { idInicial?: string }) {
         { titulo: 'Nome', valor: (l) => catalogo(l.set)?.nome ?? '' },
         { titulo: 'Tema', valor: (l) => l.tema },
         { titulo: 'PVP', valor: (l) => l.pvp },
+        { titulo: 'PVP de', valor: (l) => (l.pvpOrigem === 'loja' ? 'loja' : l.pvpOrigem === 'brickset' ? 'Brickset' : '') },
         { titulo: 'Preço na promoção', valor: (l) => l.preco },
         { titulo: 'Desconto sobre o PVP (%)', valor: (l) => (l.descontoAplicado !== null ? Math.round(l.descontoAplicado * 100) : null) },
         { titulo: 'Origem do preço', valor: (l) => ({ loja: 'preço da lista', desconto: 'desconto do set', pvp: 'desconto geral' })[l.origemPreco ?? 'x' as never] ?? '' },
@@ -168,7 +169,7 @@ export function AvaliarPromocao({ idInicial }: { idInicial?: string }) {
             )}
           </div>
           <p className="nota">
-            PVP da LEGO Alemanha (Brickset), normalmente igual ao de Portugal. Os sets sem eBay nem vendas nossas usam o PVP × a % a que costumamos vender, que é conservador:
+            PVP: o da loja, se vier na lista; senão o da LEGO Alemanha (Brickset), normalmente igual ao de Portugal. Os sets sem eBay nem vendas nossas usam o PVP × a % a que costumamos vender, que é conservador:
             raramente compensam. Acompanhá-los traz o eBay a partir de amanhã.
           </p>
         </Cartao>

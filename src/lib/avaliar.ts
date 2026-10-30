@@ -431,7 +431,9 @@ export function extrairItens(texto: string, existe: (n: string) => boolean): Ite
 export interface LinhaPromo {
   set: string;
   tema: string | null;
+  /** Preço original: o PVP indicado pela loja, se veio na lista, senão o PVP da Brickset. */
   pvp: number | null;
+  pvpOrigem: 'loja' | 'brickset' | null;
   preco: number | null; // preço na promoção
   /**
    * De onde vem o preço: 'loja' = o preço da lista; 'desconto' = PVP × (1 − desconto próprio do
@@ -459,11 +461,13 @@ const descontoPara = (pvp: number | null, precoMax: number | undefined) =>
   pvp && precoMax && precoMax > 0 && precoMax < pvp * 0.99 ? Math.ceil((1 - precoMax / pvp) * 100) / 100 : pvp && precoMax && precoMax >= pvp * 0.99 ? 0 : null;
 
 /**
- * Avalia uma lista de sets numa promoção. O preço de cada set é, por esta ordem:
- *   1. o da lista da loja (opcoes.precos); um preço absurdo face ao PVP (menos de 20% ou mais de
- *      105%, quase de certeza lido mal) é ignorado;
- *   2. PVP × (1 − desconto próprio do set) (opcoes.descontos), porque cada set pode ter o seu;
- *   3. PVP × (1 − desconto geral da promoção).
+ * Avalia uma lista de sets numa promoção. Para cada set:
+ *   - PVP (preço original): o indicado pela loja (opcoes.pvps), senão o da Brickset;
+ *   - preço final, por esta ordem:
+ *       1. o preço final da lista (opcoes.precos); um preço absurdo face ao PVP (menos de 20% ou
+ *          mais de 105%, quase de certeza lido mal) é ignorado;
+ *       2. PVP × (1 − desconto do set) (opcoes.descontos), porque cada set pode ter o seu;
+ *       3. PVP × (1 − desconto geral da promoção).
  */
 export function avaliarPromocao(
   sets: string[],
@@ -474,12 +478,15 @@ export function avaliarPromocao(
     ebayAoVivo?: (n: string) => [number, number] | null | undefined;
     precos?: Record<string, number | null | undefined>;
     descontos?: Record<string, number | null | undefined>;
+    pvps?: Record<string, number | null | undefined>;
   } = {},
 ): LinhaPromo[] {
   const linhas = sets.map((set): LinhaPromo => {
     const tema = opcoes.tema?.(set) ?? null;
     const precos = precosCompra({ set, tema, ebayAoVivo: opcoes.ebayAoVivo?.(set) ?? null }, ctx);
-    const pvp = precos.mercado?.pvp ?? null;
+    const pvpLoja = opcoes.pvps?.[set] ?? null;
+    const pvp = pvpLoja && pvpLoja > 0 ? pvpLoja : precos.mercado?.pvp ?? null;
+    const pvpOrigem = pvpLoja && pvpLoja > 0 ? ('loja' as const) : pvp ? ('brickset' as const) : null;
     const daLoja = opcoes.precos?.[set] ?? null;
     const lojaValido = daLoja !== null && daLoja > 0 && (!pvp || (daLoja >= pvp * 0.2 && daLoja <= pvp * 1.05));
     const dSet = opcoes.descontos?.[set] ?? null;
@@ -488,9 +495,9 @@ export function avaliarPromocao(
     const preco = lojaValido ? daLoja : dSetValido ? aPvp(dSet) : aPvp(desconto);
     const origemPreco = lojaValido ? ('loja' as const) : !preco ? null : dSetValido ? ('desconto' as const) : ('pvp' as const);
     const descontoAplicado = preco && pvp ? Math.round((1 - preco / pvp) * 1000) / 1000 : null;
-    const base = { set, tema, pvp, preco, origemPreco, descontoAplicado, precos, descontoMinimo: descontoPara(pvp, precos.escaloes.find((e) => e.nome === 'bom')?.precoMax) };
+    const base = { set, tema, pvp, pvpOrigem, preco, origemPreco, descontoAplicado, precos, descontoMinimo: descontoPara(pvp, precos.escaloes.find((e) => e.nome === 'bom')?.precoMax) };
     if (!preco)
-      return { ...base, escalao: null, comprar: 0, lucro: null, margem: null, margemSegura: null, rentabAnual: null, motivo: pvp ? 'Sem preço: indica o desconto.' : 'Sem preço na lista nem PVP na Brickset.' };
+      return { ...base, escalao: null, comprar: 0, lucro: null, margem: null, margemSegura: null, rentabAnual: null, motivo: pvp ? 'Sem preço: indica o desconto.' : 'Sem preço nem PVP (na lista ou na Brickset).' };
     if (!precos.venda) return { ...base, escalao: null, comprar: 0, lucro: null, margem: null, margemSegura: null, rentabAnual: null, motivo: 'Sem dados para estimar o preço de venda.' };
     const venda = precos.venda.preco;
     const lucro = venda - preco;

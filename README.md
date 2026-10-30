@@ -405,15 +405,30 @@ Uma app externa (ex.: a do Ricardo que tira a lista de LEGO em promoção no Con
 - **Como enviar:** `POST https://hunuxphczekrxilfmthb.supabase.co/rest/v1/rpc/receber_promocao`, com os cabeçalhos `apikey: <chave publishable>` e `Content-Type: application/json`, e o corpo:
 
   ```json
-  { "token": "<código secreto>", "loja": "Continente",
-    "texto": "LEGO 75375 Millennium Falcon 63,74 €\nLEGO 42151 Bugatti 37,49 €",
-    "desconto": 25, "valida_ate": "2026-11-10" }
+  {
+    "token": "<código secreto>",
+    "loja": "Continente",
+    "valida_ate": "2026-11-10",
+    "itens": [
+      { "set": "75375", "pvp": 84.99, "preco": 63.74, "desconto": 25 },
+      { "set": "42151", "pvp": 49.99, "desconto": 30 },
+      { "set": "10280", "preco": 35.99 },
+      { "set": "76303", "desconto": 20 }
+    ]
+  }
   ```
 
-  `texto` é a lista como se cola na app; **cada set pode ter o seu preço** (`63,74 €`) **ou o seu desconto** (`-30%`), na mesma linha ou por baixo. Em alternativa, `itens`: `[{"set": "75375", "preco": 63.74}, {"set": "42151", "desconto": 30}]`. São obrigatórios `token`, `loja` e `texto` ou `itens`; `desconto` (geral, % sobre o PVP, só para os sets sem preço nem desconto próprio) e `valida_ate` são opcionais. Resposta: `{"ok": true, "id": "…"}`.
+  | Campo do item | O que é | Obrigatório |
+  |---|---|---|
+  | `set` | n.º do set (`"75375"` ou `"75375-1"`) | sim |
+  | `pvp` | preço original na loja, em € | não (senão usa-se o PVP da Brickset) |
+  | `preco` | preço final, já com desconto, em € | um destes dois |
+  | `desconto` | desconto em %, ex.: `30` | um destes dois |
+
+  Preço usado: `preco`; senão `pvp` × (1 − `desconto` ÷ 100). São obrigatórios `token`, `loja` e `itens` (ou, em alternativa, `texto`: a lista como se cola na app, onde cada set pode ter o preço `63,74 €` ou o desconto `-30%` na linha ou por baixo). `valida_ate` é opcional. Para compatibilidade, aceita-se ainda `desconto` no topo, aplicado aos itens sem preço nem desconto. Resposta: `{"ok": true, "id": "…"}`.
 - **O código secreto** está em `definicoes.token_promocoes`, e vê-se e copia-se em **Definições → Receber promoções de outra app**, onde também estão estas instruções. Só deixa entregar promoções: não dá acesso a mais nada. Nunca vai para o código nem para o chat.
 - **Onde ficam:** em `definicoes.promocoes`, as 50 mais recentes, e cada receção fica no histórico. O Painel mostra as dos últimos 7 dias, ou as que ainda estão dentro de `valida_ate`, até serem dispensadas.
-- **Preço de cada set**, por esta ordem: (1) o preço da lista (o mais baixo da sua linha e das linhas seguintes sem outro set; um preço absurdo face ao PVP, < 20% ou > 105%, é ignorado); (2) PVP × (1 − **desconto próprio do set**, a maior percentagem dessas linhas, ex.: `-30%`); (3) PVP × (1 − desconto geral). Atenção: uma percentagem que não seja desconto (ex.: "IVA 23%") junto ao set seria lida como desconto. Código: `extrairItens` (`lib/avaliar.ts`), `lib/promocoes.ts`, `components/CartaoPromocoes.tsx`.
+- **Preço de cada set**, por esta ordem: (1) o preço final (`preco`, ou no texto o mais baixo da linha do set e das seguintes sem outro set; um preço absurdo face ao PVP, < 20% ou > 105%, é ignorado); (2) PVP × (1 − **desconto do set**: `desconto`, ou no texto a maior percentagem, ex.: `-30%`); (3) PVP × (1 − desconto geral). O PVP é o da loja (`pvp`) se vier, senão o da Brickset. Atenção: uma percentagem que não seja desconto (ex.: "IVA 23%") junto ao set seria lida como desconto. Código: `extrairItens` (`lib/avaliar.ts`), `lib/promocoes.ts`, `components/CartaoPromocoes.tsx`.
 
 ### As chaves (segredos)
 

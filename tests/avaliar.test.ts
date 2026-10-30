@@ -260,4 +260,7 @@ test('promoção com preços da loja: usa o preço da lista e ignora preços abs
   assert.deepEqual([a2.preco, a2.origemPreco, a2.descontoAplicado], [60, 'desconto', 0.4]);
   const b2 = r2.find((l) => l.set === '22222')!;
   assert.deepEqual([b2.preco, b2.origemPreco, b2.descontoAplicado], [80, 'pvp', 0.2]);
+  // PVP da loja (120 €) em vez do da Brickset (100 €): o desconto aplica-se sobre o da loja
+  const r3 = avaliarPromocao(['11111'], 0, ctx, { pvps: { '11111': 120 }, descontos: { '11111': 0.5 } });
+  assert.deepEqual([r3[0].pvp, r3[0].pvpOrigem, r3[0].preco, r3[0].descontoAplicado], [120, 'loja', 60, 0.5]);
 });

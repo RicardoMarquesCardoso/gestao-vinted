@@ -30,8 +30,8 @@ function ListaPromocoes({ novas }: { novas: Promocao[] }) {
   const resumo = useMemo(
     () =>
       novas.map((p) => {
-        const { sets, precos, descontos } = setsDaPromocao(p, (n) => !!mercado?.brickset[n] || !!catalogo(n));
-        const linhas = mercado ? avaliarPromocao(sets, descontoDe(p), { dados, mercado, hoje: h }, { tema: (n) => catalogo(n)?.tema, precos, descontos }) : [];
+        const { sets, precos, descontos, pvps } = setsDaPromocao(p, (n) => !!mercado?.brickset[n] || !!catalogo(n));
+        const linhas = mercado ? avaliarPromocao(sets, descontoDe(p), { dados, mercado, hoje: h }, { tema: (n) => catalogo(n)?.tema, precos, descontos, pvps }) : [];
         const comprar = linhas.filter((l) => l.comprar > 0);
         return { p, sets: sets.length, comprar: comprar.length, total: comprar.reduce((a, l) => a + l.comprar * (l.preco ?? 0), 0), pronto: !!mercado };
       }),
