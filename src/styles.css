@@ -795,3 +795,6 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .avaliar-nao .avaliar-bolinha { background: var(--texto-3); opacity: 0.5; }
 .avaliar-promo .linha-principal small { white-space: normal; }
 .avaliar-resultado .linha-botoes { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+/* Partilhar / descarregar fotografias (components/fotos.tsx) */
+.partilhar-fotos { display: flex; gap: 8px; flex-wrap: wrap; margin: -6px 0 14px; }
+.texto-vinted .partilhar-fotos { margin: 0; }

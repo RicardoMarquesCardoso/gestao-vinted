@@ -1,5 +1,6 @@
 // Janela "Anunciar" (ou "Retirar anúncio"): escolhe a conta da Vinted, quantas unidades e o preço,
-// e mostra o título e a descrição prontos a copiar para a Vinted (ver lib/anuncio.ts).
+// e mostra o título e a descrição prontos a copiar para a Vinted (ver lib/anuncio.ts) e as
+// fotografias do produto para partilhar ou descarregar (components/fotos.tsx).
 // Ao marcar como anunciado, o registo do tempo anunciado começa sozinho (lib/anuncios.ts).
 
 import { useState } from 'react';
@@ -8,6 +9,7 @@ import type { Produto } from '../lib/types';
 import { useDados } from '../state';
 import { modeloAnuncio, textoAnuncio } from '../lib/anuncio';
 import { Campo, Dinheiro, Janela, SelecionarConta } from './ui';
+import { PartilharFotos } from './fotos';
 
 const CHAVE_CONTA = 'gv.ultimaConta';
 
@@ -106,6 +108,13 @@ export function FormAnunciar({ ids, retirar, precoSugerido, unidades, aoFechar }
         )}
       </div>
       {!retirar && <TextoVinted produto={candidatos[0]} />}
+      {/* As fotografias do produto, para pôr no anúncio (Partilhar → Vinted, ou Descarregar) */}
+      {!retirar && candidatos[0].fotos.length > 0 && (
+        <div className="texto-vinted">
+          <h4>Fotografias</h4>
+          <PartilharFotos p={candidatos[0]} />
+        </div>
+      )}
     </Janela>
   );
 }

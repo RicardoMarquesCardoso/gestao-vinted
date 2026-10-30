@@ -299,12 +299,12 @@ export function urlFoto(caminho: string): Promise<string> {
   return p;
 }
 
-/** Apagar uma fotografia do Storage. */
-export async function apagarFoto(caminho: string): Promise<void> {
+/** Apagar uma ou várias fotografias do Storage (caminhos que não existem são ignorados). */
+export async function apagarFoto(caminhos: string | string[]): Promise<void> {
   const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}`, {
     method: 'DELETE',
     headers: await cabecalhos({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ prefixes: [caminho] }),
+    body: JSON.stringify({ prefixes: Array.isArray(caminhos) ? caminhos : [caminhos] }),
   });
   if (!res.ok) throw await erroDe(res);
 }

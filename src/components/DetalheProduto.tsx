@@ -4,6 +4,7 @@
 // uma), e "Em stock" lista os exemplares desse set que ainda estão por vender.
 
 import { LinhaPlano, LinhaPokemon } from './planos';
+import { PartilharFotos } from './fotos';
 import { ehPokemon } from '../lib/plano';
 import { urlVinted } from '../lib/avaliar';
 import { produtoNovo } from '../lib/anuncio';
@@ -15,7 +16,7 @@ import { useAbrir } from './acoes';
 import { compararNomes, useCatalogoSets } from './catalogo';
 import { CHAVE_MANTIDOS } from '../pages/ReverNomes';
 import { useState } from 'react';
-import { EtiquetaProduto, EtiquetaVenda, Foto, ImagemReferencia, Janela, Valor, reduzirFoto, urlReferencia, useImagemReferencia } from './ui';
+import { EtiquetaProduto, EtiquetaVenda, Foto, ImagemReferencia, Janela, Valor, prepararFoto, urlReferencia, useImagemReferencia } from './ui';
 
 export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void }) {
   const { dados, nomeConta, nomePagador, store, guardar, aviso, lista } = useDados();
@@ -55,7 +56,10 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
     setAEnviar(true);
     try {
       const novas: string[] = [];
-      for (const f of Array.from(ficheiros)) novas.push(await store.enviarFoto(p.id, await reduzirFoto(f, store.modo === 'demo' ? 640 : 1280)));
+      for (const f of Array.from(ficheiros)) {
+        const { original, miniatura } = await prepararFoto(f, store.modo === 'demo');
+        novas.push(await store.enviarFoto(p.id, original, miniatura));
+      }
       await guardar('produtos', [{ ...p, fotos: [...p.fotos, ...novas] }]);
       aviso('Fotografia adicionada.');
     } catch (e) {
@@ -99,11 +103,15 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
       }
     >
       {p.fotos.length > 0 && (
-        <div className="fotos-galeria">
-          {p.fotos.map((r) => (
-            <Foto key={r} refFoto={r} alt={p.nome} />
-          ))}
-        </div>
+        <>
+          <div className="fotos-galeria">
+            {p.fotos.map((r) => (
+              <Foto key={r} refFoto={r} alt={p.nome} />
+            ))}
+          </div>
+          {/* Partilhar (ex.: para a Vinted) ou descarregar as fotografias com boa qualidade */}
+          <PartilharFotos p={p} />
+        </>
       )}
       {p.fotos.length === 0 && urlReferencia(p) && (
         <figure className="referencia">

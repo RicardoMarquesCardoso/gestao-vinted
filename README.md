@@ -32,8 +32,8 @@ Este README explica **o que a app faz, como está construída e porquê**, para 
 |---|---|
 | **Painel** | Botões *Registar venda* e *Registar compra*, a lista **"O que fazer"** (anunciar, baixar preços, rever), os números do período, alertas de limites, acertos por fazer e vendas recentes. |
 | **Produtos** | Stock e vendidos num só sítio. Filtros *Por anunciar / Anunciados / Vendidos* (podem combinar-se à vontade; ao abrir estão ligados Por anunciar e Anunciados). Produtos iguais aparecem agrupados com o custo médio. Cada produto mostra uma **bolinha tipo semáforo** e a próxima ação numa só linha (ver *Sinal dos produtos*). Por baixo do nome, só a categoria e o número do set (sem a palavra "Set"); a retirada do set fica no detalhe do produto. A pesquisa sugere produtos e categorias/subcategorias (ex.: *LEGO › Speed Champions*) enquanto se escreve; escolher uma categoria liga-a como filtro. |
-| **Detalhe do produto** | Fotografias, imagem oficial do set (com links para o site da LEGO, a Brickset e a **pesquisa do set na Vinted**) (ou do produto no TCGplayer, nos Pokémon), plano e preço sugerido, ciclo do set (lançamento, retirada real ou prevista e PVP, do Brickset), dados da compra, **Vendas** (deste produto e dos outros exemplares do mesmo set, com valor e lucro) e **Em stock** (outros exemplares do set por vender). Botões ✏️ (editar), 📷, *Anunciar/Retirar* e *Vendi*. |
-| **Anunciar** | Escolhe a conta e o preço, e mostra o **título e a descrição prontos a copiar** para a Vinted. |
+| **Detalhe do produto** | Fotografias (com **Partilhar** e **Descarregar**, ver *Fotografias* abaixo), imagem oficial do set (com links para o site da LEGO, a Brickset e a **pesquisa do set na Vinted**) (ou do produto no TCGplayer, nos Pokémon), plano e preço sugerido, ciclo do set (lançamento, retirada real ou prevista e PVP, do Brickset), dados da compra, **Vendas** (deste produto e dos outros exemplares do mesmo set, com valor e lucro) e **Em stock** (outros exemplares do set por vender). Botões ✏️ (editar), 📷, *Anunciar/Retirar* e *Vendi*. |
+| **Anunciar** | Escolhe a conta e o preço, e mostra o **título e a descrição prontos a copiar** para a Vinted e as **fotografias para partilhar** (ex.: diretamente para a app da Vinted) ou descarregar. |
 | **Vendi** | Venda rápida: só preço e conta. |
 | **Acertos** | Tipo Splitwise: quem deve quanto a quem, com as transferências mínimas. |
 | **Contas** | As contas da Vinted com as barras dos limites (30 vendas / 2000 € por ano). Botão ✏️ para editar cada conta. |
@@ -433,6 +433,14 @@ Se o eBay recusar as chaves, a tarefa não falha: grava o motivo em `ebay_erro` 
 - **A função `ebay-set`** só responde a quem tem sessão e é membro (confirma com `e_membro`, usando o token de quem pede).
 - **Histórico imutável:** a tabela `historico` só aceita linhas novas. Nem a app consegue alterar ou apagar o histórico.
 - **Fotografias privadas:** o bucket `fotos` só é acessível com sessão.
+
+### Fotografias (`src/lib/fotos.ts`, `src/components/fotos.tsx`)
+
+- **Duas versões de cada fotografia** no Storage do Supabase (bucket `fotos`): a **original** com boa qualidade (até 2048 px, JPEG 90%, ~0,5–1 MB), para partilhar ou descarregar, e a **miniatura** (400 px, ~30 KB, mesmo caminho com `.min.jpg`), que é a que a app mostra. No produto (`produtos.fotos`) fica só o caminho da original.
+- **Porquê:** o plano grátis do Supabase tem 1 GB de espaço e **5 GB de tráfego por mês**. As miniaturas poupam o tráfego; as originais só se descarregam ao partilhar. Em out/2026 havia 20 fotografias (5,6 MB). Fotografias antigas, sem miniatura, ganham-na sozinhas da primeira vez que são vistas.
+- **Partilhar / Descarregar** (detalhe do produto e janela Anunciar): no telemóvel, *Partilhar* abre o menu de partilha do sistema com as originais (Vinted, WhatsApp, galeria…); *Descarregar* grava cada uma como ficheiro (`LEGO 76303 Tumbler Batman - 1.jpg`).
+- **Limpeza automática** (pedido do Ricardo): ao abrir a app, os produtos **todos vendidos há mais de 30 dias** (prazo para devoluções) ficam só com a **miniatura da primeira fotografia**; o resto é apagado do Storage. No máximo 10 produtos de cada vez; se falhar, tenta de novo da próxima vez. Só com dados reais (não em demonstração).
+- **Google Drive** foi considerado e posto de parte por agora: exigiria login Google de cada um, acesso amplo ao Drive para ver as fotos do outro, e mais peças. Se o 1 GB encher, há alternativas (Supabase Pro, ou armazenamento com 10 GB grátis ligado por uma Edge Function).
 - **Apagar pede sempre confirmação.**
 
 ---
@@ -454,6 +462,7 @@ src/
     acertos.ts              saldos e transferências tipo Splitwise
     investimento.ts         rentabilidade anualizada, dados de mercado (useMercado)
     plano.ts                planos vender/guardar, preço sugerido, tarefas
+    fotos.ts                fotografias: original + miniatura, caminhos, regras da limpeza
     avaliar.ts              "Vale a pena?": avaliar uma compra, PVP medido, tempo até vender, links Vinted/eBay
     anuncio.ts              texto dos anúncios
     anuncios.ts             registo automático do tempo anunciado
@@ -464,6 +473,7 @@ src/
     sample.ts               dados de exemplo
   components/               peças de interface
     ui.tsx                  janela, campos, listas, cartões, fotografias, logo…
+    fotos.tsx               partilhar/descarregar fotografias e limpeza das dos produtos vendidos
     acoes.tsx               abrir janelas a partir de qualquer ecrã (+ botão voltar)
     planos.tsx              "O que fazer", sinal dos produtos (semáforo), janela do plano, preço Pokémon
     catalogo.ts             sugestões e catálogo oficial de sets

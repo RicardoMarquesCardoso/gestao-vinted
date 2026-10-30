@@ -28,7 +28,7 @@ Guardar os dados que permitam estas análises desde já, mesmo que ainda não ap
   - A lista dos nossos sets vem da função `sets_mercado(token)` no Supabase, protegida pelo `token_mercado` (em `definicoes`) e pelo segredo `VINTEDUO_TOKEN`.
   - As chaves ficam só nos segredos do GitHub (e, para a função `ebay-set`, nos segredos do Supabase), nunca no código, porque o repositório é público.
 - **Vale a pena?** (`src/lib/avaliar.ts`, `pages/Avaliar.tsx`, rota `#/avaliar`): escreve-se só o n.º do set e mostra até que preço comprar e quantas unidades (`precosCompra`): escalões bom (`margemVender`, 1 un.), muito bom (`margemCompraOtima` 40%, até 2) e oportunidade rara (`margemCompraRara` 75%, até 3), contando o stock, e nunca mais de `maxCapitalPorSet` (10%) do dinheiro em stock num só set. **Diversificar é uma decisão do Ricardo: não acumular muitos sets iguais salvo oportunidade de outro mundo.** Sem campo de preço nem de portes. Venda esperada: nossas vendas → eBay (ao vivo pela Edge Function `ebay-set`, ou o do dia) × `calibrarEbay` → PVP × `calibrarPvp` (rácio medido nas nossas vendas, à venda ~0,73 / retirado ~0,80). Tempo até vender pelo histórico (set → tema com ≥ 5 vendas → geral; datas de compra importadas são aproximadas). Preço máximo nunca acima de venda − 5 € (vagas DAC7). Links (só links, não se lê nada): `urlVinted`, `urlEbayVendidos`.
-  - **Teste com o passado (out/2026, 102 vendas LEGO):** erro típico nossas vendas 11%, eBay 12%, PVP 20% (+18% de desvio). Nas nossas vendas os sets retirados **não subiram** como as taxas dos planos assumem (~0,80 do PVP depois da retirada vs. 1,10–1,48 assumido). Os planos ainda usam as taxas: mudar isso exige mostrar primeiro o impacto no stock.
+  - **Teste com o passado (out/2026, 102 vendas LEGO):** erro típico nossas vendas 11%, eBay 12%, PVP 20% (+18% de desvio). Nas nossas vendas os sets retirados **não subiram** como as taxas dos planos assumiam (~0,80 do PVP depois da retirada vs. 1,10–1,48 assumido). Confirmado com o BrickEconomy (ver Planos): taxas baixadas e guardar pela retirada só nos exclusivos LEGO.
   - **Edge Function `ebay-set`** (`supabase/functions/ebay-set/index.ts`, `verify_jwt` desligado porque confirma `e_membro` com o token de quem pede): chaves `EBAY_CLIENT_ID`/`EBAY_CLIENT_SECRET` nos segredos do Supabase (postos pelo Ricardo, nunca no chat). Sem chaves responde `sem_chaves`.
   - **Promoção da loja** (`components/AvaliarPromocao.tsx`, `avaliarPromocao`, `extrairSets`): desconto X% + lista de sets (ou texto colado da página da loja). Preço = PVP × (1 − X) (lojas grandes partem do PVP, decisão do Ricardo). Ordena pelo lucro "seguro" (venda × (1 − erro típico)), no máx. 2 compras por tema, mostra "compensa a partir de Y%" e exporta CSV. A app não lê links de lojas (CORS / termos de uso): cola-se o texto. Em out/2026 a mediana do desconto necessário era ~44%.
   - `definicoes.sets_avaliar`: sets acompanhados sem os ter; `sets_mercado` inclui-os para a tarefa diária.
@@ -42,6 +42,12 @@ Guardar os dados que permitam estas análises desde já, mesmo que ainda não ap
   - **Anuncia-se 1 unidade de cada produto de cada vez**: se já há um igual anunciado, não se sugere anunciar outro.
   - **Sinal nos cartões** (`sinais()`): bolinha verde (a correr) / amarela (há ação) / azul (guardado) / vermelha (anunciado > 60 dias ou prazo acabou) + uma linha com a próxima ação, em vez de etiquetas. Decisão do Ricardo: a interface deve ter sempre harmonia e o mínimo de etiquetas.
   - Regras editáveis em Definições (`regras_plano`). Decisões manuais em `planos` (por set + condição). Tarefas adiadas em `tarefas_adiadas`.
+
+## Fotografias
+
+- Storage do Supabase (bucket `fotos`), **plano grátis: 1 GB e 5 GB de tráfego/mês**. Cada fotografia tem a original (2048 px, 90%) e a miniatura (`.min.jpg`, 400 px); a app mostra a miniatura e só descarrega a original para partilhar/descarregar (`src/lib/fotos.ts`, `components/fotos.tsx`).
+- **Limpeza (pedido do Ricardo):** produtos todos vendidos há mais de 30 dias ficam só com a miniatura da 1.ª foto (`fotosALimpar`, `LimpezaFotos` ao abrir a app).
+- Google Drive posto de parte por agora (login Google, permissões, complexidade). Decisão: Supabase enquanto o 1 GB chegar.
 
 ## Regras do negócio
 

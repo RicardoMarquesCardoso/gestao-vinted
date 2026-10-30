@@ -11,6 +11,7 @@
 // contas no próprio browser (lib/calc.ts). É simples e rápido para este volume.
 
 import * as sb from './supabase';
+import { FOTO_MINIATURA, eMiniatura, miniaturaDe, originalDe, reduzirFoto } from './fotos';
 import type { Dados, Historico, Tabela } from './types';
 
 /** Tabelas com dados normais (o histórico é especial: só se acrescenta, nunca se altera). */
@@ -24,9 +25,14 @@ export interface Store {
   apagar(tabela: TabelaDados, id: string): Promise<void>;
   historico(): Promise<Historico[]>;
   registar(h: Historico[]): Promise<void>;
-  enviarFoto(produtoId: string, ficheiro: Blob): Promise<string>;
-  urlFoto(ref: string): Promise<string>;
-  apagarFoto(ref: string): Promise<void>;
+  /** Envia a original e a miniatura; devolve o caminho a guardar no produto (o da original). */
+  enviarFoto(produtoId: string, original: Blob, miniatura?: Blob): Promise<string>;
+  /** Endereço local para mostrar a fotografia: a miniatura (listas) ou a original (partilhar). */
+  urlFoto(ref: string, tamanho?: 'min' | 'original'): Promise<string>;
+  /** Grava uma fotografia num caminho exato (usado para criar miniaturas que faltam). */
+  enviarFotoCaminho(caminho: string, ficheiro: Blob): Promise<void>;
+  /** Apaga a fotografia (as duas versões) ou uma lista de caminhos exatos. */
+  apagarFoto(ref: string | string[]): Promise<void>;
 }
 
 /** Nome da coluna que identifica cada linha (as definições usam a "chave" em vez de um id). */
@@ -86,14 +92,35 @@ export function storeSupabase(email: string): Store {
     async registar(h) {
       if (h.length) await sb.inserir('historico', h);
     },
-    // As fotografias vão para o Storage do Supabase (bucket "fotos"); no produto fica só o caminho.
-    async enviarFoto(produtoId, ficheiro) {
+    // As fotografias vão para o Storage do Supabase (bucket "fotos"); no produto fica só o caminho
+    // da original. A miniatura fica ao lado, com ".min.jpg" (ver lib/fotos.ts).
+    async enviarFoto(produtoId, original, miniatura) {
       const caminho = `${produtoId}/${crypto.randomUUID()}.jpg`;
-      await sb.enviarFoto(caminho, ficheiro);
+      await sb.enviarFoto(caminho, original);
+      if (miniatura) await sb.enviarFoto(miniaturaDe(caminho), miniatura).catch(() => undefined);
       return caminho;
     },
-    urlFoto: (ref) => (ref.startsWith('data:') ? Promise.resolve(ref) : sb.urlFoto(ref)),
-    apagarFoto: (ref) => (ref.startsWith('data:') ? Promise.resolve() : sb.apagarFoto(ref)),
+    enviarFotoCaminho: (caminho, ficheiro) => sb.enviarFoto(caminho, ficheiro),
+    // Miniatura: se não existir (fotografias antigas, de antes das miniaturas), usa-se a original
+    urlFoto: (ref, tamanho = 'original') => {
+      if (ref.startsWith('data:')) return Promise.resolve(ref);
+      if (tamanho === 'min' && !eMiniatura(ref))
+        return sb.urlFoto(miniaturaDe(ref)).catch(async () => {
+          // Fotografia antiga, sem miniatura: mostra-se a original e cria-se a miniatura para a próxima vez
+          const url = await sb.urlFoto(ref);
+          void fetch(url)
+            .then((r) => r.blob())
+            .then((b) => reduzirFoto(b, FOTO_MINIATURA.max, FOTO_MINIATURA.qualidade))
+            .then((min) => sb.enviarFoto(miniaturaDe(ref), min))
+            .catch(() => undefined);
+          return url;
+        });
+      return sb.urlFoto(tamanho === 'original' ? originalDe(ref) : ref).catch((e) => (eMiniatura(ref) ? sb.urlFoto(ref) : Promise.reject(e)));
+    },
+    apagarFoto: (ref) => {
+      if (Array.isArray(ref)) return ref.length ? sb.apagarFoto(ref) : Promise.resolve();
+      return ref.startsWith('data:') ? Promise.resolve() : sb.apagarFoto([originalDe(ref), miniaturaDe(ref)]);
+    },
   };
 }
 
@@ -181,7 +208,7 @@ export function storeDemo(): Store {
       gravarDemo(g);
     },
     // Sem servidor, a fotografia fica guardada dentro do próprio texto ("data URL")
-    async enviarFoto(_produtoId, ficheiro) {
+    async enviarFoto(_produtoId, ficheiro) { // em demonstração guarda-se só uma versão (pequena)
       return await new Promise<string>((ok, falha) => {
         const r = new FileReader();
         r.onload = () => ok(String(r.result));
@@ -190,6 +217,7 @@ export function storeDemo(): Store {
       });
     },
     urlFoto: async (ref) => ref,
+    enviarFotoCaminho: async () => undefined,
     apagarFoto: async () => undefined,
   };
 }

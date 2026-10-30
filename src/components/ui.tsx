@@ -21,6 +21,7 @@ import { ESTADOS_PRODUTO, ESTADOS_VENDA } from '../lib/types';
 import type { EstadoProduto, EstadoVenda, TipoPagamento } from '../lib/types';
 import { useDados } from '../state';
 import { idTcgPokemon, idsPokemon, urlImagemTcg, useMercado } from '../lib/investimento';
+import { FOTO_MINIATURA, FOTO_ORIGINAL, reduzirFoto } from '../lib/fotos';
 
 // ---------- Janela (modal) ----------
 
@@ -266,32 +267,38 @@ export function Vazio(props: { titulo: string; texto?: string; acao?: ReactNode 
   );
 }
 
-/** Mostra uma fotografia guardada (descarrega-a com a sessão, porque o bucket é privado). */
-export function Foto({ refFoto, alt, className }: { refFoto: string; alt: string; className?: string }) {
+/**
+ * Mostra uma fotografia guardada (descarrega-a com a sessão, porque o bucket é privado).
+ * Por defeito mostra a miniatura (poupa tráfego); a original só para partilhar/descarregar.
+ */
+export function Foto({ refFoto, alt, className, tamanho = 'min' }: { refFoto: string; alt: string; className?: string; tamanho?: 'min' | 'original' }) {
   const { store } = useDados();
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     let ativo = true;
     store
-      .urlFoto(refFoto)
+      .urlFoto(refFoto, tamanho)
       .then((u) => ativo && setUrl(u))
       .catch(() => undefined);
     return () => {
       ativo = false;
     };
-  }, [refFoto, store]);
+  }, [refFoto, store, tamanho]);
   return url ? <img src={url} alt={alt} className={className} loading="lazy" /> : <div className={`foto-vazia ${className ?? ''}`} />;
 }
 
-/** Reduz uma fotografia para no máximo 1280 px, em JPEG, antes de a guardar. */
-export async function reduzirFoto(ficheiro: File, max = 1280): Promise<Blob> {
-  const img = await createImageBitmap(ficheiro);
-  const escala = Math.min(1, max / Math.max(img.width, img.height));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(img.width * escala);
-  canvas.height = Math.round(img.height * escala);
-  canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
-  return await new Promise<Blob>((ok, falha) => canvas.toBlob((b) => (b ? ok(b) : falha(new Error('Fotografia inválida'))), 'image/jpeg', 0.82));
+export { reduzirFoto } from '../lib/fotos';
+
+/**
+ * Prepara uma fotografia tirada/escolhida para guardar: a original com boa qualidade (2048 px,
+ * 90%) e a miniatura (400 px) para as listas. Em demonstração fica só uma versão pequena.
+ */
+export async function prepararFoto(ficheiro: File, demo = false): Promise<{ original: Blob; miniatura?: Blob }> {
+  if (demo) return { original: await reduzirFoto(ficheiro, 640) };
+  return {
+    original: await reduzirFoto(ficheiro, FOTO_ORIGINAL.max, FOTO_ORIGINAL.qualidade),
+    miniatura: await reduzirFoto(ficheiro, FOTO_MINIATURA.max, FOTO_MINIATURA.qualidade),
+  };
 }
 
 /** Bloco com título, ação à direita e conteúdo. */

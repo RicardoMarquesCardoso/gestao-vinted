@@ -8,7 +8,7 @@ import type { EstadoProduto, Produto } from '../lib/types';
 import { ESTADOS_PRODUTO } from '../lib/types';
 import { useDados } from '../state';
 import { paraCampo, vazioANull } from './acoes';
-import { Campo, Dinheiro, Foto, Janela, SelecionarConta, SelecionarPagador, TextoSugerido, lerPagador, reduzirFoto, useConfirmar, valorPagador , EscolherOuEscrever, ImagemReferencia, NomeComSugestoes, urlReferencia, IconeLixo } from './ui';
+import { Campo, Dinheiro, Foto, Janela, SelecionarConta, SelecionarPagador, TextoSugerido, lerPagador, prepararFoto, useConfirmar, valorPagador , EscolherOuEscrever, ImagemReferencia, NomeComSugestoes, urlReferencia, IconeLixo } from './ui';
 import { useCatalogo, useInfoPorSet } from './catalogo';
 
 export function FormProduto({ id, aoFechar }: { id?: string; aoFechar(): void }) {
@@ -45,14 +45,14 @@ export function FormProduto({ id, aoFechar }: { id?: string; aoFechar(): void })
   const [aGuardar, setAGuardar] = useState(false);
   const mudar = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((x) => ({ ...x, [k]: v }));
 
-  // Reduz cada fotografia (até 1280 px) e envia para o Storage
+  // Prepara cada fotografia (original com boa qualidade + miniatura) e envia para o Storage
   async function adicionarFotos(ficheiros: FileList | null) {
     if (!ficheiros?.length) return;
     setAEnviar(true);
     try {
       for (const ficheiro of Array.from(ficheiros)) {
-        const blob = await reduzirFoto(ficheiro, store.modo === 'demo' ? 640 : 1280);
-        const ref = await store.enviarFoto(novoId, blob);
+        const { original, miniatura } = await prepararFoto(ficheiro, store.modo === 'demo');
+        const ref = await store.enviarFoto(novoId, original, miniatura);
         setFotos((x) => [...x, ref]);
       }
     } catch (e) {

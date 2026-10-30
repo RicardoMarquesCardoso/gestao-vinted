@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { AcoesProvider } from './components/acoes';
+import { LimpezaFotos } from './components/fotos';
 import { Logo, ConfirmarProvider } from './components/ui';
 import { hoje } from './lib/format';
 import { dadosExemplo } from './lib/sample';
@@ -103,6 +104,8 @@ export function App() {
       <ConfirmarProvider>
         <AcoesProvider>
           <Estrutura aoSair={terminar} />
+          {/* Apaga as fotografias dos produtos vendidos há mais de 30 dias (fica a miniatura) */}
+          <LimpezaFotos />
         </AcoesProvider>
       </ConfirmarProvider>
     </DadosProvider>
