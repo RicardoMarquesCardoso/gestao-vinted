@@ -24,7 +24,7 @@ test('caminhos da original e da miniatura', () => {
   assert.equal(miniaturaDe('data:image/jpeg;base64,xx'), 'data:image/jpeg;base64,xx');
 });
 
-test('limpeza: produto todo vendido há mais de 30 dias fica só com a miniatura da 1.ª foto', () => {
+test('limpeza: produto todo vendido há mais de 7 dias fica só com a miniatura da 1.ª foto', () => {
   const p = produto({ fotos: ['p1/a.jpg', 'p1/b.jpg', 'p1/c.jpg'] });
   const r = fotosALimpar([p], [venda({ data_venda: '2026-09-01' })], '2026-10-30');
   assert.equal(r.length, 1);
@@ -34,8 +34,9 @@ test('limpeza: produto todo vendido há mais de 30 dias fica só com a miniatura
 
 test('limpeza: não mexe no que ainda pode voltar ou já está limpo', () => {
   const fotos = ['p1/a.jpg', 'p1/b.jpg'];
-  // Vendido há menos de 30 dias (pode haver devolução)
-  assert.equal(fotosALimpar([produto({ fotos })], [venda({ data_venda: '2026-10-15' })], '2026-10-30').length, 0);
+  // Vendido há 7 dias ou menos
+  assert.equal(fotosALimpar([produto({ fotos })], [venda({ data_venda: '2026-10-23' })], '2026-10-30').length, 0);
+  assert.equal(fotosALimpar([produto({ fotos })], [venda({ data_venda: '2026-10-22' })], '2026-10-30').length, 1);
   // Ainda há unidades por vender
   assert.equal(fotosALimpar([produto({ fotos, quantidade: 2 })], [venda({})], '2026-10-30').length, 0);
   // Em stock, devolvido ou cancelado

@@ -5,7 +5,7 @@
 //   escolhe-se a Vinted, o WhatsApp, a galeria… Onde o browser não deixa partilhar ficheiros
 //   (ex.: computador), só aparece "Descarregar", que grava cada fotografia como ficheiro.
 // - LimpezaFotos: corre uma vez sempre que a app abre (só com dados reais) e, para os produtos
-//   todos vendidos há mais de 30 dias, apaga as fotografias e deixa só a miniatura da primeira
+//   todos vendidos há mais de 7 dias, apaga as fotografias e deixa só a miniatura da primeira
 //   (regras em lib/fotos.ts). Fotografias antigas, de antes das miniaturas, ganham a miniatura
 //   nessa altura. Faz no máximo 10 produtos de cada vez, para não pesar ao abrir.
 

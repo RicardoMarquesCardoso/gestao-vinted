@@ -7,8 +7,8 @@
 //     listas e no detalhe, para poupar o tráfego do plano grátis (5 GB por mês).
 // No produto (produtos.fotos) guarda-se só o caminho da original: "id-do-produto/uuid.jpg".
 //
-// LIMPEZA (pedido do Ricardo): quando um produto está todo vendido há mais de 30 dias (prazo para
-// devoluções e disputas da Vinted), apagam-se as fotografias e fica só a miniatura da primeira,
+// LIMPEZA (pedido do Ricardo): quando um produto está todo vendido há mais de 7 dias, apagam-se as
+// fotografias e fica só a miniatura da primeira (numa devolução a Vinted mantém as fotos do anúncio),
 // para o produto continuar a ter imagem nas listas. O produto passa a ter fotos = ["…/uuid.min.jpg"].
 
 import { diasEntre, unidadesDisponiveis, vendaValida } from './calc';
@@ -18,7 +18,7 @@ import type { Produto, Venda } from './types';
 export const FOTO_ORIGINAL = { max: 2048, qualidade: 0.9 };
 export const FOTO_MINIATURA = { max: 400, qualidade: 0.75 };
 /** Dias depois da última venda até se apagarem as fotografias de um produto todo vendido. */
-export const DIAS_LIMPAR_FOTOS = 30;
+export const DIAS_LIMPAR_FOTOS = 7;
 
 const MIN = /\.min\.jpg$/;
 
