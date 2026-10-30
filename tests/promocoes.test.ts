@@ -7,13 +7,17 @@ import type { Promocao } from '../src/lib/promocoes.ts';
 
 const existe = (n: string) => ['75375', '42151', '10280'].includes(n);
 
-test('sets e preços: itens arrumados primeiro, texto completa', () => {
+test('sets, preços e descontos: itens arrumados primeiro, texto completa', () => {
   const p: Promocao = {
     id: '1', recebida: '2026-10-30T10:00:00Z', loja: 'Continente',
-    itens: [{ set: '75375-1', preco: '63,74' }, { set: 42151 }],
-    texto: 'LEGO 42151 Bugatti 37,49 €\nLEGO 10280 Flower Bouquet 44,99 €',
+    itens: [{ set: '75375-1', preco: '63,74' }, { set: 42151, desconto: '30%' }],
+    texto: 'LEGO 42151 Bugatti 37,49 €\nLEGO 10280 Flower Bouquet -40%',
   };
-  assert.deepEqual(setsDaPromocao(p, existe), { sets: ['75375', '42151', '10280'], precos: { '75375': 63.74, '42151': 37.49, '10280': 44.99 } });
+  assert.deepEqual(setsDaPromocao(p, existe), {
+    sets: ['75375', '42151', '10280'],
+    precos: { '75375': 63.74, '42151': 37.49, '10280': null },
+    descontos: { '75375': null, '42151': 0.3, '10280': 0.4 },
+  });
 });
 
 test('promoções novas: válidas ou recebidas há até 7 dias, e não dispensadas', () => {

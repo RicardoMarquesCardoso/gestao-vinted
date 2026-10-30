@@ -27,8 +27,8 @@ export interface Promocao {
   texto?: string;
   /** % de desconto sobre o PVP (ex.: 25), quando é igual para todos os sets. */
   desconto?: number;
-  /** Ou a lista já arrumada: set e preço na loja. */
-  itens?: { set?: string | number; preco?: number | string | null }[];
+  /** Ou a lista já arrumada: set e, se houver, preço na loja e/ou desconto próprio (%, ex.: 30). */
+  itens?: { set?: string | number; preco?: number | string | null; desconto?: number | string | null }[];
   valida_ate?: string;
 }
 
@@ -57,27 +57,40 @@ export function promocoesNovas(defs: Definicao[], hoje: string): Promocao[] {
 /** Desconto da promoção em fração (25 → 0,25), ou 0 se não tiver. */
 export const descontoDe = (p: Promocao) => (typeof p.desconto === 'number' && p.desconto > 0 ? Math.min(p.desconto, 90) / 100 : 0);
 
+/** Número de um campo que pode vir como texto ("63,74", "30%"); null se não for um número > 0. */
+const numero = (v: unknown): number | null => {
+  const x = typeof v === 'string' ? Number(v.replace('%', '').replace(',', '.').trim()) : v;
+  return typeof x === 'number' && Number.isFinite(x) && x > 0 ? x : null;
+};
+
 /**
- * Sets e preços de uma promoção: os da lista arrumada (itens) e os encontrados no texto.
- * Os itens têm prioridade (são exatos); o texto completa.
+ * Sets, preços e descontos próprios de uma promoção: os da lista arrumada (itens) e os encontrados
+ * no texto. Os itens têm prioridade (são exatos); o texto completa o que faltar.
+ * Os descontos vêm em fração (30% → 0,3).
  */
-export function setsDaPromocao(p: Promocao, existe: (n: string) => boolean): { sets: string[]; precos: Record<string, number | null> } {
+export function setsDaPromocao(
+  p: Promocao,
+  existe: (n: string) => boolean,
+): { sets: string[]; precos: Record<string, number | null>; descontos: Record<string, number | null> } {
   const precos: Record<string, number | null> = {};
+  const descontos: Record<string, number | null> = {};
   const sets: string[] = [];
   for (const i of p.itens ?? []) {
     const n = String(i?.set ?? '').trim().replace(/-\d+$/, '');
     if (!/^\d{3,7}$/.test(n) || sets.includes(n)) continue;
-    const pr = typeof i.preco === 'string' ? Number(i.preco.replace(',', '.')) : i.preco;
     sets.push(n);
-    precos[n] = typeof pr === 'number' && Number.isFinite(pr) && pr > 0 ? pr : null;
+    precos[n] = numero(i.preco);
+    const d = numero(i.desconto);
+    descontos[n] = d !== null && d <= 90 ? d / 100 : null;
   }
   for (const i of extrairItens(p.texto ?? '', existe)) {
-    if (sets.includes(i.set)) {
-      if (precos[i.set] === null && i.preco !== null) precos[i.set] = i.preco;
-      continue;
+    if (!sets.includes(i.set)) {
+      sets.push(i.set);
+      precos[i.set] = null;
+      descontos[i.set] = null;
     }
-    sets.push(i.set);
-    precos[i.set] = i.preco;
+    if (precos[i.set] === null) precos[i.set] = i.preco;
+    if (descontos[i.set] === null) descontos[i.set] = i.desconto;
   }
-  return { sets, precos };
+  return { sets, precos, descontos };
 }

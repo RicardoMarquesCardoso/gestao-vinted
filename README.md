@@ -410,10 +410,10 @@ Uma app externa (ex.: a do Ricardo que tira a lista de LEGO em promoção no Con
     "desconto": 25, "valida_ate": "2026-11-10" }
   ```
 
-  `texto` é a lista como se cola na app, com ou sem preços. Em alternativa, `itens`: `[{"set": "75375", "preco": 63.74}]`. São obrigatórios `token`, `loja` e `texto` ou `itens`; `desconto` (% sobre o PVP, para os sets sem preço) e `valida_ate` são opcionais. Resposta: `{"ok": true, "id": "…"}`.
+  `texto` é a lista como se cola na app; **cada set pode ter o seu preço** (`63,74 €`) **ou o seu desconto** (`-30%`), na mesma linha ou por baixo. Em alternativa, `itens`: `[{"set": "75375", "preco": 63.74}, {"set": "42151", "desconto": 30}]`. São obrigatórios `token`, `loja` e `texto` ou `itens`; `desconto` (geral, % sobre o PVP, só para os sets sem preço nem desconto próprio) e `valida_ate` são opcionais. Resposta: `{"ok": true, "id": "…"}`.
 - **O código secreto** está em `definicoes.token_promocoes`, e vê-se e copia-se em **Definições → Receber promoções de outra app**, onde também estão estas instruções. Só deixa entregar promoções: não dá acesso a mais nada. Nunca vai para o código nem para o chat.
 - **Onde ficam:** em `definicoes.promocoes`, as 50 mais recentes, e cada receção fica no histórico. O Painel mostra as dos últimos 7 dias, ou as que ainda estão dentro de `valida_ate`, até serem dispensadas.
-- **Preços:** cada set fica com o preço mais baixo da sua linha e das linhas seguintes sem outro set (nas páginas copiadas, o preço costuma vir por baixo do nome). Um preço absurdo face ao PVP (< 20% ou > 105%) é ignorado e usa-se o desconto. Código: `extrairItens` (`lib/avaliar.ts`), `lib/promocoes.ts`, `components/CartaoPromocoes.tsx`.
+- **Preço de cada set**, por esta ordem: (1) o preço da lista (o mais baixo da sua linha e das linhas seguintes sem outro set; um preço absurdo face ao PVP, < 20% ou > 105%, é ignorado); (2) PVP × (1 − **desconto próprio do set**, a maior percentagem dessas linhas, ex.: `-30%`); (3) PVP × (1 − desconto geral). Atenção: uma percentagem que não seja desconto (ex.: "IVA 23%") junto ao set seria lida como desconto. Código: `extrairItens` (`lib/avaliar.ts`), `lib/promocoes.ts`, `components/CartaoPromocoes.tsx`.
 
 ### As chaves (segredos)
 

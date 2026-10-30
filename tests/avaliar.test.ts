@@ -230,10 +230,17 @@ Agora 37,49€
 10280 e 76303 em pack 1.299,99 €
 EAN 5702017416441`;
   assert.deepEqual(extrairItens(texto, existe), [
-    { set: '75375', preco: 63.74 },
-    { set: '42151', preco: 37.49 },
-    { set: '10280', preco: null }, // linha com dois sets: preço ambíguo
-    { set: '76303', preco: null },
+    { set: '75375', preco: 63.74, desconto: null },
+    { set: '42151', preco: 37.49, desconto: null },
+    { set: '10280', preco: null, desconto: null }, // linha com dois sets: preço ambíguo
+    { set: '76303', preco: null, desconto: null },
+  ]);
+  // Descontos próprios de cada set ("-30%"), na linha ou por baixo
+  const t2 = 'LEGO 75375 Millennium Falcon -30%\nLEGO 42151 Bugatti\nDesconto 25 % em cartão\nLEGO 10280';
+  assert.deepEqual(extrairItens(t2, existe), [
+    { set: '75375', preco: null, desconto: 0.3 },
+    { set: '42151', preco: null, desconto: 0.25 },
+    { set: '10280', preco: null, desconto: null },
   ]);
 });
 
@@ -247,4 +254,10 @@ test('promoção com preços da loja: usa o preço da lista e ignora preços abs
   assert.deepEqual([a.preco, a.origemPreco, a.escalao], [60, 'loja', 'rara']); // vende-se a 110: "rara" até 110 ÷ 1,75 = 62,5
   const b = r.find((l) => l.set === '22222')!;
   assert.deepEqual([b.preco, b.origemPreco], [null, null]); // 5 € para PVP 100 € → lido mal; sem desconto não há preço
+  // Cada set com o seu desconto; sem preço nem desconto próprio, o desconto geral (20%)
+  const r2 = avaliarPromocao(['11111', '22222'], 0.2, ctx, { descontos: { '11111': 0.4 } });
+  const a2 = r2.find((l) => l.set === '11111')!;
+  assert.deepEqual([a2.preco, a2.origemPreco, a2.descontoAplicado], [60, 'desconto', 0.4]);
+  const b2 = r2.find((l) => l.set === '22222')!;
+  assert.deepEqual([b2.preco, b2.origemPreco, b2.descontoAplicado], [80, 'pvp', 0.2]);
 });

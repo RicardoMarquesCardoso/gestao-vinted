@@ -466,8 +466,9 @@ function CartaoReceberPromocoes() {
   "valida_ate": "2026-11-10"
 }`}</pre>
       <p className="mudo pequeno">
-        <code>texto</code>: a lista como se cola na app (com ou sem preços). Em alternativa, <code>itens</code>: <code>[{'{'}"set": "75375", "preco": 63.74{'}'}]</code>.{' '}
-        <code>desconto</code> (% sobre o PVP) e <code>valida_ate</code> são opcionais. Guardar o código só na outra app; nunca o publicar.
+        <code>texto</code>: a lista como se cola na app, e cada set pode ter o seu preço (<code>63,74 €</code>) ou o seu desconto (<code>-30%</code>). Em alternativa,{' '}
+        <code>itens</code>: <code>[{'{'}"set": "75375", "preco": 63.74{'}'}, {'{'}"set": "42151", "desconto": 30{'}'}]</code>. <code>desconto</code> (geral, % sobre o PVP, para os sets
+        sem preço nem desconto próprio) e <code>valida_ate</code> são opcionais. Guardar o código só na outra app; nunca o publicar.
       </p>
     </Cartao>
   );

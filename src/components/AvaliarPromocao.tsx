@@ -6,8 +6,9 @@
 // Para cada set, lib/avaliar.ts (avaliarPromocao) diz se compensa, em que escalão e quantas
 // unidades, a diversificar (por set e por tema). Os que compensam aparecem primeiro.
 //
-// Se a lista tiver preços (ex.: "LEGO 75375 … 63,74 €"), usa-se o preço de cada set em vez do
-// desconto; o desconto só serve para os sets sem preço na lista.
+// Cada set pode ter o seu preço ou o seu desconto: se a lista tiver o preço (ex.: "LEGO 75375 …
+// 63,74 €") usa-se esse; senão, se tiver um desconto próprio (ex.: "-30%"), PVP × (1 − esse
+// desconto); só os restantes usam o desconto geral escrito aqui.
 //
 // PROMOÇÕES RECEBIDAS: as listas enviadas por outra app (lib/promocoes.ts) aparecem no seletor
 // "Promoções recebidas" e abrem-se já preenchidas (o Painel abre aqui com #/avaliar/promo/<id>).
@@ -52,22 +53,23 @@ export function AvaliarPromocao({ idInicial }: { idInicial?: string }) {
   }
 
   // Sets reconhecidos (os que a Brickset ou o catálogo conhecem) e o preço de cada um, se houver
-  const { sets, precos } = useMemo(
+  const { sets, precos, descontos } = useMemo(
     () => setsDaPromocao({ ...(promo ?? { id: '', recebida: '', loja: '' }), texto }, (n) => !!mercado?.brickset[n] || !!catalogo(n)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [texto, promo, mercado, catalogo.carregado],
   );
-  const comPreco = sets.filter((s) => precos[s] !== null).length;
+  // Sets com preço ou desconto próprio na lista (não precisam do desconto geral)
+  const comPreco = sets.filter((s) => precos[s] !== null || descontos[s] !== null).length;
   const ebay = useEbayVivo(sets, store.modo === 'supabase');
   const chaveEbay = sets.map((s) => precoEbay(ebay[s])?.join('/') ?? '').join(',');
 
   const linhas = useMemo(
     () =>
       sets.length
-        ? avaliarPromocao(sets, d, { dados, mercado, hoje: h }, { tema: (n) => catalogo(n)?.tema, ebayAoVivo: (n) => precoEbay(ebay[n]), precos })
+        ? avaliarPromocao(sets, d, { dados, mercado, hoje: h }, { tema: (n) => catalogo(n)?.tema, ebayAoVivo: (n) => precoEbay(ebay[n]), precos, descontos })
         : [],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sets, precos, d, dados, mercado, h, chaveEbay, catalogo.carregado],
+    [sets, precos, descontos, d, dados, mercado, h, chaveEbay, catalogo.carregado],
   );
   const aComprar = linhas.filter((l) => l.comprar > 0);
   const total = aComprar.reduce((a, l) => a + l.comprar * (l.preco ?? 0), 0);
@@ -90,7 +92,8 @@ export function AvaliarPromocao({ idInicial }: { idInicial?: string }) {
         { titulo: 'Tema', valor: (l) => l.tema },
         { titulo: 'PVP', valor: (l) => l.pvp },
         { titulo: 'Preço na promoção', valor: (l) => l.preco },
-        { titulo: 'Origem do preço', valor: (l) => (l.origemPreco === 'loja' ? 'lista da loja' : l.origemPreco === 'pvp' ? `PVP −${Math.round(d * 100)}%` : '') },
+        { titulo: 'Desconto sobre o PVP (%)', valor: (l) => (l.descontoAplicado !== null ? Math.round(l.descontoAplicado * 100) : null) },
+        { titulo: 'Origem do preço', valor: (l) => ({ loja: 'preço da lista', desconto: 'desconto do set', pvp: 'desconto geral' })[l.origemPreco ?? 'x' as never] ?? '' },
         { titulo: 'Vende-se por', valor: (l) => (l.precos.venda ? Math.round(l.precos.venda.preco * 100) / 100 : null) },
         { titulo: 'Fonte', valor: (l) => l.precos.venda?.fonte },
         { titulo: 'Lucro', valor: (l) => (l.lucro !== null ? Math.round(l.lucro * 100) / 100 : null) },
@@ -126,7 +129,10 @@ export function AvaliarPromocao({ idInicial }: { idInicial?: string }) {
         </label>
       )}
       <label className="campo avaliar-campo">
-        <span className="campo-rotulo">Desconto da loja{comPreco === sets.length && sets.length ? ' (não é preciso: a lista tem preços)' : ''}</span>
+        <span className="campo-rotulo">
+          Desconto geral
+          {comPreco === sets.length && sets.length ? ' (não é preciso: todos têm preço ou desconto na lista)' : comPreco ? ' (para os sets sem preço nem desconto na lista)' : ''}
+        </span>
         <span className="campo-unidade">
           <input inputMode="decimal" value={desconto} onChange={(e) => setDesconto(e.target.value.replace(/[^\d.,]/g, ''))} />
           <span className="mudo">%</span>
@@ -140,7 +146,7 @@ export function AvaliarPromocao({ idInicial }: { idInicial?: string }) {
       {sets.length > 0 && (
         <Cartao className="avaliar-resultado">
           <p className="avaliar-resumo">
-            {plural(sets.length, 'set reconhecido', 'sets reconhecidos')}{comPreco ? ` (${comPreco} com preço na lista)` : ''}.{' '}
+            {plural(sets.length, 'set reconhecido', 'sets reconhecidos')}{comPreco ? ` (${comPreco} com preço ou desconto próprio)` : ''}.{' '}
             {aComprar.length ? (
               <>
                 Comprar <strong>{plural(aComprar.length, 'set', 'sets')}</strong> ({plural(aComprar.reduce((a, l) => a + l.comprar, 0), 'unidade', 'unidades')}), <strong>{fmtEuro(total)}</strong> no total.
@@ -182,7 +188,7 @@ function LinhaSet({ l, nome }: { l: LinhaPromo; nome?: string }) {
           <strong>{l.set}</strong> {nome ?? ''}
         </span>
         <small className="mudo">
-          {l.preco !== null ? `${fmtEuro(l.preco)}${l.origemPreco === 'loja' && l.pvp ? ` (−${Math.round((1 - l.preco / l.pvp) * 100)}%)` : ''}` : '—'}
+          {l.preco !== null ? `${fmtEuro(l.preco)}${l.descontoAplicado !== null ? ` (−${Math.round(l.descontoAplicado * 100)}%)` : ''}` : '—'}
           {l.precos.venda ? ` → vende ~${fmtEuro(l.precos.venda.preco)}` : ''}
           {l.margem !== null ? ` · ${Math.round(l.margem * 100)}%` : ''}
           {l.comprar > 0 && l.escalao ? ` · ${NOME_ESCALAO[l.escalao]}` : ''}
