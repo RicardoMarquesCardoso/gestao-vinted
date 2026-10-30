@@ -798,3 +798,8 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 /* Partilhar / descarregar fotografias (components/fotos.tsx) */
 .partilhar-fotos { display: flex; gap: 8px; flex-wrap: wrap; margin: -6px 0 14px; }
 .texto-vinted .partilhar-fotos { margin: 0; }
+/* Cartão "Promoções" do Painel (components/CartaoPromocoes.tsx) */
+.promo-linha { display: flex; align-items: center; gap: 6px; }
+.promo-linha .linha-botao { flex: 1; min-width: 0; }
+.quebrar { overflow-wrap: anywhere; }
+.codigo { background: var(--superficie-2); border-radius: 8px; padding: 10px 12px; font-size: 0.8rem; overflow-x: auto; white-space: pre; margin: 8px 0; }

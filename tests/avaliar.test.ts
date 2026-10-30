@@ -3,7 +3,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { avaliarCompra, avaliarPromocao, calibrarPvp, estimativas, extrairSets, precosCompra, tempoAteVender, urlEbayVendidos, urlVinted, RACIO_PVP_A_VENDA } from '../src/lib/avaliar.ts';
+import { avaliarCompra, avaliarPromocao, calibrarPvp, estimativas, extrairItens, extrairSets, precosCompra, tempoAteVender, urlEbayVendidos, urlVinted, RACIO_PVP_A_VENDA } from '../src/lib/avaliar.ts';
 import type { Mercado } from '../src/lib/investimento.ts';
 import type { Produto, Venda } from '../src/lib/types.ts';
 
@@ -219,4 +219,32 @@ test('promoção de 25% sobre o PVP: quais comprar, por ordem e a diversificar p
   const a10 = avaliarPromocao(['22222'], 0.1, ctx, { tema });
   assert.equal(a10[0].comprar, 0);
   assert.match(a10[0].motivo, /a partir de 21%/);
+});
+
+test('extrair sets e preços: na mesma linha ou nas linhas seguintes, o mais baixo', () => {
+  const existe = (n: string) => ['75375', '42151', '10280', '76303'].includes(n);
+  const texto = `LEGO Star Wars 75375 Millennium Falcon 84,99 € 63,74 €
+LEGO Technic 42151 Bugatti
+PVP 49,99€
+Agora 37,49€
+10280 e 76303 em pack 1.299,99 €
+EAN 5702017416441`;
+  assert.deepEqual(extrairItens(texto, existe), [
+    { set: '75375', preco: 63.74 },
+    { set: '42151', preco: 37.49 },
+    { set: '10280', preco: null }, // linha com dois sets: preço ambíguo
+    { set: '76303', preco: null },
+  ]);
+});
+
+test('promoção com preços da loja: usa o preço da lista e ignora preços absurdos', () => {
+  const brickset = { '11111': ['2025-01-01', '2027-12-31', 100, null, null], '22222': ['2025-01-01', '2027-12-31', 100, null, null] };
+  const produtos = [produto({ id: 'a', set_numero: '11111' }), produto({ id: 'b', set_numero: '22222' })];
+  const vendas = [venda({ id: 'va', produto_id: 'a', preco_venda: 110 }), venda({ id: 'vb', produto_id: 'b', preco_venda: 110 })];
+  const ctx = { dados: { produtos, vendas, definicoes: [] }, mercado: mercado({ brickset: brickset as never }), hoje: HOJE };
+  const r = avaliarPromocao(['11111', '22222'], 0, ctx, { precos: { '11111': 60, '22222': 5 } });
+  const a = r.find((l) => l.set === '11111')!;
+  assert.deepEqual([a.preco, a.origemPreco, a.escalao], [60, 'loja', 'rara']); // vende-se a 110: "rara" até 110 ÷ 1,75 = 62,5
+  const b = r.find((l) => l.set === '22222')!;
+  assert.deepEqual([b.preco, b.origemPreco], [null, null]); // 5 € para PVP 100 € → lido mal; sem desconto não há preço
 });

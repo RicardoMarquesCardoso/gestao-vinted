@@ -30,7 +30,7 @@ Este README explica **o que a app faz, como está construída e porquê**, para 
 
 | Ecrã | Para quê |
 |---|---|
-| **Painel** | Botões *Registar venda* e *Registar compra*, a lista **"O que fazer"** (anunciar, baixar preços, rever), os números do período, alertas de limites, acertos por fazer e vendas recentes. |
+| **Painel** | Botões *Registar venda* e *Registar compra*, a lista **"O que fazer"**, as **promoções recebidas** de outra app (com quantos sets compensam) (anunciar, baixar preços, rever), os números do período, alertas de limites, acertos por fazer e vendas recentes. |
 | **Produtos** | Stock e vendidos num só sítio. Filtros *Por anunciar / Anunciados / Vendidos* (podem combinar-se à vontade; ao abrir estão ligados Por anunciar e Anunciados). Produtos iguais aparecem agrupados com o custo médio. Cada produto mostra uma **bolinha tipo semáforo** e a próxima ação numa só linha (ver *Sinal dos produtos*). Por baixo do nome, só a categoria e o número do set (sem a palavra "Set"); a retirada do set fica no detalhe do produto. A pesquisa sugere produtos e categorias/subcategorias (ex.: *LEGO › Speed Champions*) enquanto se escreve; escolher uma categoria liga-a como filtro. |
 | **Detalhe do produto** | Fotografias (com **Partilhar** e **Descarregar**, ver *Fotografias* abaixo), imagem oficial do set (com links para o site da LEGO, a Brickset e a **pesquisa do set na Vinted**) (ou do produto no TCGplayer, nos Pokémon), plano e preço sugerido, ciclo do set (lançamento, retirada real ou prevista e PVP, do Brickset), dados da compra, **Vendas** (deste produto e dos outros exemplares do mesmo set, com valor e lucro) e **Em stock** (outros exemplares do set por vender). Botões ✏️ (editar), 📷, *Anunciar/Retirar* e *Vendi*. |
 | **Anunciar** | Escolhe a conta e o preço, e mostra o **título e a descrição prontos a copiar** para a Vinted e as **fotografias para partilhar** (ex.: diretamente para a app da Vinted) ou descarregar. |
@@ -202,6 +202,9 @@ Para não ter de mudar a estrutura da base de dados a cada nova ideia, as config
 | `tarefas_adiadas` | Tarefas escondidas até uma data |
 | `pokemon_ids` | Associação manual de produtos Pokémon ao TCGplayer |
 | `token_mercado` | Código que deixa a tarefa automática ler a lista dos nossos sets |
+| `token_promocoes` | Código secreto para outra app enviar promoções (função `receber_promocao`) |
+| `promocoes` | Promoções recebidas de outra app (as 50 mais recentes) |
+| `promocoes_vistas` | Promoções dispensadas do Painel |
 | `sets_avaliar` | Sets que acompanhamos sem os ter (botão *Acompanhar* do **Vale a pena?**): a tarefa diária vai buscar o eBay deles |
 
 ---
@@ -395,6 +398,23 @@ O ecrã **Vale a pena?** precisa do eBay de sets que talvez nunca tivemos, e a t
 
 Se as chaves ainda não estiverem no Supabase, a função responde `sem_chaves` e a app usa o eBay da tarefa diária. Nesse caso, o botão **Acompanhar** junta o set a `definicoes.sets_avaliar`, e a função SQL `sets_mercado` passa a incluí-lo na lista da tarefa diária.
 
+### Promoções enviadas por outra app (função `receber_promocao`)
+
+Uma app externa (ex.: a do Ricardo que tira a lista de LEGO em promoção no Continente) pode enviar a lista sozinha. A VinteDuo mostra-a no Painel com quantos sets compensam; tocar abre o **Vale a pena? → Promoção da loja** já preenchido (`#/avaliar/promo/<id>`).
+
+- **Como enviar:** `POST https://hunuxphczekrxilfmthb.supabase.co/rest/v1/rpc/receber_promocao`, com os cabeçalhos `apikey: <chave publishable>` e `Content-Type: application/json`, e o corpo:
+
+  ```json
+  { "token": "<código secreto>", "loja": "Continente",
+    "texto": "LEGO 75375 Millennium Falcon 63,74 €\nLEGO 42151 Bugatti 37,49 €",
+    "desconto": 25, "valida_ate": "2026-11-10" }
+  ```
+
+  `texto` é a lista como se cola na app, com ou sem preços. Em alternativa, `itens`: `[{"set": "75375", "preco": 63.74}]`. São obrigatórios `token`, `loja` e `texto` ou `itens`; `desconto` (% sobre o PVP, para os sets sem preço) e `valida_ate` são opcionais. Resposta: `{"ok": true, "id": "…"}`.
+- **O código secreto** está em `definicoes.token_promocoes`, e vê-se e copia-se em **Definições → Receber promoções de outra app**, onde também estão estas instruções. Só deixa entregar promoções: não dá acesso a mais nada. Nunca vai para o código nem para o chat.
+- **Onde ficam:** em `definicoes.promocoes`, as 50 mais recentes, e cada receção fica no histórico. O Painel mostra as dos últimos 7 dias, ou as que ainda estão dentro de `valida_ate`, até serem dispensadas.
+- **Preços:** cada set fica com o preço mais baixo da sua linha e das linhas seguintes sem outro set (nas páginas copiadas, o preço costuma vir por baixo do nome). Um preço absurdo face ao PVP (< 20% ou > 105%) é ignorado e usa-se o desconto. Código: `extrairItens` (`lib/avaliar.ts`), `lib/promocoes.ts`, `components/CartaoPromocoes.tsx`.
+
 ### As chaves (segredos)
 
 Ficam em **GitHub → Settings → Secrets and variables → Actions**. Se uma faltar, essa fonte é ignorada e os dados anteriores mantêm-se.
@@ -430,6 +450,7 @@ Se o eBay recusar as chaves, a tarefa não falha: grava o motivo em `ebay_erro` 
 - **Só os membros veem os dados.** Todas as tabelas têm **RLS** (*Row Level Security*): regras na própria base de dados que só deixam ler e escrever a quem tem **sessão iniciada** e cujo email está na tabela **`membros`**. Estão definidas em `supabase/schema.sql`.
 - **A chave do Supabase no código é pública por natureza** (*publishable*). Sozinha não dá acesso a nada, por causa das regras acima. A chave secreta (`service_role`) e a palavra-passe da base de dados **nunca** entram no código.
 - **O repositório é público**, por isso as chaves dos serviços externos ficam só nos segredos do GitHub e do Supabase (Edge Functions), nunca no código.
+- **A função `receber_promocao`** só aceita pedidos com o código `token_promocoes`, e só escreve na lista de promoções.
 - **A função `ebay-set`** só responde a quem tem sessão e é membro (confirma com `e_membro`, usando o token de quem pede).
 - **Histórico imutável:** a tabela `historico` só aceita linhas novas. Nem a app consegue alterar ou apagar o histórico.
 - **Fotografias privadas:** o bucket `fotos` só é acessível com sessão.
@@ -462,6 +483,7 @@ src/
     acertos.ts              saldos e transferências tipo Splitwise
     investimento.ts         rentabilidade anualizada, dados de mercado (useMercado)
     plano.ts                planos vender/guardar, preço sugerido, tarefas
+    promocoes.ts            promoções recebidas de outra app (lista, novas, sets e preços)
     fotos.ts                fotografias: original + miniatura, caminhos, regras da limpeza
     avaliar.ts              "Vale a pena?": avaliar uma compra, PVP medido, tempo até vender, links Vinted/eBay
     anuncio.ts              texto dos anúncios
@@ -487,7 +509,8 @@ src/
     PesquisaProdutos.tsx    pesquisa de Produtos com sugestões e filtro de categoria
     CabecalhoProdutos.tsx   topo e filtros do ecrã Produtos
     Graficos.tsx            gráficos de barras simples
-    AvaliarPromocao.tsx     Vale a pena? → Promoção da loja (X% sobre o PVP numa lista de sets)
+    AvaliarPromocao.tsx     Vale a pena? → Promoção da loja (X% sobre o PVP ou preços da lista)
+    CartaoPromocoes.tsx     Painel: promoções recebidas de outra app e quantos sets compensam
     ebayVivo.ts             eBay na hora para um ou vários sets (função ebay-set), com memória
   pages/                    ecrãs
     Painel.tsx  Inventario.tsx (Produtos)  Compras.tsx  Contas.tsx  Acertos.tsx

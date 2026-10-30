@@ -34,8 +34,10 @@ const NOME_FONTE = { vendas: 'As nossas vendas', ebay: 'eBay', pvp: 'PVP' } as c
 const NOME_ESCALAO: Record<NomeEscalao, string> = { rara: 'Oportunidade rara', otimo: 'Muito bom', bom: 'Bom' };
 const BASE_TEMPO = { set: 'pelas nossas vendas deste set', tema: 'pelas vendas do mesmo tema', geral: 'pela média de todas as vendas' } as const;
 
-export function Avaliar() {
-  const [modo, setModo] = useState<'set' | 'promo'>('set');
+/** rota: "/avaliar", ou "/avaliar/promo/<id>" para abrir uma promoção recebida (vinda do Painel). */
+export function Avaliar({ rota = '/avaliar' }: { rota?: string }) {
+  const idPromo = rota.match(/^\/avaliar\/promo\/([\w-]+)/)?.[1];
+  const [modo, setModo] = useState<'set' | 'promo'>(idPromo ? 'promo' : 'set');
   return (
     <div className="pagina">
       <h1>Vale a pena?</h1>
@@ -43,7 +45,7 @@ export function Avaliar() {
         <button role="radio" aria-checked={modo === 'set'} className={modo === 'set' ? 'ativo' : ''} onClick={() => setModo('set')}>Um set</button>
         <button role="radio" aria-checked={modo === 'promo'} className={modo === 'promo' ? 'ativo' : ''} onClick={() => setModo('promo')}>Promoção da loja</button>
       </div>
-      {modo === 'set' ? <UmSet /> : <AvaliarPromocao />}
+      {modo === 'set' ? <UmSet /> : <AvaliarPromocao idInicial={idPromo} />}
     </div>
   );
 }

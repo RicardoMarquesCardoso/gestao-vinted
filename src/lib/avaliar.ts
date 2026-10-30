@@ -381,11 +381,48 @@ export function extrairSets(texto: string, existe: (n: string) => boolean): stri
   return [...vistos];
 }
 
+export interface ItemPromo {
+  set: string;
+  /** Preço na loja, se a lista o tiver (o mais baixo encontrado para esse set); senão null. */
+  preco: number | null;
+}
+
+/** Preços num texto: "63,74 €", "1.299,99", "€ 63.74"… (números com 2 casas decimais). */
+const PRECO = /(?<![\d.,])(\d{1,3}(?:[.\s]\d{3})+|\d+)[.,](\d{2})(?![\d])/g;
+const lerPrecos = (linha: string) =>
+  [...linha.matchAll(PRECO)].map((m) => Number(`${m[1].replace(/[.\s]/g, '')}.${m[2]}`)).filter((x) => x > 0);
+
+/**
+ * Sets e respetivos preços num texto (lista da loja). Cada set fica com os preços da sua linha e
+ * das linhas seguintes sem outro set (nas páginas copiadas, o preço costuma vir por baixo do nome);
+ * usa-se o mais baixo, que é o preço com desconto. Uma linha com vários sets não dá preço a nenhum.
+ */
+export function extrairItens(texto: string, existe: (n: string) => boolean): ItemPromo[] {
+  const itens = new Map<string, ItemPromo>();
+  let atual: ItemPromo | null = null;
+  for (const linha of texto.split(/\r?\n/)) {
+    const sets = extrairSets(linha, existe);
+    // Os preços contam-se sem os números de set (ex.: "75375" não é um preço)
+    const precos = lerPrecos(linha);
+    if (sets.length) {
+      for (const n of sets) if (!itens.has(n)) itens.set(n, { set: n, preco: null });
+      atual = sets.length === 1 ? itens.get(sets[0])! : null;
+    }
+    if (atual && precos.length) {
+      const min = Math.min(...precos);
+      atual.preco = atual.preco === null ? min : Math.min(atual.preco, min);
+    }
+  }
+  return [...itens.values()];
+}
+
 export interface LinhaPromo {
   set: string;
   tema: string | null;
   pvp: number | null;
   preco: number | null; // preço na promoção
+  /** De onde vem o preço: o da lista da loja, ou PVP × (1 − desconto). */
+  origemPreco: 'loja' | 'pvp' | null;
   precos: PrecosCompra;
   /** Melhor escalão que o preço da promoção cumpre (null = não compensa). */
   escalao: NomeEscalao | null;
@@ -404,20 +441,32 @@ export interface LinhaPromo {
 const descontoPara = (pvp: number | null, precoMax: number | undefined) =>
   pvp && precoMax && precoMax > 0 && precoMax < pvp * 0.99 ? Math.ceil((1 - precoMax / pvp) * 100) / 100 : pvp && precoMax && precoMax >= pvp * 0.99 ? 0 : null;
 
-/** Avalia uma lista de sets numa promoção de X% sobre o PVP. */
+/**
+ * Avalia uma lista de sets numa promoção. O preço de cada set é o da lista da loja, se houver
+ * (opcoes.precos), ou PVP × (1 − desconto). Um preço da lista absurdo face ao PVP (menos de 20% ou
+ * mais de 105%, quase de certeza lido mal) é ignorado.
+ */
 export function avaliarPromocao(
   sets: string[],
   desconto: number,
   ctx: ContextoAvaliacao,
-  opcoes: { tema?: (n: string) => string | null | undefined; ebayAoVivo?: (n: string) => [number, number] | null | undefined } = {},
+  opcoes: {
+    tema?: (n: string) => string | null | undefined;
+    ebayAoVivo?: (n: string) => [number, number] | null | undefined;
+    precos?: Record<string, number | null | undefined>;
+  } = {},
 ): LinhaPromo[] {
   const linhas = sets.map((set): LinhaPromo => {
     const tema = opcoes.tema?.(set) ?? null;
     const precos = precosCompra({ set, tema, ebayAoVivo: opcoes.ebayAoVivo?.(set) ?? null }, ctx);
     const pvp = precos.mercado?.pvp ?? null;
-    const preco = pvp ? Math.round(pvp * (1 - desconto) * 100) / 100 : null;
-    const base = { set, tema, pvp, preco, precos, descontoMinimo: descontoPara(pvp, precos.escaloes.find((e) => e.nome === 'bom')?.precoMax) };
-    if (!preco) return { ...base, escalao: null, comprar: 0, lucro: null, margem: null, margemSegura: null, rentabAnual: null, motivo: 'Sem PVP na Brickset.' };
+    const daLoja = opcoes.precos?.[set] ?? null;
+    const lojaValido = daLoja !== null && daLoja > 0 && (!pvp || (daLoja >= pvp * 0.2 && daLoja <= pvp * 1.05));
+    const preco = lojaValido ? daLoja : pvp && desconto > 0 ? Math.round(pvp * (1 - desconto) * 100) / 100 : null;
+    const origemPreco = lojaValido ? ('loja' as const) : preco ? ('pvp' as const) : null;
+    const base = { set, tema, pvp, preco, origemPreco, precos, descontoMinimo: descontoPara(pvp, precos.escaloes.find((e) => e.nome === 'bom')?.precoMax) };
+    if (!preco)
+      return { ...base, escalao: null, comprar: 0, lucro: null, margem: null, margemSegura: null, rentabAnual: null, motivo: pvp ? 'Sem preço: indica o desconto.' : 'Sem preço na lista nem PVP na Brickset.' };
     if (!precos.venda) return { ...base, escalao: null, comprar: 0, lucro: null, margem: null, margemSegura: null, rentabAnual: null, motivo: 'Sem dados para estimar o preço de venda.' };
     const venda = precos.venda.preco;
     const lucro = venda - preco;

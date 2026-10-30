@@ -6,15 +6,23 @@
 // Para cada set, lib/avaliar.ts (avaliarPromocao) diz se compensa, em que escalão e quantas
 // unidades, a diversificar (por set e por tema). Os que compensam aparecem primeiro.
 //
+// Se a lista tiver preços (ex.: "LEGO 75375 … 63,74 €"), usa-se o preço de cada set em vez do
+// desconto; o desconto só serve para os sets sem preço na lista.
+//
+// PROMOÇÕES RECEBIDAS: as listas enviadas por outra app (lib/promocoes.ts) aparecem no seletor
+// "Promoções recebidas" e abrem-se já preenchidas (o Painel abre aqui com #/avaliar/promo/<id>).
+//
 // A app não abre o link da loja: ler páginas de outros sites é bloqueado pelo browser e, num
 // servidor, seria recolha automática (termos de uso). Copiar o texto da página e colar aqui é
 // igualmente rápido: selecionar tudo → copiar → colar.
 
 import { useMemo, useState } from 'react';
-import { CHAVE_SETS_AVALIAR, avaliarPromocao, extrairSets } from '../lib/avaliar';
+import { CHAVE_SETS_AVALIAR, avaliarPromocao } from '../lib/avaliar';
+import { promocoesRecebidas, setsDaPromocao } from '../lib/promocoes';
+import type { Promocao } from '../lib/promocoes';
 import type { LinhaPromo, NomeEscalao } from '../lib/avaliar';
 import { descarregar, paraCsv } from '../lib/csv';
-import { fmtEuro, hoje, lerNumero, plural } from '../lib/format';
+import { fmtDataHora, fmtEuro, hoje, lerNumero, plural } from '../lib/format';
 import { useMercado } from '../lib/investimento';
 import { useDados } from '../state';
 import { useCatalogoSets } from './catalogo';
@@ -23,31 +31,43 @@ import { Cartao } from './ui';
 
 const NOME_ESCALAO: Record<NomeEscalao, string> = { rara: 'oportunidade rara', otimo: 'muito bom', bom: 'bom' };
 
-export function AvaliarPromocao() {
+export function AvaliarPromocao({ idInicial }: { idInicial?: string }) {
   const { dados, store, guardar, lista, aviso } = useDados();
   const mercado = useMercado();
   const catalogo = useCatalogoSets();
-  const [desconto, setDesconto] = useState('25');
-  const [texto, setTexto] = useState('');
+  const recebidas = promocoesRecebidas(dados.definicoes);
+  const inicial = recebidas.find((p) => p.id === idInicial);
+  // Promoção recebida carregada (a lista arrumada "itens" vem dela; o texto pode editar-se)
+  const [promo, setPromo] = useState<Promocao | null>(inicial ?? null);
+  const [desconto, setDesconto] = useState(inicial ? (inicial.desconto ? String(inicial.desconto).replace('.', ',') : '') : '25');
+  const [texto, setTexto] = useState(inicial?.texto ?? '');
   const h = hoje();
   const d = Math.min(Math.max(lerNumero(desconto), 0), 90) / 100;
 
-  // Sets reconhecidos no texto: os que a Brickset ou o catálogo conhecem
-  const sets = useMemo(
-    () => extrairSets(texto, (n) => !!mercado?.brickset[n] || !!catalogo(n)),
+  function carregar(id: string) {
+    const p = recebidas.find((x) => x.id === id) ?? null;
+    setPromo(p);
+    setTexto(p?.texto ?? '');
+    setDesconto(p?.desconto ? String(p.desconto).replace('.', ',') : p ? '' : '25');
+  }
+
+  // Sets reconhecidos (os que a Brickset ou o catálogo conhecem) e o preço de cada um, se houver
+  const { sets, precos } = useMemo(
+    () => setsDaPromocao({ ...(promo ?? { id: '', recebida: '', loja: '' }), texto }, (n) => !!mercado?.brickset[n] || !!catalogo(n)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [texto, mercado, catalogo.carregado],
+    [texto, promo, mercado, catalogo.carregado],
   );
+  const comPreco = sets.filter((s) => precos[s] !== null).length;
   const ebay = useEbayVivo(sets, store.modo === 'supabase');
   const chaveEbay = sets.map((s) => precoEbay(ebay[s])?.join('/') ?? '').join(',');
 
   const linhas = useMemo(
     () =>
-      d > 0 && sets.length
-        ? avaliarPromocao(sets, d, { dados, mercado, hoje: h }, { tema: (n) => catalogo(n)?.tema, ebayAoVivo: (n) => precoEbay(ebay[n]) })
+      sets.length
+        ? avaliarPromocao(sets, d, { dados, mercado, hoje: h }, { tema: (n) => catalogo(n)?.tema, ebayAoVivo: (n) => precoEbay(ebay[n]), precos })
         : [],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sets, d, dados, mercado, h, chaveEbay, catalogo.carregado],
+    [sets, precos, d, dados, mercado, h, chaveEbay, catalogo.carregado],
   );
   const aComprar = linhas.filter((l) => l.comprar > 0);
   const total = aComprar.reduce((a, l) => a + l.comprar * (l.preco ?? 0), 0);
@@ -63,13 +83,14 @@ export function AvaliarPromocao() {
 
   function exportar() {
     descarregar(
-      `promocao-${Math.round(d * 100)}pct-${h}.csv`,
+      `promocao-${promo ? promo.loja.toLowerCase().replace(/\W+/g, '-') : `${Math.round(d * 100)}pct`}-${h}.csv`,
       paraCsv(linhas, [
         { titulo: 'Set', valor: (l) => l.set },
         { titulo: 'Nome', valor: (l) => catalogo(l.set)?.nome ?? '' },
         { titulo: 'Tema', valor: (l) => l.tema },
         { titulo: 'PVP', valor: (l) => l.pvp },
-        { titulo: `Preço com ${Math.round(d * 100)}%`, valor: (l) => l.preco },
+        { titulo: 'Preço na promoção', valor: (l) => l.preco },
+        { titulo: 'Origem do preço', valor: (l) => (l.origemPreco === 'loja' ? 'lista da loja' : l.origemPreco === 'pvp' ? `PVP −${Math.round(d * 100)}%` : '') },
         { titulo: 'Vende-se por', valor: (l) => (l.precos.venda ? Math.round(l.precos.venda.preco * 100) / 100 : null) },
         { titulo: 'Fonte', valor: (l) => l.precos.venda?.fonte },
         { titulo: 'Lucro', valor: (l) => (l.lucro !== null ? Math.round(l.lucro * 100) / 100 : null) },
@@ -88,9 +109,24 @@ export function AvaliarPromocao() {
     <>
       <p className="nota">
         Nas lojas grandes parte-se do PVP. Escreve o desconto e cola a lista de sets, ou o texto copiado da página da loja (selecionar tudo → copiar → colar): a app encontra os números sozinha.
+        Se a lista tiver preços, usa-se o preço de cada set.
       </p>
+      {recebidas.length > 0 && (
+        <label className="campo">
+          <span className="campo-rotulo">Promoções recebidas</span>
+          <select value={promo?.id ?? ''} onChange={(e) => carregar(e.target.value)}>
+            <option value="">— escrever à mão —</option>
+            {recebidas.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.loja} · {fmtDataHora(p.recebida)}
+                {p.desconto ? ` · ${p.desconto}%` : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <label className="campo avaliar-campo">
-        <span className="campo-rotulo">Desconto da loja</span>
+        <span className="campo-rotulo">Desconto da loja{comPreco === sets.length && sets.length ? ' (não é preciso: a lista tem preços)' : ''}</span>
         <span className="campo-unidade">
           <input inputMode="decimal" value={desconto} onChange={(e) => setDesconto(e.target.value.replace(/[^\d.,]/g, ''))} />
           <span className="mudo">%</span>
@@ -101,16 +137,16 @@ export function AvaliarPromocao() {
         <textarea rows={5} value={texto} onChange={(e) => setTexto(e.target.value)} placeholder={'75375\n42151\n… ou cola o texto da página da loja'} />
       </label>
 
-      {sets.length > 0 && d > 0 && (
+      {sets.length > 0 && (
         <Cartao className="avaliar-resultado">
           <p className="avaliar-resumo">
-            {plural(sets.length, 'set reconhecido', 'sets reconhecidos')}.{' '}
+            {plural(sets.length, 'set reconhecido', 'sets reconhecidos')}{comPreco ? ` (${comPreco} com preço na lista)` : ''}.{' '}
             {aComprar.length ? (
               <>
                 Comprar <strong>{plural(aComprar.length, 'set', 'sets')}</strong> ({plural(aComprar.reduce((a, l) => a + l.comprar, 0), 'unidade', 'unidades')}), <strong>{fmtEuro(total)}</strong> no total.
               </>
             ) : (
-              <>A {Math.round(d * 100)}% nenhum compensa.</>
+              <>Nenhum compensa{comPreco < sets.length && d > 0 ? ` a ${Math.round(d * 100)}%` : ''}.</>
             )}
             {aProcurar && <span className="mudo"> A procurar no eBay…</span>}
           </p>
@@ -146,7 +182,7 @@ function LinhaSet({ l, nome }: { l: LinhaPromo; nome?: string }) {
           <strong>{l.set}</strong> {nome ?? ''}
         </span>
         <small className="mudo">
-          {l.preco !== null ? `${fmtEuro(l.preco)}` : '—'}
+          {l.preco !== null ? `${fmtEuro(l.preco)}${l.origemPreco === 'loja' && l.pvp ? ` (−${Math.round((1 - l.preco / l.pvp) * 100)}%)` : ''}` : '—'}
           {l.precos.venda ? ` → vende ~${fmtEuro(l.precos.venda.preco)}` : ''}
           {l.margem !== null ? ` · ${Math.round(l.margem * 100)}%` : ''}
           {l.comprar > 0 && l.escalao ? ` · ${NOME_ESCALAO[l.escalao]}` : ''}

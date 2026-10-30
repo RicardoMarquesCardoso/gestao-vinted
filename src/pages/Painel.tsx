@@ -1,9 +1,10 @@
-// Ecrã inicial ("Painel"): Registar venda/compra, "O que fazer", números do período,
+// Ecrã inicial ("Painel"): Registar venda/compra, "O que fazer", promoções recebidas, números do período,
 // alertas de limites, acertos por fazer e vendas recentes.
 
 import { useMemo, useState } from 'react';
 import { useAbrir } from '../components/acoes';
 import { CartaoTarefas } from '../components/planos';
+import { CartaoPromocoes } from '../components/CartaoPromocoes';
 import { BarraLimite, Cartao, EtiquetaVenda, Vazio, Valor } from '../components/ui';
 import { calcularAcertos } from '../lib/acertos';
 import { PREDEFINICOES, estatisticas, intervaloDe, liquidoVenda, lucroVenda, usoConta } from '../lib/calc';
@@ -73,6 +74,9 @@ export function Painel() {
       </div>
 
       <CartaoTarefas />
+
+      {/* Promoções recebidas automaticamente (ex.: Continente), com quantos sets compensam */}
+      <CartaoPromocoes />
 
       <div className="kpis">
         <div className="kpi kpi-destaque">

@@ -16,6 +16,9 @@ import { CHAVE_MODELO_ANUNCIO, MODELO_PADRAO, modeloAnuncio } from '../lib/anunc
 import type { ModeloAnuncio } from '../lib/anuncio';
 import { CHAVE_REGRAS, REGRAS_PADRAO, regrasPlano } from '../lib/plano';
 import { MIN_SETS_CALIBRACAO, calibrarEbay, useMercado } from '../lib/investimento';
+import { CHAVE_TOKEN_PROMOCOES, promocoesRecebidas } from '../lib/promocoes';
+import { SUPABASE_KEY, SUPABASE_URL } from '../config';
+import { fmtDataHora as fmtQuando } from '../lib/format';
 import type { RegrasPlano } from '../lib/plano';
 
 const NOMES_TABELA: Record<string, string> = {
@@ -123,6 +126,8 @@ export function Definicoes(props: { aoSair(): void }) {
       <CartaoTextoAnuncios />
 
       <CartaoRegrasPlano />
+
+      {store.modo === 'supabase' && <CartaoReceberPromocoes />}
 
       <Cartao titulo="Pessoas">
         <p className="nota">Quem paga as compras e quem faz as vendas.</p>
@@ -394,6 +399,76 @@ function CartaoRegrasPlano() {
         <button className="btn btn-primario" disabled={JSON.stringify(v) === JSON.stringify(paraTexto(guardado))} onClick={() => gravar(v)}>Guardar</button>
         <button className="btn" onClick={() => gravar(paraTexto(REGRAS_PADRAO))}>Repor os valores sugeridos</button>
       </div>
+    </Cartao>
+  );
+}
+
+/**
+ * Instruções para outra app enviar listas de promoções (ex.: Continente) automaticamente.
+ * Mostra o endereço, a chave pública e o código secreto (escondido; só os membros veem esta página),
+ * e a última promoção recebida. A função do lado do Supabase é receber_promocao (schema.sql).
+ */
+function CartaoReceberPromocoes() {
+  const { dados, aviso } = useDados();
+  const [ver, setVer] = useState(false);
+  const token = String(dados.definicoes.find((d) => d.chave === CHAVE_TOKEN_PROMOCOES)?.valor ?? '');
+  const ultima = promocoesRecebidas(dados.definicoes)[0];
+  const url = `${SUPABASE_URL}/rest/v1/rpc/receber_promocao`;
+  async function copiar(texto: string, o: string) {
+    try {
+      await navigator.clipboard.writeText(texto);
+      aviso(`${o} copiado.`);
+    } catch {
+      aviso('Não foi possível copiar.', 'erro');
+    }
+  }
+  return (
+    <Cartao titulo="Receber promoções de outra app">
+      <p className="mudo">
+        Outra app pode enviar listas de LEGO em promoção (ex.: Continente). Aparecem no Painel com os sets que compensam. Faz um pedido <strong>POST</strong> para o
+        endereço abaixo, com os cabeçalhos <code>apikey</code> e <code>Content-Type: application/json</code>.
+      </p>
+      <dl className="detalhes">
+        <div>
+          <dt>Endereço</dt>
+          <dd className="quebrar">
+            {url} <button className="link" onClick={() => copiar(url, 'Endereço')}>Copiar</button>
+          </dd>
+        </div>
+        <div>
+          <dt>apikey (pública)</dt>
+          <dd className="quebrar">
+            {SUPABASE_KEY} <button className="link" onClick={() => copiar(SUPABASE_KEY, 'apikey')}>Copiar</button>
+          </dd>
+        </div>
+        <div>
+          <dt>Código secreto (token)</dt>
+          <dd className="quebrar">
+            {token ? (ver ? token : '••••••••••••') : 'ainda não criado'}{' '}
+            {token && (
+              <>
+                <button className="link" onClick={() => setVer(!ver)}>{ver ? 'Esconder' : 'Mostrar'}</button>{' '}
+                <button className="link" onClick={() => copiar(token, 'Código')}>Copiar</button>
+              </>
+            )}
+          </dd>
+        </div>
+        <div>
+          <dt>Última recebida</dt>
+          <dd>{ultima ? `${ultima.loja} · ${fmtQuando(ultima.recebida)}` : '—'}</dd>
+        </div>
+      </dl>
+      <pre className="codigo">{`{
+  "token": "<código secreto>",
+  "loja": "Continente",
+  "texto": "LEGO 75375 Millennium Falcon 63,74 €\nLEGO 42151 Bugatti 37,49 €",
+  "desconto": 25,
+  "valida_ate": "2026-11-10"
+}`}</pre>
+      <p className="mudo pequeno">
+        <code>texto</code>: a lista como se cola na app (com ou sem preços). Em alternativa, <code>itens</code>: <code>[{'{'}"set": "75375", "preco": 63.74{'}'}]</code>.{' '}
+        <code>desconto</code> (% sobre o PVP) e <code>valida_ate</code> são opcionais. Guardar o código só na outra app; nunca o publicar.
+      </p>
     </Cartao>
   );
 }

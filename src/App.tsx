@@ -152,7 +152,7 @@ function Estrutura({ aoSair }: { aoSair(): void }) {
       case '/produtos': return <Inventario key={rota} inicial={rota.startsWith('/produtos/vendidos') ? 'vendidos' : 'por_vender'} />;
       case '/inventario': return <Inventario />;
       case '/compras': return <Compras />;
-      case '/avaliar': return <Avaliar />;
+      case '/avaliar': return <Avaliar key={rota} rota={rota} />;
       case '/vendas': return <Inventario key="vendas" inicial="vendidos" />;
       case '/contas': return <Contas />;
       case '/acertos': return <Acertos />;

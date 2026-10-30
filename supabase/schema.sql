@@ -262,3 +262,52 @@ language sql stable security definer set search_path to 'public' as $$
   ) t
   where exists (select 1 from public.definicoes d where d.chave = 'token_mercado' and d.valor #>> '{}' = token);
 $$;
+
+-- ---------------------------------------------------------------------
+-- 7) Receber promoções de lojas enviadas por outra app (ex.: Continente)
+--    POST /rest/v1/rpc/receber_promocao com o código definicoes.token_promocoes.
+--    Guarda em definicoes.promocoes (as 50 mais recentes) e regista no histórico.
+-- ---------------------------------------------------------------------
+insert into public.definicoes (chave, valor)
+values ('token_promocoes', to_jsonb(replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', '')))
+on conflict (chave) do nothing;
+
+create or replace function public.receber_promocao(
+  token text,
+  loja text,
+  texto text default null,       -- a lista em texto livre (como se colava na app)
+  desconto numeric default null, -- % de desconto sobre o PVP (ex.: 25), se for igual para todos
+  itens jsonb default null,      -- ou uma lista [{"set":"75375","preco":63.74}, ...]
+  valida_ate date default null   -- até quando dura a promoção (opcional)
+) returns json
+language plpgsql security definer set search_path to 'public' as $$
+declare
+  nova jsonb;
+  lista jsonb;
+begin
+  if token is null or not exists (select 1 from definicoes d where d.chave = 'token_promocoes' and d.valor #>> '{}' = token) then
+    raise exception 'Código inválido' using errcode = '28000';
+  end if;
+  if coalesce(trim(loja), '') = '' then raise exception 'Falta a loja'; end if;
+  if texto is null and itens is null then raise exception 'Falta a lista (texto ou itens)'; end if;
+  if length(coalesce(texto, '')) > 200000 then raise exception 'Texto demasiado grande'; end if;
+  if itens is not null and (jsonb_typeof(itens) <> 'array' or jsonb_array_length(itens) > 2000) then
+    raise exception 'itens tem de ser uma lista (no máximo 2000)';
+  end if;
+  if desconto is not null and (desconto < 0 or desconto > 90) then raise exception 'Desconto fora de 0–90'; end if;
+  nova := jsonb_strip_nulls(jsonb_build_object(
+    'id', gen_random_uuid(), 'recebida', now(), 'loja', left(trim(loja), 60),
+    'texto', texto, 'desconto', desconto, 'itens', itens, 'valida_ate', valida_ate));
+  select coalesce(valor, '[]'::jsonb) into lista from definicoes where chave = 'promocoes';
+  lista := jsonb_build_array(nova) || coalesce(lista, '[]'::jsonb);
+  select coalesce(jsonb_agg(x order by i), '[]'::jsonb) into lista
+    from jsonb_array_elements(lista) with ordinality as t(x, i) where i <= 50;
+  insert into definicoes (chave, valor) values ('promocoes', lista)
+    on conflict (chave) do update set valor = excluded.valor;
+  insert into historico (utilizador, tabela, registo_id, acao, antes, depois)
+    values ('App de promoções', 'definicoes', 'promocoes', 'criar', null, nova - 'texto');
+  return json_build_object('ok', true, 'id', nova ->> 'id');
+end;
+$$;
+revoke all on function public.receber_promocao(text, text, text, numeric, jsonb, date) from public;
+grant execute on function public.receber_promocao(text, text, text, numeric, jsonb, date) to anon, authenticated;
