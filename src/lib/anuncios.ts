@@ -44,6 +44,20 @@ export function atualizarPeriodos(antes: Linha | undefined, depois: Linha, agora
   return undefined;
 }
 
+/**
+ * Fecha o período de anúncio aberto com o motivo "vendido". Usado quando se vende a unidade
+ * anunciada de um produto com mais unidades: o produto volta a "por anunciar", o que sozinho
+ * ficaria registado como "retirado", mas na verdade o anúncio terminou com uma venda.
+ */
+export function fecharPeriodoVendido(anuncios: PeriodoAnuncio[] | null | undefined, agora: string): PeriodoAnuncio[] | undefined {
+  const base = (anuncios ?? []).map((x) => ({ ...x }));
+  const aberto = [...base].reverse().find((x) => !x.fim);
+  if (!aberto) return undefined;
+  aberto.fim = agora;
+  aberto.motivo = 'vendido';
+  return base;
+}
+
 /** Total de dias em que o produto esteve anunciado (até hoje, se ainda estiver). */
 export function diasAnunciado(p: Pick<Produto, 'anuncios'>, hoje: string): number | null {
   if (!p.anuncios?.length) return null;

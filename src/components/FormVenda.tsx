@@ -3,7 +3,8 @@
 // Ao guardar, atualiza também o estado do produto (vendido / ainda anunciado).
 
 import { useMemo, useState } from 'react';
-import { CHAVE_FORA_LIMITES, arred, chaveComparacao, custoUnitario, estadoAposVendas, unidadesVendidas, vendasForaLimites } from '../lib/calc';
+import { fecharPeriodoVendido } from '../lib/anuncios';
+import { CHAVE_FORA_LIMITES, arred, chaveComparacao, custoUnitario, estadoAposNovaVenda, estadoAposVendas, unidadesVendidas, vendasForaLimites } from '../lib/calc';
 import { fmtEuro, hoje, lerNumero } from '../lib/format';
 import type { EstadoVenda, Venda } from '../lib/types';
 import { ESTADOS_VENDA } from '../lib/types';
@@ -122,7 +123,7 @@ export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?
         else fora.delete(v.id);
         await guardar('definicoes', [{ chave: CHAVE_FORA_LIMITES, valor: [...fora] }]);
       }
-      await atualizarProdutos([v.produto_id, existente?.produto_id], [...dados.vendas.filter((x) => x.id !== v.id), v]);
+      await atualizarProdutos([v.produto_id, existente?.produto_id], [...dados.vendas.filter((x) => x.id !== v.id), v], existente ? undefined : v.produto_id);
       aviso(existente ? 'Venda atualizada.' : 'Venda registada.');
       aoFechar();
     } catch (e) {
@@ -132,14 +133,25 @@ export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?
     }
   }
 
-  /** Mantém o estado dos produtos coerente com as vendas (vendido / anunciado). */
-  async function atualizarProdutos(ids: (string | undefined)[], vendas: Venda[]) {
+  /** A venda nova deste produto conta (não está cancelada nem devolvida). */
+  const estadoVenda = (vendas: Venda[], pid: string) => vendas.some((x) => x.produto_id === pid && x.estado === 'concluida');
+
+  /**
+   * Mantém o estado dos produtos coerente com as vendas (vendido / anunciado). novaVendaDe: o
+   * produto de uma venda NOVA; se estava anunciado e sobram unidades, volta a "por anunciar"
+   * (a unidade anunciada foi a vendida) e o período de anúncio fecha como "vendido".
+   */
+  async function atualizarProdutos(ids: (string | undefined)[], vendas: Venda[], novaVendaDe?: string) {
+    const agora = new Date().toISOString();
     const alterados = [...new Set(ids.filter(Boolean))]
       .map((pid) => dados.produtos.find((p) => p.id === pid))
       .filter((p) => !!p)
-      .map((p) => ({ p: p!, estado: estadoAposVendas(p!, vendas) }))
+      .map((p) => ({ p: p!, estado: p!.id === novaVendaDe && estadoVenda(vendas, p!.id) ? estadoAposNovaVenda(p!, vendas) : estadoAposVendas(p!, vendas) }))
       .filter((x) => x.estado !== x.p.estado)
-      .map((x) => ({ ...x.p, estado: x.estado }));
+      .map((x) => {
+        const anuncios = x.p.estado === 'anunciado' && x.estado === 'por_anunciar' ? fecharPeriodoVendido(x.p.anuncios, agora) : undefined;
+        return { ...x.p, estado: x.estado, ...(anuncios ? { anuncios } : {}) };
+      });
     if (alterados.length) await guardar('produtos', alterados);
   }
 

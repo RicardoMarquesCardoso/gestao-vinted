@@ -1,8 +1,11 @@
 // Janela rápida "Vendi": só pede o preço e a conta. Cria a venda como concluída, com data de hoje
 // e quem recebeu = titular da conta. Para os restantes campos, há "Mais opções" (FormVenda).
+// Num produto com várias unidades anunciado, as unidades que sobram voltam a "por anunciar"
+// (anuncia-se 1 de cada vez, e a anunciada foi a vendida).
 
 import { useState } from 'react';
-import { arred, custoUnitario, estadoAposVendas, unidadesDisponiveis } from '../lib/calc';
+import { arred, custoUnitario, estadoAposNovaVenda, unidadesDisponiveis } from '../lib/calc';
+import { fecharPeriodoVendido } from '../lib/anuncios';
 import { fmtEuro, hoje, lerNumero } from '../lib/format';
 import type { Produto, Venda } from '../lib/types';
 import { useDados } from '../state';
@@ -68,8 +71,10 @@ export function FormVendi({ ids, aoFechar, abrirCompleto }: { ids: string[]; aoF
     try {
       await guardar('vendas', [v]);
       const atualizado = { ...p, conta_id: p.conta_id ?? conta };
-      const estado = estadoAposVendas(atualizado, [...dados.vendas, v]);
-      if (estado !== p.estado || atualizado.conta_id !== p.conta_id) await guardar('produtos', [{ ...atualizado, estado }]);
+      // Sobram unidades: a anunciada foi vendida e as outras voltam a "por anunciar"
+      const estado = estadoAposNovaVenda(atualizado, [...dados.vendas, v]);
+      const anuncios = p.estado === 'anunciado' && estado === 'por_anunciar' ? fecharPeriodoVendido(p.anuncios, new Date().toISOString()) : undefined;
+      if (estado !== p.estado || atualizado.conta_id !== p.conta_id) await guardar('produtos', [{ ...atualizado, estado, ...(anuncios ? { anuncios } : {}) }]);
       try {
         localStorage.setItem('gv.ultimaConta', conta);
       } catch {

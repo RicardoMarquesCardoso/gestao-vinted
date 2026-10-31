@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  distribuirCompra, repartir, lucroVenda, liquidoVenda, estadoAposVendas, usoConta,
+  distribuirCompra, repartir, lucroVenda, liquidoVenda, estadoAposVendas, estadoAposNovaVenda, usoConta,
   periodoConta, intervaloDe, estatisticas, chaveComparacao, unidadesDisponiveis,
 } from '../src/lib/calc.ts';
 import type { Conta, Produto, Venda, Dados } from '../src/lib/types.ts';
@@ -69,6 +69,14 @@ test('estado do produto acompanha as vendas', () => {
   assert.equal(estadoAposVendas({ ...p, estado: 'vendido', data_anuncio: '2026-01-02' }, [venda({ estado: 'cancelada' })]), 'anunciado');
   assert.equal(estadoAposVendas({ ...p, estado: 'vendido' }, [venda({ estado: 'cancelada' })]), 'por_anunciar');
   assert.equal(unidadesDisponiveis(p, [venda({})]), 1);
+});
+
+test('venda nova de um produto com várias unidades: as que sobram voltam a por anunciar', () => {
+  const p = produto({ quantidade: 3, estado: 'anunciado' });
+  assert.equal(estadoAposNovaVenda(p, [venda({})]), 'por_anunciar');
+  assert.equal(estadoAposNovaVenda(p, [venda({}), venda({ id: 'v2' }), venda({ id: 'v3' })]), 'vendido');
+  assert.equal(estadoAposNovaVenda({ ...p, quantidade: 1 }, [venda({})]), 'vendido');
+  assert.equal(estadoAposNovaVenda({ ...p, estado: 'por_anunciar' }, [venda({})]), 'por_anunciar');
 });
 
 test('períodos das contas', () => {
@@ -207,7 +215,7 @@ test('texto do anúncio: descrição própria de uma conta', () => {
   assert.match(textoAnuncio({ ...p, condicao: 'Usado' }, m, 'rm1').descricao, /^Used/); // usado vazio: o geral
 });
 
-import { atualizarPeriodos, diasAnunciado } from '../src/lib/anuncios.ts';
+import { atualizarPeriodos, diasAnunciado, fecharPeriodoVendido } from '../src/lib/anuncios.ts';
 
 test('períodos de anúncio', () => {
   const p = produto({ estado: 'por_anunciar' });
@@ -454,4 +462,13 @@ test('eBay: cada venda compara-se com o eBay da mesma altura', () => {
   // O histórico só conta até 30 dias da venda
   assert.deepEqual(ebayNaData(m, '20000', '2026-09-10'), [100, 30]);
   assert.equal(ebayNaData({ ...m, ebay_hist: { '20000': [['2026-06-01', 90, 10]] } }, '20000', '2026-09-10'), null);
+});
+
+test('vender a unidade anunciada: o período fecha como "vendido", não "retirado"', () => {
+  const antes = { id: 'p', estado: 'anunciado' as const, anuncios: [{ inicio: '2026-10-01T10:00:00Z', fim: null, conta_id: 'c', preco: 30 }] };
+  const anuncios = fecharPeriodoVendido(antes.anuncios, '2026-10-31T10:00:00Z')!;
+  assert.equal(anuncios[0].motivo, 'vendido');
+  assert.equal(anuncios[0].fim, '2026-10-31T10:00:00Z');
+  // Ao guardar o produto em "por anunciar" com o período já fechado, não muda para "retirado"
+  assert.equal(atualizarPeriodos(antes, { ...antes, estado: 'por_anunciar', anuncios }, '2026-10-31T10:00:01Z'), undefined);
 });

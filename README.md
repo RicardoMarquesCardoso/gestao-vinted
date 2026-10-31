@@ -183,7 +183,7 @@ erDiagram
 | `historico` | Todas as alterações (nunca se apaga) | `quando`, `utilizador`, `tabela`, `acao`, `antes`, `depois` |
 | `membros` | Emails autorizados | `email` |
 
-**Estados de um produto:** `por_anunciar` → `anunciado` → `vendido`. Também pode ficar `devolvido` ou `cancelado`.
+**Estados de um produto:** `por_anunciar` → `anunciado` → `vendido`. Também pode ficar `devolvido` ou `cancelado`. Anuncia-se uma unidade de cada vez: num produto com várias unidades, vender a anunciada põe as que sobram em `por_anunciar` (`estadoAposNovaVenda`), e só fica `vendido` quando não sobra nenhuma.
 **Estados de uma venda:** `concluida`, `cancelada` ou `devolvida`. Não há estado intermédio: na Vinted um produto passa diretamente de anunciado a vendido, por isso uma venda nova fica logo `concluida`.
 
 ### O que está em `definicoes`
@@ -253,7 +253,7 @@ A ideia central: **um lucro de 20% em 1 mês vale muito mais do que 20% em 2 ano
 
 ### Tempo anunciado (`src/lib/anuncios.ts`)
 
-Sempre que um produto muda para *anunciado*, abre-se um período, e quando deixa de estar fecha-se, com o motivo (vendido ou retirado). As mudanças de preço ficam registadas dentro do período. Tudo fica no campo `produtos.anuncios`. Assim, com o tempo, vai dar para saber quanto demora cada tipo de produto a vender **depois de anunciado** e se baixar o preço ajuda.
+Sempre que um produto muda para *anunciado*, abre-se um período, e quando deixa de estar fecha-se, com o motivo (vendido ou retirado; vender a unidade anunciada de um produto com mais unidades conta como vendido, `fecharPeriodoVendido`). As mudanças de preço ficam registadas dentro do período. Tudo fica no campo `produtos.anuncios`. Assim, com o tempo, vai dar para saber quanto demora cada tipo de produto a vender **depois de anunciado** e se baixar o preço ajuda.
 
 ### Análises de investimento (`src/lib/investimento.ts`)
 

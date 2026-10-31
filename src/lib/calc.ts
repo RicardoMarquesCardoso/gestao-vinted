@@ -61,6 +61,16 @@ export function estadoAposVendas(p: Produto, vendas: Venda[]): EstadoProduto {
   return p.estado;
 }
 
+/**
+ * Estado do produto depois de uma VENDA NOVA (Vendi / Registar venda). Anuncia-se 1 unidade de
+ * cada vez: se o produto estava anunciado e ainda sobram unidades, a unidade anunciada foi a que se
+ * vendeu, por isso as que sobram voltam a "por anunciar" (pedido do Ricardo). Sem unidades: vendido.
+ */
+export function estadoAposNovaVenda(p: Produto, vendas: Venda[]): EstadoProduto {
+  const estado = estadoAposVendas(p, vendas);
+  return estado === 'anunciado' && unidadesDisponiveis(p, vendas) > 0 ? 'por_anunciar' : estado;
+}
+
 /** Está em stock (por anunciar ou anunciado). */
 export const emInventario = (p: Produto) => p.estado === 'por_anunciar' || p.estado === 'anunciado';
 
