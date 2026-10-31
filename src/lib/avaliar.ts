@@ -558,9 +558,14 @@ export function urlVinted(set: string, novo = true): string {
   return `https://www.vinted.pt/catalog?search_text=${q}&order=price_low_to_high${novo ? '&status_ids[]=6&status_ids[]=1' : ''}`;
 }
 
-/** Anúncios já vendidos do set no eBay Alemanha (o maior mercado LEGO na Europa), só novos. */
+/**
+ * Anúncios já vendidos do set no eBay, vendidos na Europa, só novos. Filtros iguais à pesquisa que
+ * o Ricardo usa: ebay.com, LH_Sold=1 (vendidos) e LH_PrefLoc=5 (localização: Europa); mais
+ * LH_ItemCondition=1000 (novo), porque estamos a avaliar compras de sets novos.
+ */
 export function urlEbayVendidos(set: string): string {
-  return `https://www.ebay.de/sch/i.html?_nkw=${encodeURIComponent(`lego ${numeroBase(set)}`)}&LH_Sold=1&LH_Complete=1&LH_ItemCondition=1000`;
+  const q = encodeURIComponent(`lego ${numeroBase(set)}`).replace(/%20/g, '+');
+  return `https://www.ebay.com/sch/i.html?_nkw=${q}&_sacat=0&LH_Sold=1&LH_Complete=1&LH_PrefLoc=5&LH_ItemCondition=1000&rt=nc`;
 }
 
 /** Sets que acompanhamos sem os ter (a tarefa diária vai buscar o eBay deles): definicoes.sets_avaliar. */
