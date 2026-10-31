@@ -795,13 +795,23 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .avaliar-nao .avaliar-bolinha { background: var(--texto-3); opacity: 0.5; }
 .avaliar-promo .linha-principal small { white-space: normal; }
 .avaliar-resultado .linha-botoes { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
-/* Partilhar / descarregar fotografias (components/fotos.tsx): ícones ao lado das fotos */
-.fotos-com-acoes { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 14px; }
-.fotos-com-acoes .fotos-galeria { flex: 1; min-width: 0; margin-bottom: 0; }
-.acoes-fotos { display: flex; gap: 8px; align-items: center; }
-.acoes-fotos-vertical { flex-direction: column; flex: none; }
-.acoes-fotos .btn-redondo { width: 42px; height: 42px; }
-.acoes-fotos .btn-redondo:disabled { opacity: 0.6; }
+/* Partilhar / descarregar fotografias (components/fotos.tsx): fotos centradas no ecrã, botões à
+   direita. Grelha com colunas iguais nas pontas, para a foto ficar mesmo ao centro. */
+.fotos-com-acoes { display: grid; grid-template-columns: 56px minmax(0, 1fr) 56px; gap: 6px; align-items: center; margin-bottom: 14px; }
+.fotos-com-acoes .fotos-galeria { grid-column: 2; margin-bottom: 0; }
+/* Cada foto cabe inteira na coluna do centro (se houver várias, desliza-se de uma em uma) */
+.fotos-com-acoes .fotos-galeria img { height: auto; max-height: 200px; max-width: 100%; flex: none; object-fit: contain; }
+/* Centrar as fotos sem cortar o início quando são muitas e se deslizam */
+.fotos-galeria > :first-child { margin-left: auto; }
+.fotos-galeria > :last-child { margin-right: auto; }
+.acoes-fotos { display: flex; gap: 10px; align-items: flex-start; }
+.acoes-fotos-vertical { grid-column: 3; flex-direction: column; align-items: center; }
+.acao-foto { display: flex; flex-direction: column; align-items: center; gap: 3px; background: none; border: 0; padding: 0; cursor: pointer; color: var(--texto-2); font: inherit; }
+.acao-foto .btn-redondo { width: 42px; height: 42px; }
+.acao-foto small { font-size: 0.7rem; white-space: nowrap; }
+.acao-foto:disabled { opacity: 0.6; }
+/* Detalhe do produto: etiquetas centradas, como a foto */
+.janela .detalhe-topo { justify-content: center; }
 /* Cartão "Promoções" do Painel (components/CartaoPromocoes.tsx) */
 .promo-linha { display: flex; align-items: center; gap: 6px; }
 .promo-linha .linha-botao { flex: 1; min-width: 0; }

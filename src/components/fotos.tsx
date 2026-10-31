@@ -10,6 +10,7 @@
 //   nessa altura. Faz no máximo 10 produtos de cada vez, para não pesar ao abrir.
 
 import { useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { FOTO_MINIATURA, fotosALimpar, nomeFicheiroFoto } from '../lib/fotos';
 import { hoje } from '../lib/format';
 import type { Produto } from '../lib/types';
@@ -25,6 +26,15 @@ const podePartilharFicheiros = () => {
     return false;
   }
 };
+
+/**
+ * iPhone/iPad. Aí o menu de partilha é a forma de guardar as fotos na galeria ("Guardar imagens"),
+ * e a app da Vinted não aparece como destino (não recebe fotos de outras apps); "descarregar" só
+ * guarda em Ficheiros. Por isso no iPhone há um só botão, "Guardar", que abre esse menu; depois,
+ * no anúncio da Vinted, escolhem-se as fotos da galeria (são as mais recentes).
+ */
+const eIos = () =>
+  typeof navigator !== 'undefined' && (/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
 
 // Ícones (24×24, traço) para os botões de partilhar e descarregar
 const IconePartilhar = () => (
@@ -96,7 +106,7 @@ export function PartilharFotos({ p, vertical }: { p: Produto; vertical?: boolean
         if (e instanceof DOMException && e.name === 'AbortError') return; // cancelou o menu
         // O toque já expirou enquanto se descarregavam as fotos: pedir um 2.º toque
         setPronto(true);
-        aviso('Fotografias prontas: toca outra vez em partilhar.');
+        aviso(eIos() ? 'Fotografias prontas: toca outra vez em Guardar.' : 'Fotografias prontas: toca outra vez em Partilhar.');
       }
     } catch (e) {
       aviso(`Não foi possível preparar as fotografias: ${e instanceof Error ? e.message : e}`, 'erro');
@@ -126,24 +136,25 @@ export function PartilharFotos({ p, vertical }: { p: Produto; vertical?: boolean
   }
 
   const n = p.fotos.length === 1 ? 'a fotografia' : `as ${p.fotos.length} fotografias`;
+  const partilha = podePartilharFicheiros();
+  const ios = eIos() && partilha;
+  // Botão com ícone e uma palavra por baixo, para não haver dúvidas sobre o que faz
+  const botao = (b: { onClick(): void; rotulo: string; titulo: string; icone: ReactNode; destacado?: boolean }) => (
+    <button type="button" className="acao-foto" onClick={b.onClick} disabled={aPreparar} aria-label={b.titulo} title={b.titulo}>
+      <span className={`btn-redondo ${b.destacado ? 'btn-redondo-primario' : ''}`}>{aPreparar ? <span className="a-rodar">↻</span> : b.icone}</span>
+      <small>{b.destacado ? 'Outra vez' : b.rotulo}</small>
+    </button>
+  );
   return (
     <div className={vertical ? 'acoes-fotos acoes-fotos-vertical' : 'acoes-fotos'}>
-      {podePartilharFicheiros() && (
-        <button
-          type="button"
-          className={`btn-redondo ${pronto ? 'btn-redondo-primario' : ''}`}
-          onClick={partilhar}
-          disabled={aPreparar}
-          aria-label={`Partilhar ${n}`}
-          title={pronto ? 'Toca para partilhar' : `Partilhar ${n}`}
-        >
-          {aPreparar ? <span className="a-rodar">↻</span> : <IconePartilhar />}
-        </button>
-      )}
-      <button type="button" className="btn-redondo" onClick={descarregar} disabled={aPreparar} aria-label={`Descarregar ${n}`} title={`Descarregar ${n}`}>
-        <IconeDescarregar />
-      </button>
-      {!vertical && <span className="mudo pequeno">{p.fotos.length === 1 ? '1 fotografia' : `${p.fotos.length} fotografias`}</span>}
+      {ios
+        ? botao({ onClick: partilhar, rotulo: 'Guardar', titulo: `Guardar ${n} nas Fotos`, icone: <IconeDescarregar />, destacado: pronto })
+        : (
+          <>
+            {partilha && botao({ onClick: partilhar, rotulo: 'Partilhar', titulo: `Partilhar ${n}`, icone: <IconePartilhar />, destacado: pronto })}
+            {botao({ onClick: descarregar, rotulo: 'Descarregar', titulo: `Descarregar ${n}`, icone: <IconeDescarregar /> })}
+          </>
+        )}
     </div>
   );
 }

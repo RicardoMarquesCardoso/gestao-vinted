@@ -46,7 +46,7 @@ Guardar os dados que permitam estas análises desde já, mesmo que ainda não ap
 
 ## Fotografias
 
-- Storage do Supabase (bucket `fotos`), **plano grátis: 1 GB e 5 GB de tráfego/mês**. Cada fotografia tem a original (2048 px, 90%) e a miniatura (`.min.jpg`, 400 px); a app mostra a miniatura e só descarrega a original para partilhar/descarregar (`src/lib/fotos.ts`, `components/fotos.tsx`). Botões com ícones ao lado das fotos, só para fotos nossas. `navigator.share` tem de ser chamado logo a seguir ao toque: se as fotos ainda não estão preparadas, o 1.º toque prepara e o 2.º partilha.
+- Storage do Supabase (bucket `fotos`), **plano grátis: 1 GB e 5 GB de tráfego/mês**. Cada fotografia tem a original (2048 px, 90%) e a miniatura (`.min.jpg`, 400 px); a app mostra a miniatura e só descarrega a original para partilhar/descarregar (`src/lib/fotos.ts`, `components/fotos.tsx`). Botões com ícones ao lado das fotos (foto e etiquetas centradas), só para fotos nossas. No iPhone só "Guardar" (menu de partilha → Guardar imagens; a Vinted não recebe fotos partilhadas no iOS). `navigator.share` tem de ser chamado logo a seguir ao toque: se as fotos ainda não estão preparadas, o 1.º toque prepara e o 2.º partilha.
 - **Limpeza (pedido do Ricardo):** produtos todos vendidos há mais de 7 dias (a Vinted guarda as fotos se houver devolução) ficam só com a miniatura da 1.ª foto (`fotosALimpar`, `LimpezaFotos` ao abrir a app).
 - Google Drive posto de parte por agora (login Google, permissões, complexidade). Decisão: Supabase enquanto o 1 GB chegar.
 
