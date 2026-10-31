@@ -351,31 +351,22 @@ Mostra ainda quantas vendas cabem este ano nas contas ativas (30 por conta) e de
 
 #### Promoção da loja (modo do mesmo ecrã, `components/AvaliarPromocao.tsx`, `avaliarPromocao`)
 
-Para promoções de lojas grandes (Fnac, Continente, Toys R Us…), em que se parte sempre do **PVP**: escreve-se o desconto (ex.: 25%) e cola-se a lista de sets — os números, ou o **texto copiado da página da loja** (selecionar tudo → copiar → colar); `extrairSets` encontra os n.º de set no meio do texto (ignora preços, códigos de barras e números que não são sets). Para cada set:
+- **Escolhe-se a loja** (botões com as lojas que já enviaram listas, ex.: *Continente*) e a app mostra a **lista mais recente dessa loja** (`lojasRecebidas`). *Outra lista* deixa colar uma lista à mão: os números, ou o texto copiado da página da loja; `extrairItens` encontra os sets, os preços e as percentagens (ignora códigos de barras e números que não são sets).
+- **Desconto extra** (pedido do Ricardo): promoções que a lista não mostra e valem para tudo, ex.: **10% em cartão no Continente**. Aplica-se sobre o preço de cada set: 100 € a −30% = 70 €, e com os 10% do cartão fica **63 €**. Vem preenchido com o valor da loja (`EXTRA_POR_LOJA` em `lib/promocoes.ts`: Continente 10%) e pode mudar-se quando houver uma promoção melhor. Numa lista colada sem preços, é o desconto da loja sobre o PVP.
 
 ```
-preço na promoção  = PVP (Brickset, LEGO Alemanha) × (1 − desconto)
+PVP              = o da loja (se vier na lista), senão o da Brickset (LEGO Alemanha)
+preço na loja    = preço final da lista → senão PVP × (1 − desconto do set) → senão o PVP
+preço final      = preço na loja × (1 − desconto extra)
 escalão / unidades = os mesmos do modo "Um set" (bom / muito bom / oportunidade rara, a diversificar)
-compensa a partir de = 1 − (preço máximo do escalão "bom" ÷ PVP)
+compensa a partir de = desconto da loja sobre o PVP que, já com o extra, chega ao preço máximo "bom"
 ```
 
-Os que compensam aparecem primeiro, pelo **lucro seguro** (o lucro mesmo que a venda fique abaixo do esperado pelo erro típico da fonte). **Diversificar por tema:** no máximo 2 compras do mesmo tema por promoção. Mostra o total a gastar, descarrega para Excel (CSV) e tem o botão *Acompanhar os sem eBay*.
+Os que compensam aparecem primeiro, pelo **lucro seguro** (o lucro mesmo que a venda fique abaixo do esperado pelo erro típico da fonte). Numa lista recebida mostram-se só os que compensam e os que têm desconto; os outros ficam em *Mostrar os outros N*. **Diversificar por tema:** no máximo 2 compras do mesmo tema por promoção. Mostra o total a gastar, descarrega para Excel (CSV) e tem o botão *Acompanhar os sem eBay*. O eBay na hora só se pede para os sets com desconto (no máximo 25).
 
 A app **não abre o link da loja**: o browser não deixa uma página ler outros sites, e fazê-lo num servidor seria recolha automática (termos de uso).
 
-Com os dados de out/2026: nos 124 sets que já tivemos, compensa comprar a partir de **~44% de desconto** (mediana; metade entre 35% e 50%). A 25%, só 12 compensavam, quase todos sets que vendemos bem acima do PVP.
-
-**Porquê esta ordem e o PVP medido — o "teste com o passado" (out/2026).** Para cada uma das 102 vendas de LEGO com data, calculou-se o que cada fonte teria previsto e comparou-se com o preço real:
-
-| Fonte | Vendas | Erro típico | Desvio | Acerta a ±20% |
-|---|---|---|---|---|
-| As nossas vendas anteriores | 40 | 11% | −3% | 85% |
-| eBay × 0,64 | 102 | 12% | +3% | 70% |
-| PVP (como nos planos) | 102 | 20% | +18% | 54% |
-
-E, a comparar o preço de venda com o PVP pela fase do set na data da venda: **ainda à venda ~0,73 × PVP; retirado há < 1 ano ~0,79; 1–2 anos ~0,80; > 2 anos ~0,83** (os planos assumem 0,80 / 1,10 / 1,33 / 1,48). Ou seja, **nas nossas vendas quase não houve subida depois da retirada**. Ressalvas: poucos sets retirados (32 vendas), vendemos depressa (mediana ~30 dias) e os que valorizam podem estar guardados. Por isso o **Vale a pena?** usa o rácio medido; os **planos ainda não foram alterados** (seria preciso mostrar primeiro o impacto no stock).
-
-**Links:** *Ver na Vinted* abre a pesquisa `lego <n.º>` na Vinted, mais baratos primeiro e só novos (com e sem etiquetas); no telemóvel abre na app da Vinted, se estiver instalada. *Vendidos no eBay* abre os anúncios vendidos no eBay.de. São só links que nós abrimos à mão: **a app não lê nada da Vinted nem do site do eBay** (termos de uso).
+Com os dados de out/2026: nos 124 sets que já tivemos, compensa comprar a partir de **~44% de desconto** (mediana). Na primeira lista do Continente (70 sets, 30/10), com os 10% do cartão, compensava 1 (72044 Mario Kart Piranha Plant, −30% → 31,49 €).
 
 ---
 

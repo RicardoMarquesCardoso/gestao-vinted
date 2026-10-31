@@ -440,7 +440,9 @@ export interface LinhaPromo {
    * set); 'pvp' = PVP × (1 − desconto geral da promoção).
    */
   origemPreco: 'loja' | 'desconto' | 'pvp' | null;
-  /** Desconto sobre o PVP a que corresponde o preço (fração), se houver PVP. */
+  /** Preço na loja antes do desconto extra (cartão); igual a "preco" quando não há extra. */
+  precoLoja: number | null;
+  /** Desconto total sobre o PVP a que corresponde o preço final, com o extra (fração), se houver PVP. */
   descontoAplicado: number | null;
   precos: PrecosCompra;
   /** Melhor escalão que o preço da promoção cumpre (null = não compensa). */
@@ -463,11 +465,14 @@ const descontoPara = (pvp: number | null, precoMax: number | undefined) =>
 /**
  * Avalia uma lista de sets numa promoção. Para cada set:
  *   - PVP (preço original): o indicado pela loja (opcoes.pvps), senão o da Brickset;
- *   - preço final, por esta ordem:
+ *   - preço na loja, por esta ordem:
  *       1. o preço final da lista (opcoes.precos); um preço absurdo face ao PVP (menos de 20% ou
  *          mais de 105%, quase de certeza lido mal) é ignorado;
  *       2. PVP × (1 − desconto do set) (opcoes.descontos), porque cada set pode ter o seu;
- *       3. PVP × (1 − desconto geral da promoção).
+ *       3. PVP × (1 − desconto geral da lista), ou o próprio PVP se não houver desconto;
+ *   - preço final = preço na loja × (1 − desconto extra) (opcoes.extra): promoções que a lista
+ *     não mostra e valem para tudo, ex.: 10% em cartão no Continente (100 € a −30% = 70 €, e com
+ *     os 10% do cartão fica 63 €). É o "desconto extra" do ecrã.
  */
 export function avaliarPromocao(
   sets: string[],
@@ -479,8 +484,11 @@ export function avaliarPromocao(
     precos?: Record<string, number | null | undefined>;
     descontos?: Record<string, number | null | undefined>;
     pvps?: Record<string, number | null | undefined>;
+    /** Desconto extra sobre o preço na loja (fração), ex.: 0,1 = 10% em cartão. */
+    extra?: number;
   } = {},
 ): LinhaPromo[] {
+  const extra = Math.min(Math.max(opcoes.extra ?? 0, 0), 0.9);
   const linhas = sets.map((set): LinhaPromo => {
     const tema = opcoes.tema?.(set) ?? null;
     const precos = precosCompra({ set, tema, ebayAoVivo: opcoes.ebayAoVivo?.(set) ?? null }, ctx);
@@ -492,12 +500,17 @@ export function avaliarPromocao(
     const dSet = opcoes.descontos?.[set] ?? null;
     const dSetValido = dSet !== null && dSet > 0 && dSet <= 0.9;
     const aPvp = (d: number) => (pvp && d > 0 ? Math.round(pvp * (1 - d) * 100) / 100 : null);
-    const preco = lojaValido ? daLoja : dSetValido ? aPvp(dSet) : aPvp(desconto);
+    // Preço na loja (sem desconto nenhum, é o PVP) e preço final com o desconto extra
+    const precoLoja = lojaValido ? daLoja : dSetValido ? aPvp(dSet) : desconto > 0 ? aPvp(desconto) : pvp;
+    const preco = precoLoja ? Math.round(precoLoja * (1 - extra) * 100) / 100 : null;
     const origemPreco = lojaValido ? ('loja' as const) : !preco ? null : dSetValido ? ('desconto' as const) : ('pvp' as const);
     const descontoAplicado = preco && pvp ? Math.round((1 - preco / pvp) * 1000) / 1000 : null;
-    const base = { set, tema, pvp, pvpOrigem, preco, origemPreco, descontoAplicado, precos, descontoMinimo: descontoPara(pvp, precos.escaloes.find((e) => e.nome === 'bom')?.precoMax) };
+    // "Compensa a partir de": desconto da loja sobre o PVP que, já com o extra, chega ao preço máximo
+    const precoMaxBom = precos.escaloes.find((e) => e.nome === 'bom')?.precoMax;
+    const descontoMinimo = descontoPara(pvp ? pvp * (1 - extra) : null, precoMaxBom);
+    const base = { set, tema, pvp, pvpOrigem, preco, precoLoja, origemPreco, descontoAplicado, precos, descontoMinimo };
     if (!preco)
-      return { ...base, escalao: null, comprar: 0, lucro: null, margem: null, margemSegura: null, rentabAnual: null, motivo: pvp ? 'Sem preço: indica o desconto.' : 'Sem preço nem PVP (na lista ou na Brickset).' };
+      return { ...base, escalao: null, comprar: 0, lucro: null, margem: null, margemSegura: null, rentabAnual: null, motivo: 'Sem preço nem PVP (na lista ou na Brickset).' };
     if (!precos.venda) return { ...base, escalao: null, comprar: 0, lucro: null, margem: null, margemSegura: null, rentabAnual: null, motivo: 'Sem dados para estimar o preço de venda.' };
     const venda = precos.venda.preco;
     const lucro = venda - preco;
@@ -508,7 +521,10 @@ export function avaliarPromocao(
     const e = precos.escaloes.find((x) => preco <= x.precoMax) ?? null;
     let motivo: string;
     const aPartir = base.descontoMinimo !== null ? ` Compensa a partir de ${Math.round(base.descontoMinimo * 100)}%.` : ' Não compensa com nenhum desconto.';
-    if (!e) motivo = (lucro <= 0 ? 'Vende-se por menos do que custa na promoção.' : `Lucro de ${Math.round(margem * 100)}%: pouco.`) + aPartir;
+    // Sem escalão: ou o lucro é pouco em %, ou é boa % mas poucos euros (não vale uma das 30 vendas por ano)
+    const margemVender = regrasPlano(ctx.dados.definicoes).margemVender;
+    const pouco = margem >= margemVender ? `Só ~${Math.round(lucro)} € de lucro: não vale uma das 30 vendas do ano.` : `Lucro de ${Math.round(margem * 100)}%: pouco.`;
+    if (!e) motivo = (lucro <= 0 ? 'Vende-se por menos do que custa na promoção.' : pouco) + aPartir;
     else if (e.comprar === 0) motivo = e.limite ?? 'Não comprar.';
     else motivo = e.limite ?? '';
     return { ...base, escalao: e?.nome ?? null, comprar: e?.comprar ?? 0, lucro, margem, margemSegura, rentabAnual, motivo };

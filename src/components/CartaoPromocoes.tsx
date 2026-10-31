@@ -1,13 +1,14 @@
 // Cartão "Promoções" do Painel: as listas de promoções recebidas automaticamente de outra app
 // (lib/promocoes.ts) que ainda não foram vistas, com quantos sets compensam em cada uma.
-// Tocar numa promoção abre o Vale a pena? → Promoção da loja já preenchido; o ✕ dispensa-a.
+// Conta já com o desconto extra da loja (ex.: 10% em cartão no Continente).
+// Tocar numa promoção abre o Vale a pena? → Promoção da loja nessa loja; o ✕ dispensa-a.
 // Só aparece quando há promoções novas (o catálogo e os dados de mercado só se carregam então).
 
 import { useMemo } from 'react';
 import { avaliarPromocao } from '../lib/avaliar';
 import { fmtDataHora, fmtEuro, hoje, plural } from '../lib/format';
 import { useMercado } from '../lib/investimento';
-import { CHAVE_PROMOCOES_VISTAS, descontoDe, promocoesNovas, promocoesVistas, setsDaPromocao } from '../lib/promocoes';
+import { CHAVE_PROMOCOES_VISTAS, descontoDe, extraPadrao, promocoesNovas, promocoesVistas, setsDaPromocao } from '../lib/promocoes';
 import type { Promocao } from '../lib/promocoes';
 import { navegar } from '../router';
 import { useDados } from '../state';
@@ -31,7 +32,7 @@ function ListaPromocoes({ novas }: { novas: Promocao[] }) {
     () =>
       novas.map((p) => {
         const { sets, precos, descontos, pvps } = setsDaPromocao(p, (n) => !!mercado?.brickset[n] || !!catalogo(n));
-        const linhas = mercado ? avaliarPromocao(sets, descontoDe(p), { dados, mercado, hoje: h }, { tema: (n) => catalogo(n)?.tema, precos, descontos, pvps }) : [];
+        const linhas = mercado ? avaliarPromocao(sets, descontoDe(p), { dados, mercado, hoje: h }, { tema: (n) => catalogo(n)?.tema, precos, descontos, pvps, extra: extraPadrao(p.loja) }) : [];
         const comprar = linhas.filter((l) => l.comprar > 0);
         return { p, sets: sets.length, comprar: comprar.length, total: comprar.reduce((a, l) => a + l.comprar * (l.preco ?? 0), 0), pronto: !!mercado };
       }),

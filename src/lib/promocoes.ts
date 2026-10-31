@@ -19,6 +19,25 @@ export const CHAVE_TOKEN_PROMOCOES = 'token_promocoes';
 /** Durante quantos dias uma promoção sem data de fim aparece no Painel. */
 export const DIAS_PROMOCAO_NOVA = 7;
 
+/**
+ * Desconto extra por defeito em cada loja (%), para promoções que a lista não mostra e valem para
+ * tudo: ex.: o Continente dá 10% em cartão. Aplica-se sobre o preço final de cada set e pode
+ * mudar-se no ecrã quando houver uma promoção melhor (pedido do Ricardo).
+ */
+export const EXTRA_POR_LOJA: Record<string, number> = { continente: 10 };
+
+const chaveLoja = (loja: string) => loja.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+/** Desconto extra por defeito de uma loja, em fração (Continente → 0,1). */
+export const extraPadrao = (loja: string | null | undefined) => (loja ? (EXTRA_POR_LOJA[chaveLoja(loja)] ?? 0) / 100 : 0);
+
+/** Lojas com listas recebidas e a lista mais recente de cada uma (a mais recente primeiro). */
+export function lojasRecebidas(defs: Definicao[]): { loja: string; ultima: Promocao }[] {
+  const vistas = new Map<string, { loja: string; ultima: Promocao }>();
+  for (const p of promocoesRecebidas(defs)) if (!vistas.has(chaveLoja(p.loja))) vistas.set(chaveLoja(p.loja), { loja: p.loja, ultima: p });
+  return [...vistas.values()];
+}
+
 export interface Promocao {
   id: string;
   recebida: string; // data e hora (ISO)

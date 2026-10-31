@@ -253,7 +253,7 @@ test('promoção com preços da loja: usa o preço da lista e ignora preços abs
   const a = r.find((l) => l.set === '11111')!;
   assert.deepEqual([a.preco, a.origemPreco, a.escalao], [60, 'loja', 'rara']); // vende-se a 110: "rara" até 110 ÷ 1,75 = 62,5
   const b = r.find((l) => l.set === '22222')!;
-  assert.deepEqual([b.preco, b.origemPreco], [null, null]); // 5 € para PVP 100 € → lido mal; sem desconto não há preço
+  assert.deepEqual([b.preco, b.origemPreco], [100, 'pvp']); // 5 € para PVP 100 € → lido mal; sem desconto fica ao PVP
   // Cada set com o seu desconto; sem preço nem desconto próprio, o desconto geral (20%)
   const r2 = avaliarPromocao(['11111', '22222'], 0.2, ctx, { descontos: { '11111': 0.4 } });
   const a2 = r2.find((l) => l.set === '11111')!;
@@ -263,4 +263,19 @@ test('promoção com preços da loja: usa o preço da lista e ignora preços abs
   // PVP da loja (120 €) em vez do da Brickset (100 €): o desconto aplica-se sobre o da loja
   const r3 = avaliarPromocao(['11111'], 0, ctx, { pvps: { '11111': 120 }, descontos: { '11111': 0.5 } });
   assert.deepEqual([r3[0].pvp, r3[0].pvpOrigem, r3[0].preco, r3[0].descontoAplicado], [120, 'loja', 60, 0.5]);
+});
+
+test('desconto extra (ex.: 10% em cartão) sobre o preço final de cada set', () => {
+  const brickset = { '11111': ['2025-01-01', '2027-12-31', 100, null, null] };
+  const produtos = [produto({ id: 'a', set_numero: '11111' }), produto({ id: 'grande', set_numero: '99999', estado: 'por_anunciar', preco_compra: 5000 })];
+  const vendas = [venda({ id: 'va', produto_id: 'a', preco_venda: 90 })];
+  const ctx = { dados: { produtos, vendas, definicoes: [] }, mercado: mercado({ brickset: brickset as never }), hoje: HOJE };
+  // 100 € a −30% = 70 €; com 10% do cartão = 63 € (o exemplo do Ricardo)
+  const [l] = avaliarPromocao(['11111'], 0, ctx, { descontos: { '11111': 0.3 }, extra: 0.1 });
+  assert.deepEqual([l.precoLoja, l.preco, l.descontoAplicado], [70, 63, 0.37]);
+  // Vende-se a 90: "bom" até 75 €. Com o extra de 10%, basta 17% da loja (100 × 0,83 × 0,9 = 74,7)
+  assert.equal(l.descontoMinimo, 0.17);
+  // Sem desconto na lista, o extra aplica-se ao PVP
+  const [s0] = avaliarPromocao(['11111'], 0, ctx, { extra: 0.1 });
+  assert.deepEqual([s0.precoLoja, s0.preco], [100, 90]);
 });

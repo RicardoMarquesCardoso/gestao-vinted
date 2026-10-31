@@ -2,7 +2,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { descontoDe, promocoesNovas, setsDaPromocao } from '../src/lib/promocoes.ts';
+import { descontoDe, extraPadrao, lojasRecebidas, promocoesNovas, setsDaPromocao } from '../src/lib/promocoes.ts';
 import type { Promocao } from '../src/lib/promocoes.ts';
 
 const existe = (n: string) => ['75375', '42151', '10280'].includes(n);
@@ -52,4 +52,16 @@ test('promoções novas: válidas ou recebidas há até 7 dias, e não dispensad
   assert.deepEqual(promocoesNovas(defs, '2026-10-30').map((p) => p.id), ['a', 'c']);
   assert.equal(descontoDe({ ...lista[0], desconto: 25 }), 0.25);
   assert.equal(descontoDe(lista[0]), 0);
+});
+
+test('lojas: a lista mais recente de cada uma, e o extra por defeito (Continente 10%)', () => {
+  const lista: Promocao[] = [
+    { id: 'c2', recebida: '2026-10-31T09:00:00Z', loja: 'Continente' },
+    { id: 'f1', recebida: '2026-10-30T09:00:00Z', loja: 'Fnac' },
+    { id: 'c1', recebida: '2026-10-29T09:00:00Z', loja: 'continente' },
+  ];
+  const defs = [{ chave: 'promocoes', valor: lista as never }];
+  assert.deepEqual(lojasRecebidas(defs).map((x) => [x.loja, x.ultima.id]), [['Continente', 'c2'], ['Fnac', 'f1']]);
+  assert.equal(extraPadrao('Continente'), 0.1);
+  assert.equal(extraPadrao('Fnac'), 0);
 });
