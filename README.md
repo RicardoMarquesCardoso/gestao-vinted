@@ -468,6 +468,7 @@ Se o eBay recusar as chaves, a tarefa não falha: grava o motivo em `ebay_erro` 
 
 - **Duas versões de cada fotografia** no Storage do Supabase (bucket `fotos`): a **original** com boa qualidade (até 2048 px, JPEG 90%, ~0,5–1 MB), para partilhar ou descarregar, e a **miniatura** (400 px, ~30 KB, mesmo caminho com `.min.jpg`), que é a que a app mostra. No produto (`produtos.fotos`) fica só o caminho da original.
 - **Porquê:** o plano grátis do Supabase tem 1 GB de espaço e **5 GB de tráfego por mês**. As miniaturas poupam o tráfego; as originais só se descarregam ao partilhar. Em out/2026 havia 20 fotografias (5,6 MB). Fotografias antigas, sem miniatura, ganham-na sozinhas da primeira vez que são vistas.
+- **Adicionar** (`AdicionarFotos`): botão com ícone à **esquerda das fotos** no detalhe do produto (sem fotos, por baixo da imagem de referência). Abre o seletor do telemóvel (tirar foto ou escolher da galeria) e aceita várias de uma vez. Por baixo ficam os links do set: Vinted e Vendidos no eBay (com a condição do produto), Brickset e LEGO.
 - **Partilhar / Descarregar**: botões com ícones e legenda **ao lado das fotos** no detalhe do produto (e na janela Anunciar); a foto e as etiquetas ficam centradas no ecrã.
   - **No iPhone há um só botão, "Guardar"**: abre o menu de partilha do iOS, onde se escolhe *Guardar imagens* (vão para a galeria). A app da Vinted não aparece nesse menu (não recebe fotos de outras apps), e "descarregar" no iPhone só guardaria em Ficheiros. Depois, no anúncio da Vinted, escolhem-se as fotos da galeria (são as mais recentes). Só as **fotos nossas** (`produtos.fotos`), nunca as imagens genéricas da Brickset/TCGplayer. No telemóvel, *Partilhar* abre o menu de partilha do sistema com as originais (Vinted, WhatsApp, galeria…); *Descarregar* grava cada uma como ficheiro (`LEGO 76303 Tumbler Batman - 1.jpg`).
   - **Partilha em dois tempos:** o telemóvel só abre o menu de partilha logo a seguir a um toque. Se as fotos ainda tiverem de ser descarregadas, quando chegam o toque já expirou e o telemóvel recusa. Por isso o 1.º toque prepara as fotos (e tenta partilhar); se for recusado, o botão fica destacado e aparece "toca outra vez", e o 2.º toque partilha logo.
@@ -506,7 +507,7 @@ src/
     sample.ts               dados de exemplo
   components/               peças de interface
     ui.tsx                  janela, campos, listas, cartões, fotografias, logo…
-    fotos.tsx               partilhar/descarregar fotografias e limpeza das dos produtos vendidos
+    fotos.tsx               adicionar, partilhar e descarregar fotografias e limpeza das dos produtos vendidos
     acoes.tsx               abrir janelas a partir de qualquer ecrã (+ botão voltar)
     planos.tsx              "O que fazer", sinal dos produtos (semáforo), janela do plano, preço Pokémon
     catalogo.ts             sugestões e catálogo oficial de sets

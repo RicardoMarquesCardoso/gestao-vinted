@@ -561,11 +561,12 @@ export function urlVinted(set: string, novo = true): string {
 /**
  * Anúncios já vendidos do set no eBay, vendidos na Europa, só novos. Filtros iguais à pesquisa que
  * o Ricardo usa: ebay.com, LH_Sold=1 (vendidos) e LH_PrefLoc=5 (localização: Europa); mais
- * LH_ItemCondition=1000 (novo), porque estamos a avaliar compras de sets novos.
+ * LH_ItemCondition=1000 (novo), porque estamos a avaliar compras de sets novos (novo = false: todos,
+ * para produtos usados).
  */
-export function urlEbayVendidos(set: string): string {
+export function urlEbayVendidos(set: string, novo = true): string {
   const q = encodeURIComponent(`lego ${numeroBase(set)}`).replace(/%20/g, '+');
-  return `https://www.ebay.com/sch/i.html?_nkw=${q}&_sacat=0&LH_Sold=1&LH_Complete=1&LH_PrefLoc=5&LH_ItemCondition=1000&rt=nc`;
+  return `https://www.ebay.com/sch/i.html?_nkw=${q}&_sacat=0&LH_Sold=1&LH_Complete=1&LH_PrefLoc=5${novo ? '&LH_ItemCondition=1000' : ''}&rt=nc`;
 }
 
 /** Sets que acompanhamos sem os ter (a tarefa diária vai buscar o eBay deles): definicoes.sets_avaliar. */

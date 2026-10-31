@@ -4,9 +4,9 @@
 // uma), e "Em stock" lista os exemplares desse set que ainda estão por vender.
 
 import { LinhaPlano, LinhaPokemon } from './planos';
-import { PartilharFotos } from './fotos';
+import { AdicionarFotos, PartilharFotos } from './fotos';
 import { ehPokemon } from '../lib/plano';
-import { urlVinted } from '../lib/avaliar';
+import { urlEbayVendidos, urlVinted } from '../lib/avaliar';
 import { produtoNovo } from '../lib/anuncio';
 import { custoTotalProduto, custoUnitario, diasEntre, emInventario, liquidoVenda, lucroVenda, unidadesDisponiveis } from '../lib/calc';
 import { fmtData, fmtEuro, fmtMesAno, hoje } from '../lib/format';
@@ -61,7 +61,7 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
         novas.push(await store.enviarFoto(p.id, original, miniatura));
       }
       await guardar('produtos', [{ ...p, fotos: [...p.fotos, ...novas] }]);
-      aviso('Fotografia adicionada.');
+      aviso(novas.length === 1 ? 'Fotografia adicionada.' : `${novas.length} fotografias adicionadas.`);
     } catch (e) {
       aviso(`Não foi possível enviar a fotografia: ${e instanceof Error ? e.message : e}`, 'erro');
     } finally {
@@ -79,10 +79,6 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
           <button className="btn" title="Editar" aria-label="Editar" onClick={() => abrir({ tipo: 'produto', id: p.id })}>
             ✏️
           </button>
-          <label className="btn">
-            <input type="file" accept="image/*" capture="environment" hidden onChange={(e) => adicionarFoto(e.target.files)} />
-            {aEnviar ? '…' : '📷'}
-          </label>
           <span className="espaco" />
           {p.estado === 'por_anunciar' && (
             <button className="btn" onClick={() => abrir({ tipo: 'anunciar', ids: [p.id] })}>
@@ -104,6 +100,8 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
     >
       {p.fotos.length > 0 && (
         <div className="fotos-com-acoes">
+          {/* À esquerda: adicionar fotografias (câmara ou galeria) */}
+          <AdicionarFotos aEnviar={aEnviar} enviar={adicionarFoto} />
           <div className="fotos-galeria">
             {p.fotos.map((r) => (
               <Foto key={r} refFoto={r} alt={p.nome} />
@@ -116,13 +114,7 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
       {p.fotos.length === 0 && urlReferencia(p) && (
         <figure className="referencia">
           <ImagemReferencia url={urlReferencia(p, true)} alt={`Set ${p.set_numero}`} className="referencia-img" />
-          <figcaption className="mudo">
-            Imagem de referência do set ·{' '}
-            <a href={`https://www.lego.com/pt-pt/search?q=${encodeURIComponent(p.set_numero ?? '')}`} target="_blank" rel="noreferrer">site da LEGO</a> ·{' '}
-            <a href={`https://brickset.com/sets/${encodeURIComponent(p.set_numero ?? '')}-1`} target="_blank" rel="noreferrer">Brickset</a> ·{' '}
-            {/* Pesquisa deste set na Vinted, mais baratos primeiro, mesma condição (só um link; a app não lê a Vinted) */}
-            <a href={urlVinted(p.set_numero ?? '', produtoNovo(p))} target="_blank" rel="noreferrer">Vinted</a>
-          </figcaption>
+          <figcaption className="mudo">Imagem de referência do set</figcaption>
         </figure>
       )}
       {/* Pokémon: imagem do produto no TCGplayer (se já se sabe qual é); some se não carregar */}
@@ -131,6 +123,22 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
           <ImagemReferencia url={imagemReferencia(p, true)} alt={p.nome} className="referencia-img" />
           <figcaption className="mudo">Imagem de referência · TCGplayer</figcaption>
         </figure>
+      )}
+      {/* Links para ver o set noutros sites (só links; a app não lê nada desses sites). Vinted e eBay
+          vendidos na Europa, com a mesma condição do produto (novo → só novos). */}
+      {urlReferencia(p) && p.set_numero && (
+        <p className="links-set mudo">
+          <a href={urlVinted(p.set_numero, produtoNovo(p))} target="_blank" rel="noreferrer">Vinted</a> ·{' '}
+          <a href={urlEbayVendidos(p.set_numero, produtoNovo(p))} target="_blank" rel="noreferrer">Vendidos no eBay</a> ·{' '}
+          <a href={`https://brickset.com/sets/${encodeURIComponent(p.set_numero)}-1`} target="_blank" rel="noreferrer">Brickset</a> ·{' '}
+          <a href={`https://www.lego.com/pt-pt/search?q=${encodeURIComponent(p.set_numero)}`} target="_blank" rel="noreferrer">LEGO</a>
+        </p>
+      )}
+      {/* Sem fotografias nossas: botão para adicionar, por baixo da imagem de referência */}
+      {p.fotos.length === 0 && (
+        <div className="sem-fotos-adicionar">
+          <AdicionarFotos aEnviar={aEnviar} enviar={adicionarFoto} />
+        </div>
       )}
       {oficial && compararNomes(p.nome, oficial.nome) !== 'igual' && !lista(CHAVE_MANTIDOS).includes((p.set_numero ?? '').trim()) && (
         <div className={`sugestao-nome ${talvez.length ? 'sugestao-alerta' : ''}`}>

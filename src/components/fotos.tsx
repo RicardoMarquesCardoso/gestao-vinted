@@ -1,5 +1,7 @@
 // Fotografias: partilhar/descarregar as de um produto e limpar as dos produtos vendidos.
 //
+// - AdicionarFotos: botão "Adicionar" (à esquerda das fotos) para enviar fotografias novas: no
+//   telemóvel deixa escolher entre tirar uma foto e escolher da galeria, e aceita várias de uma vez.
 // - PartilharFotos: botões com ícones de partilhar e descarregar, ao lado das fotos do produto.
 //   Só as fotos NOSSAS (nunca as imagens genéricas). No telemóvel, partilhar abre o menu de
 //   partilha do sistema com as originais (boa qualidade), e daí escolhe-se a Vinted, o WhatsApp,
@@ -51,6 +53,41 @@ const IconeDescarregar = () => (
     <path d="M5 21h14" />
   </svg>
 );
+
+const IconeAdicionar = () => (
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M4 8a2 2 0 0 1 2-2h2l1.5-2h5L16 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" />
+    <path d="M12 10v6" />
+    <path d="M9 13h6" />
+  </svg>
+);
+
+/**
+ * Botão para acrescentar fotografias ao produto (ícone de máquina com "+", e "Adicionar" por baixo).
+ * É uma <label> com o <input type="file"> lá dentro: tocar abre o seletor do telemóvel ("Tirar
+ * foto" ou "Biblioteca de fotografias"). Sem o atributo capture, para não obrigar a usar a câmara.
+ */
+export function AdicionarFotos({ aEnviar, enviar }: { aEnviar: boolean; enviar(ficheiros: FileList | null): void }) {
+  return (
+    <div className="acoes-fotos acoes-fotos-esquerda">
+      <label className={`acao-foto ${aEnviar ? 'desativado' : ''}`} title="Adicionar fotografias" aria-label="Adicionar fotografias">
+        <input
+          type="file"
+          accept="image/*"
+          multiple
+          hidden
+          disabled={aEnviar}
+          onChange={(e) => {
+            enviar(e.target.files);
+            e.target.value = ''; // para se poder escolher a mesma foto outra vez
+          }}
+        />
+        <span className="btn-redondo btn-redondo-primario">{aEnviar ? <span className="a-rodar">↻</span> : <IconeAdicionar />}</span>
+        <small>{aEnviar ? 'A enviar…' : 'Adicionar'}</small>
+      </label>
+    </div>
+  );
+}
 
 /**
  * Botões de partilhar e descarregar as fotografias NOSSAS de um produto (p.fotos). As imagens
