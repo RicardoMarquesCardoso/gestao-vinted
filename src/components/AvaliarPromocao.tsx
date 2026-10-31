@@ -14,6 +14,10 @@
 // unidades, a diversificar (por set e por tema), e a partir de que desconto passaria a compensar.
 // Mostram-se primeiro os que compensam e os que têm desconto; os outros ficam escondidos.
 //
+// TOCAR NUM SET abre o detalhe dele (components/DetalheSet.tsx) numa janela: o preço da promoção,
+// os escalões, de onde vem o preço de venda e as nossas vendas do set. É calculado na hora com o
+// que a app já tem, por isso não se guarda nada.
+//
 // A app não abre o link da loja: ler páginas de outros sites é bloqueado pelo browser e, num
 // servidor, seria recolha automática (termos de uso).
 
@@ -28,6 +32,7 @@ import { useDados } from '../state';
 import { useCatalogoSets } from './catalogo';
 import { precoEbay, useEbayVivo } from './ebayVivo';
 import { Cartao } from './ui';
+import { useAbrir } from './acoes';
 
 const NOME_ESCALAO: Record<NomeEscalao, string> = { rara: 'oportunidade rara', otimo: 'muito bom', bom: 'bom' };
 /** Valor do seletor para escrever/colar uma lista à mão. */
@@ -36,6 +41,7 @@ const pct = (x: number) => String(Math.round(x * 1000) / 10).replace('.', ',');
 
 export function AvaliarPromocao({ idInicial }: { idInicial?: string }) {
   const { dados, store, guardar, lista, aviso } = useDados();
+  const abrir = useAbrir();
   const mercado = useMercado();
   const catalogo = useCatalogoSets();
   const lojas = lojasRecebidas(dados.definicoes);
@@ -177,7 +183,29 @@ export function AvaliarPromocao({ idInicial }: { idInicial?: string }) {
           </p>
           <ul className="lista-simples avaliar-promo">
             {visiveis.map((l) => (
-              <LinhaSet key={l.set} l={l} nome={catalogo(l.set)?.nome} />
+              <LinhaSet
+                key={l.set}
+                l={l}
+                nome={catalogo(l.set)?.nome}
+                abrir={() =>
+                  abrir({
+                    tipo: 'set',
+                    set: l.set,
+                    promo: {
+                      loja: loja || 'Lista',
+                      preco: l.preco,
+                      precoLoja: l.precoLoja,
+                      descontoAplicado: l.descontoAplicado,
+                      lucro: l.lucro,
+                      margem: l.margem,
+                      comprar: l.comprar,
+                      escalao: l.escalao,
+                      descontoMinimo: l.descontoMinimo,
+                      motivo: l.motivo ?? null,
+                    },
+                  })
+                }
+              />
             ))}
           </ul>
           {escondidos > 0 && (
@@ -202,11 +230,11 @@ export function AvaliarPromocao({ idInicial }: { idInicial?: string }) {
 }
 
 /** Uma linha: bolinha do escalão, nome, preço (na loja → final) → venda esperada, lucro e quantas comprar. */
-function LinhaSet({ l, nome }: { l: LinhaPromo; nome?: string }) {
+function LinhaSet({ l, nome, abrir }: { l: LinhaPromo; nome?: string; abrir(): void }) {
   const classe = l.comprar > 0 && l.escalao ? `avaliar-${l.escalao}` : 'avaliar-nao';
   const comExtra = l.precoLoja !== null && l.preco !== null && l.preco < l.precoLoja;
   return (
-    <li className={`avaliar-escalao ${classe}`}>
+    <li className={`avaliar-escalao ${classe} clicavel`} onClick={abrir} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && abrir()}>
       <span className="avaliar-bolinha" aria-hidden="true" />
       <span className="linha-principal">
         <span className="truncar">

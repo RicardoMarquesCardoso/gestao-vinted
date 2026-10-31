@@ -819,3 +819,7 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .codigo { background: var(--superficie-2); border-radius: 8px; padding: 10px 12px; font-size: 0.8rem; overflow-x: auto; white-space: pre; margin: 8px 0; }
 .segmentos-lojas { margin-bottom: 8px; }
 .texto-conta { display: grid; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--linha, #e6e2d8); }
+/* Linhas da promoção: tocar abre o detalhe do set */
+.avaliar-promo .clicavel { cursor: pointer; }
+.avaliar-promo .clicavel:active { background: var(--fundo-suave, rgba(0,0,0,.04)); }
+.avaliar-promo .clicavel::after { content: '›'; color: var(--mudo, #8a8578); font-size: 1.2em; margin-left: 4px; }

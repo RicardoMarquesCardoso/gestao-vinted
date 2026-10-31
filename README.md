@@ -351,6 +351,8 @@ Mostra ainda quantas vendas cabem este ano nas contas ativas (30 por conta) e de
 
 #### Promoção da loja (modo do mesmo ecrã, `components/AvaliarPromocao.tsx`, `avaliarPromocao`)
 
+Tocar num set da lista abre o mesmo detalhe do modo "Um set" (`components/DetalheSet.tsx`, `JanelaSet`), com o preço da promoção no topo e as nossas vendas desse set. É calculado na hora com o que a app já tem carregado (vendas, `mercado-sets.json`, catálogo, eBay ao vivo em memória): não se guarda nada e fechar a janela descarta tudo.
+
 - **Escolhe-se a loja** (botões com as lojas que já enviaram listas, ex.: *Continente*) e a app mostra a **lista mais recente dessa loja** (`lojasRecebidas`). *Outra lista* deixa colar uma lista à mão: os números, ou o texto copiado da página da loja; `extrairItens` encontra os sets, os preços e as percentagens (ignora códigos de barras e números que não são sets).
 - **Desconto extra** (pedido do Ricardo): promoções que a lista não mostra e valem para tudo, ex.: **10% em cartão no Continente**. Aplica-se sobre o preço de cada set: 100 € a −30% = 70 €, e com os 10% do cartão fica **63 €**. Vem preenchido com o valor da loja (`EXTRA_POR_LOJA` em `lib/promocoes.ts`: Continente 10%) e pode mudar-se quando houver uma promoção melhor. Numa lista colada sem preços, é o desconto da loja sobre o PVP.
 
@@ -519,6 +521,7 @@ src/
     CabecalhoProdutos.tsx   topo e filtros do ecrã Produtos
     Graficos.tsx            gráficos de barras simples
     AvaliarPromocao.tsx     Vale a pena? → Promoção da loja (X% sobre o PVP ou preços da lista)
+    DetalheSet.tsx          Detalhe de um set (Um set, e janela ao tocar num set da promoção)
     CartaoPromocoes.tsx     Painel: promoções recebidas de outra app e quantos sets compensam
     ebayVivo.ts             eBay na hora para um ou vários sets (função ebay-set), com memória
   pages/                    ecrãs

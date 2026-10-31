@@ -17,6 +17,8 @@ import { DetalheProduto } from './DetalheProduto';
 import { FormAnunciar } from './FormAnunciar';
 import { FormVendi } from './FormVendi';
 import { FormPlano } from './planos';
+import { JanelaSet } from './DetalheSet';
+import type { PrecoPromo } from './DetalheSet';
 
 export type Acao =
   | { tipo: 'produto'; id?: string }
@@ -26,7 +28,8 @@ export type Acao =
   | { tipo: 'conta'; id?: string }
   | { tipo: 'anunciar'; ids: string[]; retirar?: boolean; preco?: number | null; unidades?: number }
   | { tipo: 'plano'; ids: string[] }
-  | { tipo: 'vendi'; ids: string[] };
+  | { tipo: 'vendi'; ids: string[] }
+  | { tipo: 'set'; set: string; promo?: PrecoPromo };
 
 const Contexto = createContext<(a: Acao) => void>(() => undefined);
 export const useAbrir = () => useContext(Contexto);
@@ -63,6 +66,7 @@ export function AcoesProvider({ children }: { children: ReactNode }) {
       {atual?.tipo === 'conta' && <FormConta key={pilha.length} id={atual.id} aoFechar={fechar} />}
       {atual?.tipo === 'vendi' && <FormVendi key={pilha.length} ids={atual.ids} aoFechar={fechar} abrirCompleto={(produtoId) => setPilha((p) => [...p.slice(0, -1), { tipo: 'venda', produtoId }])} />}
       {atual?.tipo === 'anunciar' && <FormAnunciar key={pilha.length} ids={atual.ids} retirar={atual.retirar} precoSugerido={atual.preco} unidades={atual.unidades} aoFechar={fechar} />}
+      {atual?.tipo === 'set' && <JanelaSet key={pilha.length} set={atual.set} promo={atual.promo} aoFechar={fechar} />}
       {atual?.tipo === 'plano' && <FormPlano key={pilha.length} ids={atual.ids} aoFechar={fechar} />}
     </Contexto.Provider>
   );
