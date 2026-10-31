@@ -176,16 +176,35 @@ test('vendas marcadas como fora dos limites não contam', () => {
   assert.equal(u.valorPeriodo, 30);
 });
 
-import { textoAnuncio, MODELO_PADRAO } from '../src/lib/anuncio.ts';
+import { textoAnuncio, MODELO_PADRAO, TEXTO_ALTERNATIVO } from '../src/lib/anuncio.ts';
 
 test('texto do anúncio', () => {
-  const a = textoAnuncio({ nome: 'LEGO Millennium Falcon', set_numero: '75192', tema: 'Star Wars', condicao: 'Novo e selado' }, MODELO_PADRAO);
+  const a = textoAnuncio({ nome: 'LEGO Millennium Falcon', set_numero: '75192', tema: 'Star Wars', condicao: 'Novo e selado', marca: 'LEGO' }, MODELO_PADRAO);
   assert.equal(a.titulo, 'Lego 75192 Millennium Falcon');
   assert.match(a.descricao, /^New, sealed/);
-  assert.match(a.descricao, /Carefully sent in box/);
-  const b = textoAnuncio({ nome: 'Carro', set_numero: null, tema: null, condicao: 'Usado completo' }, MODELO_PADRAO);
+  assert.match(a.descricao, /New and sealed Lego\n/);
+  const b = textoAnuncio({ nome: 'Carro', set_numero: null, tema: null, condicao: 'Usado completo', marca: 'LEGO' }, MODELO_PADRAO);
   assert.equal(b.titulo, 'Lego Carro');
   assert.match(b.descricao, /^Used/);
+});
+
+test('texto do anúncio: a marca do produto, não sempre "Lego"', () => {
+  const p = { nome: '30th Celebration Poster Collection', set_numero: null, tema: null, condicao: null, marca: 'Pokémon' };
+  const t = textoAnuncio(p, MODELO_PADRAO);
+  assert.equal(t.titulo, 'Pokémon 30th Celebration Poster Collection');
+  assert.match(t.descricao, /I have other Pokémon items on my page/);
+  assert.doesNotMatch(t.descricao + t.titulo, /Lego/);
+  // Nome que já começa pela marca não a repete
+  assert.equal(textoAnuncio({ ...p, nome: 'Pokémon Day 2026' }, MODELO_PADRAO).titulo, 'Pokémon Day 2026');
+});
+
+test('texto do anúncio: descrição própria de uma conta', () => {
+  const m = { ...MODELO_PADRAO, contas: { rm1: { novo: TEXTO_ALTERNATIVO.novo, usado: '' } } };
+  const p = { nome: 'Tumbler', set_numero: '76303', tema: null, condicao: null, marca: 'LEGO' };
+  assert.match(textoAnuncio(p, m, 'rm1').descricao, /^Brand new and factory sealed/);
+  assert.match(textoAnuncio(p, m, 'rm1').descricao, /More Lego on my profile/);
+  assert.match(textoAnuncio(p, m, 'outra').descricao, /^New, sealed/); // sem texto próprio: o geral
+  assert.match(textoAnuncio({ ...p, condicao: 'Usado' }, m, 'rm1').descricao, /^Used/); // usado vazio: o geral
 });
 
 import { atualizarPeriodos, diasAnunciado } from '../src/lib/anuncios.ts';

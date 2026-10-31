@@ -107,7 +107,7 @@ export function FormAnunciar({ ids, retirar, precoSugerido, unidades, aoFechar }
           </Campo>
         )}
       </div>
-      {!retirar && <TextoVinted produto={candidatos[0]} />}
+      {!retirar && <TextoVinted produto={candidatos[0]} contaId={conta} />}
       {/* As fotografias do produto, para pôr no anúncio (Partilhar → Vinted, ou Descarregar) */}
       {!retirar && candidatos[0].fotos.length > 0 && (
         <div className="texto-vinted">
@@ -119,10 +119,10 @@ export function FormAnunciar({ ids, retirar, precoSugerido, unidades, aoFechar }
   );
 }
 
-/** Título e descrição prontos a copiar para a Vinted. */
-function TextoVinted({ produto }: { produto: Produto }) {
+/** Título e descrição prontos a copiar para a Vinted (com a descrição própria da conta, se tiver). */
+function TextoVinted({ produto, contaId }: { produto: Produto; contaId: string }) {
   const { dados, aviso } = useDados();
-  const t = textoAnuncio(produto, modeloAnuncio(dados.definicoes));
+  const t = textoAnuncio(produto, modeloAnuncio(dados.definicoes), contaId);
   async function copiar(texto: string, o: string) {
     try {
       await navigator.clipboard.writeText(texto);

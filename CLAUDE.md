@@ -44,6 +44,10 @@ Guardar os dados que permitam estas análises desde já, mesmo que ainda não ap
   - **Sinal nos cartões** (`sinais()`): bolinha verde (a correr) / amarela (há ação) / azul (guardado) / vermelha (anunciado > 60 dias ou prazo acabou) + uma linha com a próxima ação, em vez de etiquetas. Decisão do Ricardo: a interface deve ter sempre harmonia e o mínimo de etiquetas.
   - Regras editáveis em Definições (`regras_plano`). Decisões manuais em `planos` (por set + condição). Tarefas adiadas em `tarefas_adiadas`.
 
+## Texto dos anúncios
+
+- `src/lib/anuncio.ts`: marcadores `{marca}` (nunca "Lego" fixo), `{numero}`, `{nome}`, `{tema}`. Descrição própria por conta em `modelo_anuncio.contas` (a RM1 tem uma diferente das da Cass).
+
 ## Fotografias
 
 - Storage do Supabase (bucket `fotos`), **plano grátis: 1 GB e 5 GB de tráfego/mês**. Cada fotografia tem a original (2048 px, 90%) e a miniatura (`.min.jpg`, 400 px); a app mostra a miniatura e só descarrega a original para partilhar/descarregar (`src/lib/fotos.ts`, `components/fotos.tsx`). Botões com ícones ao lado das fotos (foto e etiquetas centradas), só para fotos nossas. No iPhone só "Guardar" (menu de partilha → Guardar imagens; a Vinted não recebe fotos partilhadas no iOS). `navigator.share` tem de ser chamado logo a seguir ao toque: se as fotos ainda não estão preparadas, o 1.º toque prepara e o 2.º partilha.

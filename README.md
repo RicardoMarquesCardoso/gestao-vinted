@@ -196,7 +196,7 @@ Para não ter de mudar a estrutura da base de dados a cada nova ideia, as config
 | `nomes_mantidos` | Sets em que preferimos o nosso nome ao oficial |
 | `vendas_externas` | Vendas feitas nas contas mas fora do negócio (contam só para os limites) |
 | `vendas_fora_limites` | Vendas da app que a Vinted não conta (por exemplo, canceladas lá mas pagas por fora) |
-| `modelo_anuncio` | Texto dos anúncios (título, descrição para novos e para usados) |
+| `modelo_anuncio` | Texto dos anúncios (título, descrição para novos e para usados, e `contas`: descrição própria de cada conta da Vinted) |
 | `regras_plano` | Regras das sugestões vender/guardar |
 | `planos` | Decisões manuais (vender / guardar até…) por set e condição |
 | `tarefas_adiadas` | Tarefas escondidas até uma data |
@@ -243,7 +243,7 @@ O aviso aparece aos 80%.
 
 ### Texto dos anúncios (`src/lib/anuncio.ts`)
 
-É um modelo com marcadores, como `Lego {numero} {nome}`, que são trocados pelos dados do produto. Há um texto para produtos novos e outro para usados, editáveis em Definições.
+É um modelo com marcadores, como `{marca} {numero} {nome}`, que são trocados pelos dados do produto. `{marca}` é a marca do produto ("Lego", "Pokémon"…), para um produto Pokémon não aparecer como Lego. Há um texto para produtos novos e outro para usados, editáveis em Definições. Cada conta da Vinted pode ter a sua descrição (pedido do Ricardo, para as contas não terem anúncios iguais); em branco usa a geral. A janela Anunciar mostra o texto da conta escolhida.
 
 ---
 

@@ -12,7 +12,7 @@ import { LISTAS_PADRAO } from '../lib/types';
 import { useDados } from '../state';
 import { navegar } from '../router';
 import { useCasosNomes } from './ReverNomes';
-import { CHAVE_MODELO_ANUNCIO, MODELO_PADRAO, modeloAnuncio } from '../lib/anuncio';
+import { CHAVE_MODELO_ANUNCIO, MODELO_PADRAO, TEXTO_ALTERNATIVO, modeloAnuncio } from '../lib/anuncio';
 import type { ModeloAnuncio } from '../lib/anuncio';
 import { CHAVE_REGRAS, REGRAS_PADRAO, regrasPlano } from '../lib/plano';
 import { MIN_SETS_CALIBRACAO, calibrarEbay, useMercado } from '../lib/investimento';
@@ -311,7 +311,8 @@ function CartaoTextoAnuncios() {
   return (
     <Cartao titulo="Texto dos anúncios">
       <p className="mudo">
-        Aparece ao anunciar, pronto a copiar para a Vinted. Podes usar <code>{'{numero}'}</code>, <code>{'{nome}'}</code> e <code>{'{tema}'}</code>.
+        Aparece ao anunciar, pronto a copiar para a Vinted. Podes usar <code>{'{marca}'}</code> (Lego, Pokémon…), <code>{'{numero}'}</code>,{' '}
+        <code>{'{nome}'}</code> e <code>{'{tema}'}</code>.
       </p>
       <label className="campo">
         <span className="campo-rotulo">Título</span>
@@ -325,9 +326,35 @@ function CartaoTextoAnuncios() {
         <span className="campo-rotulo">Descrição para produtos usados</span>
         <textarea rows={5} value={m.usado} onChange={(e) => setM({ ...m, usado: e.target.value })} />
       </label>
+      <details className="mais-detalhes">
+        <summary>Descrição própria de cada conta</summary>
+        <p className="mudo">Para as contas não terem anúncios com o texto igual. Em branco, a conta usa a descrição de cima.</p>
+        {dados.contas.map((c) => {
+          const tc = m.contas?.[c.id] ?? {};
+          const mudar = (k: 'novo' | 'usado', v: string) => setM({ ...m, contas: { ...m.contas, [c.id]: { ...tc, [k]: v } } });
+          return (
+            <div key={c.id} className="texto-conta">
+              <strong>{c.nome}</strong>
+              <label className="campo">
+                <span className="campo-rotulo">Novos</span>
+                <textarea rows={5} value={tc.novo ?? ''} placeholder="Usa a descrição geral" onChange={(e) => mudar('novo', e.target.value)} />
+              </label>
+              <label className="campo">
+                <span className="campo-rotulo">Usados</span>
+                <textarea rows={4} value={tc.usado ?? ''} placeholder="Usa a descrição geral" onChange={(e) => mudar('usado', e.target.value)} />
+              </label>
+              {!tc.novo && !tc.usado && (
+                <button className="btn btn-pequeno" onClick={() => setM({ ...m, contas: { ...m.contas, [c.id]: { ...TEXTO_ALTERNATIVO } } })}>
+                  Usar o texto sugerido
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </details>
       <div className="linha-botoes">
         <button className="btn btn-primario" disabled={!mudou} onClick={() => gravar(m)}>Guardar</button>
-        <button className="btn" onClick={() => setM(MODELO_PADRAO)}>Repor o texto original</button>
+        <button className="btn" onClick={() => setM({ ...MODELO_PADRAO, contas: m.contas })}>Repor o texto original</button>
       </div>
     </Cartao>
   );

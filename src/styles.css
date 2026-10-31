@@ -818,3 +818,4 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .quebrar { overflow-wrap: anywhere; }
 .codigo { background: var(--superficie-2); border-radius: 8px; padding: 10px 12px; font-size: 0.8rem; overflow-x: auto; white-space: pre; margin: 8px 0; }
 .segmentos-lojas { margin-bottom: 8px; }
+.texto-conta { display: grid; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--linha, #e6e2d8); }
