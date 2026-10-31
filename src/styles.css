@@ -795,9 +795,13 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .avaliar-nao .avaliar-bolinha { background: var(--texto-3); opacity: 0.5; }
 .avaliar-promo .linha-principal small { white-space: normal; }
 .avaliar-resultado .linha-botoes { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
-/* Partilhar / descarregar fotografias (components/fotos.tsx) */
-.partilhar-fotos { display: flex; gap: 8px; flex-wrap: wrap; margin: -6px 0 14px; }
-.texto-vinted .partilhar-fotos { margin: 0; }
+/* Partilhar / descarregar fotografias (components/fotos.tsx): ícones ao lado das fotos */
+.fotos-com-acoes { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 14px; }
+.fotos-com-acoes .fotos-galeria { flex: 1; min-width: 0; margin-bottom: 0; }
+.acoes-fotos { display: flex; gap: 8px; align-items: center; }
+.acoes-fotos-vertical { flex-direction: column; flex: none; }
+.acoes-fotos .btn-redondo { width: 42px; height: 42px; }
+.acoes-fotos .btn-redondo:disabled { opacity: 0.6; }
 /* Cartão "Promoções" do Painel (components/CartaoPromocoes.tsx) */
 .promo-linha { display: flex; align-items: center; gap: 6px; }
 .promo-linha .linha-botao { flex: 1; min-width: 0; }

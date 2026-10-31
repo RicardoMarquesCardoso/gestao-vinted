@@ -246,27 +246,24 @@ export function FormPlano({ ids, aoFechar }: { ids: string[]; aoFechar(): void }
  * indicar o n.º do TCGplayer certo (está no endereço da página do produto em tcgplayer.com).
  * A escolha fica em definicoes.pokemon_ids e é usada na próxima atualização.
  */
+/**
+ * Banner de associação de um produto Pokémon ao TCGplayer (detalhe do produto). Só aparece
+ * enquanto a associação NÃO está confirmada (pedido do Ricardo): mostra o que a pesquisa encontrou
+ * (com "Está certo" para confirmar), os candidatos ("Qual destes é?") ou um campo para indicar o
+ * produto. Depois de confirmada, desaparece; mudá-la faz-se no Editar (AssociacaoTcg).
+ */
 export function LinhaPokemon({ p }: { p: Produto }) {
-  const { dados, guardar, aviso } = useDados();
+  const { dados } = useDados();
   const mercado = useMercado();
   const [editar, setEditar] = useState(false);
   const chave = chavePokemon(p.nome);
   const ids = idsPokemon(dados.definicoes);
-  const [id, setId] = useState(ids[chave] ?? '');
+  const gravar = useGravarAssociacao(p.nome);
   const entrada = entradaPokemon(mercado, p.nome); // o que a pesquisa encontrou (com ou sem preço)
   const pk = precoPokemon(mercado, p.nome, ids, custoUnitario(p)); // o preço que a app usa
+  if (ids[chave]) return null; // já confirmada: muda-se no Editar
   // Candidatos por escolher: a pesquisa não teve a certeza, ou encontrou um preço absurdo
-  const candidatos = !ids[chave] ? entrada?.candidatos ?? (entrada?.id && !pk ? [entrada as ProdutoTcg] : []) : [];
-
-  async function gravar(novo: string) {
-    const limpo = novo.trim().match(/\d+/)?.[0] ?? ''; // aceita o n.º ou o endereço completo
-    const valor = { ...ids };
-    if (limpo) valor[chave] = limpo;
-    else delete valor[chave];
-    await guardar('definicoes', [{ chave: CHAVE_POKEMON_IDS, valor: valor as never }]);
-    aviso(limpo ? 'Associado.' : 'Associação removida.');
-    setEditar(false);
-  }
+  const candidatos = entrada?.candidatos ?? (entrada?.id && !pk ? [entrada as ProdutoTcg] : []);
 
   return (
     <div className="linha-plano">
@@ -277,13 +274,12 @@ export function LinhaPokemon({ p }: { p: Produto }) {
             {fmtEuro(pk.eur)} <span className="mudo">({pk.usd} $)</span>
           </>
         ) : (
-          <span className="mudo">{ids[chave] ? 'o preço chega na próxima atualização' : 'ainda sem preço'}</span>
+          <span className="mudo">ainda sem preço</span>
         )}
       </div>
       {pk?.nome && (
         <p className="mudo pequeno">
-          {pk.auto ? 'Encontrado pela pesquisa: ' : 'Associado: '}
-          {pk.nome}
+          Encontrado pela pesquisa: {pk.nome}
           {pk.set ? ` · ${pk.set}` : ''}
         </p>
       )}
@@ -303,16 +299,84 @@ export function LinhaPokemon({ p }: { p: Produto }) {
         </div>
       )}
       {editar ? (
-        <div className="linha-botoes">
-          <input placeholder="N.º ou endereço do TCGplayer" value={id} onChange={(e) => setId(e.target.value)} />
-          <button className="btn btn-pequeno btn-primario" onClick={() => gravar(id)}>Guardar</button>
-          {ids[chave] && <button className="btn btn-pequeno" onClick={() => gravar('')}>Remover</button>}
-        </div>
+        <AssociacaoTcg nome={p.nome} aoGravar={() => setEditar(false)} />
       ) : (
-        <button className="link" onClick={() => setEditar(true)}>
-          {candidatos.length ? 'Não é nenhum destes' : pk && !pk.auto ? 'Mudar associação' : 'Não é este produto?'}
-        </button>
+        <div className="linha-botoes">
+          {pk?.id && !candidatos.length && (
+            <button className="btn btn-pequeno btn-primario" onClick={() => gravar(pk.id)}>
+              Está certo
+            </button>
+          )}
+          <button className="link" onClick={() => setEditar(true)}>
+            {candidatos.length ? 'Não é nenhum destes' : pk ? 'Não é este produto?' : 'Indicar o produto'}
+          </button>
+        </div>
       )}
+    </div>
+  );
+}
+
+/** Guarda (ou remove, com '') a associação manual de um produto Pokémon ao TCGplayer. */
+function useGravarAssociacao(nome: string) {
+  const { dados, guardar, aviso } = useDados();
+  return async (novo: string) => {
+    const limpo = novo.trim().match(/\d+/)?.[0] ?? ''; // aceita o n.º ou o endereço completo
+    const valor = { ...idsPokemon(dados.definicoes) };
+    if (limpo) valor[chavePokemon(nome)] = limpo;
+    else delete valor[chavePokemon(nome)];
+    await guardar('definicoes', [{ chave: CHAVE_POKEMON_IDS, valor: valor as never }]);
+    aviso(limpo ? 'Associado.' : 'Associação removida.');
+  };
+}
+
+/**
+ * Associação ao TCGplayer como definição (no Editar do produto, ou no banner quando se escolhe
+ * "Não é este produto?"): mostra o produto associado e deixa mudar (n.º ou endereço) ou remover.
+ */
+export function AssociacaoTcg({ nome, aoGravar }: { nome: string; aoGravar?(): void }) {
+  const { dados } = useDados();
+  const mercado = useMercado();
+  const ids = idsPokemon(dados.definicoes);
+  const atual = ids[chavePokemon(nome)] ?? '';
+  const [id, setId] = useState(atual);
+  const gravar = useGravarAssociacao(nome);
+  const e = entradaPokemon(mercado, nome);
+  const nomeAtual = atual ? (e?.id === atual ? e.nome : e?.candidatos?.find((c) => c.id === atual)?.nome) : null;
+  return (
+    <div className="associacao-tcg">
+      {atual && (
+        <p className="mudo pequeno">
+          Associado: {nomeAtual ?? `produto ${atual}`}{' '}
+          <a href={`https://www.tcgplayer.com/product/${atual}`} target="_blank" rel="noreferrer">ver</a>
+        </p>
+      )}
+      <div className="linha-botoes">
+        <input placeholder="N.º ou endereço do TCGplayer" value={id} onChange={(ev) => setId(ev.target.value)} />
+        <button
+          type="button"
+          className="btn btn-pequeno btn-primario"
+          disabled={!id.trim() || id.trim() === atual}
+          onClick={async () => {
+            await gravar(id);
+            aoGravar?.();
+          }}
+        >
+          Guardar
+        </button>
+        {atual && (
+          <button
+            type="button"
+            className="btn btn-pequeno"
+            onClick={async () => {
+              await gravar('');
+              setId('');
+              aoGravar?.();
+            }}
+          >
+            Remover
+          </button>
+        )}
+      </div>
     </div>
   );
 }

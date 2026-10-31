@@ -8,6 +8,8 @@ import type { EstadoProduto, Produto } from '../lib/types';
 import { ESTADOS_PRODUTO } from '../lib/types';
 import { useDados } from '../state';
 import { paraCampo, vazioANull } from './acoes';
+import { AssociacaoTcg } from './planos';
+import { ehPokemon } from '../lib/plano';
 import { Campo, Dinheiro, Foto, Janela, SelecionarConta, SelecionarPagador, TextoSugerido, lerPagador, prepararFoto, useConfirmar, valorPagador , EscolherOuEscrever, ImagemReferencia, NomeComSugestoes, urlReferencia, IconeLixo } from './ui';
 import { useCatalogo, useInfoPorSet } from './catalogo';
 
@@ -235,6 +237,13 @@ export function FormProduto({ id, aoFechar }: { id?: string; aoFechar(): void })
           {aEnviar ? 'A enviar…' : '📷 Fotografia'}
         </label>
       </div>
+
+      {/* Pokémon: a associação ao TCGplayer (preço e imagem) muda-se aqui depois de confirmada */}
+      {existente && ehPokemon({ marca: f.marca }) && (
+        <Campo rotulo="Produto no TCGplayer" largo>
+          <AssociacaoTcg nome={f.nome} />
+        </Campo>
+      )}
 
       <details className="mais-detalhes">
         <summary>Mais detalhes</summary>

@@ -103,15 +103,15 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
       }
     >
       {p.fotos.length > 0 && (
-        <>
+        <div className="fotos-com-acoes">
           <div className="fotos-galeria">
             {p.fotos.map((r) => (
               <Foto key={r} refFoto={r} alt={p.nome} />
             ))}
           </div>
-          {/* Partilhar (ex.: para a Vinted) ou descarregar as fotografias com boa qualidade */}
-          <PartilharFotos p={p} />
-        </>
+          {/* Ao lado das fotos: partilhar (ex.: para a Vinted) ou descarregar as nossas fotografias */}
+          <PartilharFotos p={p} vertical />
+        </div>
       )}
       {p.fotos.length === 0 && urlReferencia(p) && (
         <figure className="referencia">
