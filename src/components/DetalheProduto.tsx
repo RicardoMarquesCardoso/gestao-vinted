@@ -98,31 +98,23 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
         </>
       }
     >
-      {p.fotos.length > 0 && (
-        <div className="fotos-com-acoes">
-          {/* À esquerda: adicionar fotografias (câmara ou galeria) */}
-          <AdicionarFotos aEnviar={aEnviar} enviar={adicionarFoto} />
-          <div className="fotos-galeria">
-            {p.fotos.map((r) => (
-              <Foto key={r} refFoto={r} alt={p.nome} />
-            ))}
-          </div>
-          {/* Ao lado das fotos: partilhar (ex.: para a Vinted) ou descarregar as nossas fotografias */}
-          <PartilharFotos p={p} vertical />
+      {/* Fotografias: sempre no mesmo enquadramento (150×200, cortadas se for preciso), para a página
+          ter o mesmo aspeto em todos os produtos. À esquerda "Adicionar"; ao centro as nossas fotos ou,
+          sem elas, a imagem de referência (set LEGO ou TCGplayer); à direita partilhar/descarregar
+          (só com fotos nossas). */}
+      <div className="fotos-com-acoes">
+        <AdicionarFotos aEnviar={aEnviar} enviar={adicionarFoto} />
+        <div className="fotos-galeria">
+          {p.fotos.length > 0 ? (
+            p.fotos.map((r) => <Foto key={r} refFoto={r} alt={p.nome} />)
+          ) : (
+            <ImagemReferencia url={urlReferencia(p, true) ?? imagemReferencia(p, true)} alt={p.nome} />
+          )}
         </div>
-      )}
-      {p.fotos.length === 0 && urlReferencia(p) && (
-        <figure className="referencia">
-          <ImagemReferencia url={urlReferencia(p, true)} alt={`Set ${p.set_numero}`} className="referencia-img" />
-          <figcaption className="mudo">Imagem de referência do set</figcaption>
-        </figure>
-      )}
-      {/* Pokémon: imagem do produto no TCGplayer (se já se sabe qual é); some se não carregar */}
-      {p.fotos.length === 0 && !urlReferencia(p) && imagemReferencia(p, true) && (
-        <figure className="referencia">
-          <ImagemReferencia url={imagemReferencia(p, true)} alt={p.nome} className="referencia-img" />
-          <figcaption className="mudo">Imagem de referência · TCGplayer</figcaption>
-        </figure>
+        {p.fotos.length > 0 && <PartilharFotos p={p} vertical />}
+      </div>
+      {p.fotos.length === 0 && (urlReferencia(p) || imagemReferencia(p, true)) && (
+        <p className="legenda-referencia mudo">Imagem de referência{urlReferencia(p) ? ' do set' : ' · TCGplayer'}</p>
       )}
       {/* Links para ver o set noutros sites (só links; a app não lê nada desses sites). Vinted e eBay
           vendidos na Europa, com a mesma condição do produto (novo → só novos). */}
@@ -133,12 +125,6 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
           <a href={`https://brickset.com/sets/${encodeURIComponent(p.set_numero)}-1`} target="_blank" rel="noreferrer">Brickset</a> ·{' '}
           <a href={`https://www.lego.com/pt-pt/search?q=${encodeURIComponent(p.set_numero)}`} target="_blank" rel="noreferrer">LEGO</a>
         </p>
-      )}
-      {/* Sem fotografias nossas: botão para adicionar, por baixo da imagem de referência */}
-      {p.fotos.length === 0 && (
-        <div className="sem-fotos-adicionar">
-          <AdicionarFotos aEnviar={aEnviar} enviar={adicionarFoto} />
-        </div>
       )}
       {oficial && compararNomes(p.nome, oficial.nome) !== 'igual' && !lista(CHAVE_MANTIDOS).includes((p.set_numero ?? '').trim()) && (
         <div className={`sugestao-nome ${talvez.length ? 'sugestao-alerta' : ''}`}>
