@@ -1,5 +1,5 @@
 // Janela de detalhe de um produto: fotografias, imagem oficial, plano (vender/guardar),
-// ciclo de vida do set (lançamento, retirada e PVP, do Brickset), links (LEGO, Brickset, Vinted), dados da compra, vendas feitas e botões de ação (✏️ editar, 📷, Anunciar/Retirar, Vendi).
+// ciclo de vida do set (lançamento, retirada e PVP, do Brickset), links (LEGO, Brickset, Vinted), dados da compra, vendas feitas e botões de ação (✏️ editar, 🗑 apagar, Anunciar/Retirar, Vendi).
 // As vendas mostram também as dos outros exemplares do mesmo set (com o valor e o lucro de cada
 // uma), e "Em stock" lista os exemplares desse set que ainda estão por vender.
 
@@ -16,10 +16,11 @@ import { useAbrir } from './acoes';
 import { compararNomes, useCatalogoSets } from './catalogo';
 import { CHAVE_MANTIDOS } from '../pages/ReverNomes';
 import { useState } from 'react';
-import { EtiquetaProduto, EtiquetaVenda, Foto, ImagemReferencia, Janela, Valor, prepararFoto, urlReferencia, useImagemReferencia } from './ui';
+import { EtiquetaProduto, EtiquetaVenda, Foto, IconeLixo, ImagemReferencia, Janela, Valor, prepararFoto, urlReferencia, useConfirmar, useImagemReferencia } from './ui';
 
 export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void }) {
-  const { dados, nomeConta, nomePagador, store, guardar, aviso, lista } = useDados();
+  const { dados, nomeConta, nomePagador, store, guardar, apagar, aviso, lista } = useDados();
+  const confirmar = useConfirmar();
   const procurarSet = useCatalogoSets();
   const mercado = useMercado();
   const [aEnviar, setAEnviar] = useState(false);
@@ -69,6 +70,32 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
     }
   }
 
+  /**
+   * Apagar um produto inserido por engano (com confirmação). Não se apagam produtos com vendas:
+   * aí apagam-se primeiro as vendas, ou muda-se o estado para "Cancelado". As fotografias dele
+   * também são apagadas do Storage (original e miniatura). Fica registado no histórico.
+   */
+  async function apagarProduto() {
+    if (!p) return;
+    if (vendas.length) return aviso('Este produto tem vendas registadas. Apaga primeiro as vendas, ou muda o estado para "Cancelado".', 'erro');
+    const ok = await confirmar({
+      titulo: 'Apagar produto',
+      texto: `Vais apagar "${p.nome}" (custo ${fmtEuro(custoTotalProduto(p))}${p.fotos.length ? ` e ${p.fotos.length === 1 ? 'a fotografia' : `as ${p.fotos.length} fotografias`}` : ''}). Fica registado no histórico de alterações. Continuar?`,
+      botao: 'Apagar produto',
+      perigo: true,
+    });
+    if (!ok) return;
+    try {
+      await apagar('produtos', p.id);
+      // Cada foto: a original e a miniatura (store.apagarFoto com um caminho apaga as duas)
+      for (const f of p.fotos) store.apagarFoto(f).catch(() => undefined);
+      aviso('Produto apagado.');
+      aoFechar();
+    } catch (e) {
+      aviso(`Erro ao apagar: ${e instanceof Error ? e.message : e}`, 'erro');
+    }
+  }
+
   return (
     <Janela
       titulo={p.nome}
@@ -78,6 +105,9 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
         <>
           <button className="btn" title="Editar" aria-label="Editar" onClick={() => abrir({ tipo: 'produto', id: p.id })}>
             ✏️
+          </button>
+          <button className="btn btn-lixo" title="Apagar produto" aria-label="Apagar produto" onClick={apagarProduto}>
+            <IconeLixo />
           </button>
           <span className="espaco" />
           {p.estado === 'por_anunciar' && (

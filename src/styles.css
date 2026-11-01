@@ -851,3 +851,5 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .tabela-grupo td:nth-child(3) { white-space: normal; }
 .bloco { display: block; }
 .tabela-grupo th, .tabela-grupo td { padding-left: 6px; padding-right: 6px; }
+/* Botão apagar (ícone do lixo) ao lado do editar, com a mesma moldura mas em vermelho */
+.btn-lixo { color: var(--negativo); }
