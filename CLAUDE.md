@@ -53,6 +53,7 @@ Guardar os dados que permitam estas análises desde já, mesmo que ainda não ap
 ## Ecrã Produtos
 
 - No detalhe do produto, botão 🗑 (ícone do lixo) ao lado do ✏️ para apagar produtos inseridos por engano (pedido do Ricardo): pede confirmação, recusa se houver vendas, apaga também as fotografias do Storage e fica no histórico.
+- Detalhe de um produto (pedido do Ricardo): em vez da lista de campos e das vendas, a mesma tabela do grupo (`TabelaProdutos`, em `DetalheGrupo.tsx`) com este produto destacado e os outros iguais (também vendidos); tocar na linha dele abre a venda, noutra abre esse produto. O ciclo do set fica numa linha por cima.
 - Produtos iguais (`chaveComparacao`) num só cartão; tocar abre o detalhe do grupo (`DetalheGrupo`, pedido do Ricardo): resumo, anúncio/plano e tabela com todos os produtos iguais, incluindo vendidos. Sem expandir na lista.
 
 ## Fotografias

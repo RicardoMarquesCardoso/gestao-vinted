@@ -1,14 +1,15 @@
 // Janela de detalhe de um produto: fotografias, imagem oficial, plano (vender/guardar),
 // ciclo de vida do set (lançamento, retirada e PVP, do Brickset), links (LEGO, Brickset, Vinted), dados da compra, vendas feitas e botões de ação (✏️ editar, 🗑 apagar, Anunciar/Retirar, Vendi).
-// As vendas mostram também as dos outros exemplares do mesmo set (com o valor e o lucro de cada
-// uma), e "Em stock" lista os exemplares desse set que ainda estão por vender.
+// Os dados da compra, do estado e das vendas estão numa tabela (TabelaProdutos, a mesma do
+// detalhe do grupo), com este produto destacado e os outros exemplares iguais, também vendidos.
 
 import { LinhaPlano, LinhaPokemon } from './planos';
 import { AdicionarFotos, PartilharFotos } from './fotos';
+import { TabelaProdutos } from './DetalheGrupo';
 import { ehPokemon } from '../lib/plano';
 import { urlEbayVendidos, urlVinted } from '../lib/avaliar';
 import { produtoNovo } from '../lib/anuncio';
-import { custoTotalProduto, custoUnitario, diasEntre, emInventario, liquidoVenda, lucroVenda, unidadesDisponiveis } from '../lib/calc';
+import { chaveComparacao, custoTotalProduto, custoUnitario, diasEntre, emInventario, liquidoVenda, lucroVenda, unidadesDisponiveis } from '../lib/calc';
 import { fmtData, fmtEuro, fmtMesAno, hoje } from '../lib/format';
 import { infoMercado, useMercado } from '../lib/investimento';
 import { useDados } from '../state';
@@ -38,18 +39,11 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
   const compra = p.compra_id ? dados.compras.find((c) => c.id === p.compra_id) : undefined;
   const disponiveis = unidadesDisponiveis(p, dados.vendas);
   const lucro = vendas.reduce((a, v) => a + lucroVenda(v, p), 0);
-  const iguais = p.set_numero
-    ? dados.produtos.filter((x) => x.id !== p.id && x.set_numero?.trim().toLowerCase() === p.set_numero?.trim().toLowerCase())
-    : [];
-  // Vendas deste produto e dos outros exemplares do mesmo set, das mais recentes para as mais antigas.
-  // Cada venda leva o produto a que pertence, para calcular o lucro com o custo certo.
-  const produtosDoSet = [p, ...iguais];
-  const vendasDoSet = dados.vendas
-    .filter((v) => produtosDoSet.some((x) => x.id === v.produto_id))
-    .map((v) => ({ v, dono: produtosDoSet.find((x) => x.id === v.produto_id)! }))
-    .sort((a, b) => b.v.data_venda.localeCompare(a.v.data_venda));
-  // Outros exemplares que ainda têm unidades por vender (os vendidos já aparecem nas vendas)
-  const emStock = iguais.filter((x) => unidadesDisponiveis(x, dados.vendas) > 0);
+  // Este produto e os outros iguais (mesmo n.º de set ou, sem set, mesmo nome), do mais antigo
+  // para o mais recente, para a tabela
+  const produtosDoSet = dados.produtos
+    .filter((x) => chaveComparacao(x) === chaveComparacao(p))
+    .sort((a, b) => (a.data_compra ?? '').localeCompare(b.data_compra ?? ''));
 
   // Tirar/escolher uma fotografia e acrescentá-la ao produto
   async function adicionarFoto(ficheiros: FileList | null) {
@@ -187,84 +181,32 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
 
       {emInventario(p) && disponiveis > 0 && ehPokemon(p) && <LinhaPokemon p={p} />}
       {emInventario(p) && disponiveis > 0 && <LinhaPlano p={p} />}
-      <dl className="detalhes">
-        {ciclo && (ciclo.lancamento || ciclo.retirada || ciclo.retirado !== null) && (
-          <div>
-            <dt>Ciclo do set</dt>
-            <dd>
-              {[
-                ciclo.lancamento && `lançado ${fmtMesAno(ciclo.lancamento)}`,
-                ciclo.retirada
-                  ? ciclo.retirado
-                    ? `retirado ${fmtMesAno(ciclo.retirada)}`
-                    : `retirada prevista ${fmtMesAno(ciclo.retirada)}`
-                  : ciclo.retirado
-                    ? 'já retirado'
-                    : ciclo.retirado === false
-                      ? 'ainda à venda'
-                      : null,
-                ciclo.pvp && `PVP ${fmtEuro(ciclo.pvp)}`,
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-            </dd>
-          </div>
-        )}
-        <div><dt>Quantidade</dt><dd>{p.quantidade} ({disponiveis} {disponiveis === 1 ? 'disponível' : 'disponíveis'})</dd></div>
-        <div><dt>Custo total</dt><dd>{fmtEuro(custoTotalProduto(p))}{p.quantidade > 1 ? ` · ${fmtEuro(custoUnitario(p))}/un.` : ''}</dd></div>
-        <div><dt>Compra</dt><dd>{fmtEuro(p.preco_compra)} + {fmtEuro(p.custos_adicionais)} de custos</dd></div>
-        <div><dt>Comprado em</dt><dd>{fmtData(p.data_compra)}{compra?.vendedor ? ` · ${compra.vendedor}` : ''}</dd></div>
-        <div><dt>Quem pagou</dt><dd>{nomePagador(p)}</dd></div>
-        <div><dt>Conta</dt><dd>{nomeConta(p.conta_id)}</dd></div>
-        <div>
-          <dt>Anunciado</dt>
-          <dd>
-            {p.data_anuncio ? `${fmtData(p.data_anuncio)} (há ${diasEntre(p.data_anuncio, hoje())} dias)` : '—'}
-            {p.preco_anuncio ? ` · ${fmtEuro(p.preco_anuncio)}` : ''}
-          </dd>
-        </div>
-        <div><dt>Lucro até agora</dt><dd><Valor n={lucro} sinal /></dd></div>
-      </dl>
-      {p.notas && <p className="nota">{p.notas}</p>}
-
-      <h4 className="secao-form">Vendas</h4>
-      {vendasDoSet.length === 0 ? (
-        <p className="mudo">Ainda sem vendas.</p>
-      ) : (
-        <ul className="lista-simples">
-          {vendasDoSet.map(({ v, dono }) => (
-            <li key={v.id}>
-              <button className="linha-botao" onClick={() => abrir({ tipo: 'venda', id: v.id })}>
-                <span>
-                  {fmtData(v.data_venda)} · {nomeConta(v.conta_id)}
-                  {v.quantidade > 1 ? ` · ${v.quantidade} un.` : ''}
-                  {dono.id !== p.id ? <span className="mudo"> · outro exemplar</span> : null}
-                </span>
-                <span className="linha-direita">
-                  <EtiquetaVenda estado={v.estado} /> {fmtEuro(liquidoVenda(v))} <Valor n={lucroVenda(v, dono)} sinal />
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
+      {/* Ciclo do set (Brickset) numa só linha */}
+      {ciclo && (ciclo.lancamento || ciclo.retirada || ciclo.retirado !== null) && (
+        <p className="ciclo-set mudo">
+          {[
+            ciclo.lancamento && `Lançado ${fmtMesAno(ciclo.lancamento)}`,
+            ciclo.retirada
+              ? ciclo.retirado
+                ? `retirado ${fmtMesAno(ciclo.retirada)}`
+                : `retirada prevista ${fmtMesAno(ciclo.retirada)}`
+              : ciclo.retirado
+                ? 'já retirado'
+                : ciclo.retirado === false
+                  ? 'ainda à venda'
+                  : null,
+            ciclo.pvp && `PVP ${fmtEuro(ciclo.pvp)}`,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        </p>
       )}
 
-      {emStock.length > 0 && (
-        <>
-          <h4 className="secao-form">Em stock</h4>
-          <ul className="lista-simples">
-            {emStock.map((x) => (
-              <li key={x.id}>
-                <button className="linha-botao" onClick={() => abrir({ tipo: 'detalhe', id: x.id })}>
-                  <span>{x.nome} · {fmtData(x.data_compra)}</span>
-                  <span className="linha-direita">
-                    <EtiquetaProduto estado={x.estado} /> custo {fmtEuro(custoUnitario(x))}/un.
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </>
+      {/* Tudo numa tabela, como no detalhe do grupo: este produto (destacado) e os outros iguais,
+          também os vendidos. Tocar noutra linha abre esse produto; na deste, abre a venda. */}
+      <TabelaProdutos itens={produtosDoSet} atual={p.id} />
+      {(compra?.vendedor || p.notas) && (
+        <p className="nota">{[compra?.vendedor ? `Comprado a ${compra.vendedor}` : '', p.notas ?? ''].filter(Boolean).join(' · ')}</p>
       )}
     </Janela>
   );

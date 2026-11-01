@@ -853,3 +853,6 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .tabela-grupo th, .tabela-grupo td { padding-left: 6px; padding-right: 6px; }
 /* Botão apagar (ícone do lixo) ao lado do editar, com a mesma moldura mas em vermelho */
 .btn-lixo { color: var(--negativo); }
+.tabela-grupo tr.linha-atual td { background: var(--superficie-2); font-weight: 600; }
+.tabela-grupo tr.linha-atual td small { font-weight: 400; }
+.ciclo-set { font-size: 0.85rem; text-align: center; margin: 0 0 10px; }
