@@ -1,8 +1,8 @@
 // Fotografias: partilhar/descarregar as de um produto e limpar as dos produtos vendidos.
 //
-// - AdicionarFotos: botão "Adicionar" (à esquerda das fotos) para enviar fotografias novas: no
+// - AdicionarFotos: botão (ícone) para enviar fotografias novas, o 1.º da coluna à direita da foto: no
 //   telemóvel deixa escolher entre tirar uma foto e escolher da galeria, e aceita várias de uma vez.
-// - PartilharFotos: botões com ícones de partilhar e descarregar, ao lado das fotos do produto.
+// - PartilharFotos: botões com ícones de descarregar e partilhar, por baixo do "Adicionar".
 //   Só as fotos NOSSAS (nunca as imagens genéricas). No telemóvel, partilhar abre o menu de
 //   partilha do sistema com as originais (boa qualidade), e daí escolhe-se a Vinted, o WhatsApp,
 //   a galeria… Onde o browser não deixa partilhar ficheiros (ex.: computador), só há descarregar.
@@ -63,29 +63,26 @@ const IconeAdicionar = () => (
 );
 
 /**
- * Botão para acrescentar fotografias ao produto (ícone de máquina com "+", e "Adicionar" por baixo).
+ * Botão para acrescentar fotografias ao produto (só o ícone de máquina com "+").
  * É uma <label> com o <input type="file"> lá dentro: tocar abre o seletor do telemóvel ("Tirar
  * foto" ou "Biblioteca de fotografias"). Sem o atributo capture, para não obrigar a usar a câmara.
  */
 export function AdicionarFotos({ aEnviar, enviar }: { aEnviar: boolean; enviar(ficheiros: FileList | null): void }) {
   return (
-    <div className="acoes-fotos acoes-fotos-esquerda">
-      <label className={`acao-foto ${aEnviar ? 'desativado' : ''}`} title="Adicionar fotografias" aria-label="Adicionar fotografias">
-        <input
-          type="file"
-          accept="image/*"
-          multiple
-          hidden
-          disabled={aEnviar}
-          onChange={(e) => {
-            enviar(e.target.files);
-            e.target.value = ''; // para se poder escolher a mesma foto outra vez
-          }}
-        />
-        <span className="btn-redondo btn-redondo-primario">{aEnviar ? <span className="a-rodar">↻</span> : <IconeAdicionar />}</span>
-        <small>{aEnviar ? 'A enviar…' : 'Adicionar'}</small>
-      </label>
-    </div>
+    <label className={`acao-foto ${aEnviar ? 'desativado' : ''}`} title="Adicionar fotografias" aria-label="Adicionar fotografias">
+      <input
+        type="file"
+        accept="image/*"
+        multiple
+        hidden
+        disabled={aEnviar}
+        onChange={(e) => {
+          enviar(e.target.files);
+          e.target.value = ''; // para se poder escolher a mesma foto outra vez
+        }}
+      />
+      <span className="btn-redondo btn-redondo-primario">{aEnviar ? <span className="a-rodar">↻</span> : <IconeAdicionar />}</span>
+    </label>
   );
 }
 
@@ -100,7 +97,7 @@ export function AdicionarFotos({ aEnviar, enviar }: { aEnviar: boolean; enviar(f
  * partilhar); se o telemóvel recusar, o botão fica destacado e o 2.º toque partilha logo, com as
  * fotos já prontas. As fotos ficam preparadas enquanto a janela estiver aberta.
  *
- * vertical: só ícones, em coluna, ao lado das fotos (detalhe do produto).
+ * vertical: só ícones, para a coluna ao lado das fotos (detalhe do produto): descarregar e partilhar.
  */
 export function PartilharFotos({ p, vertical }: { p: Produto; vertical?: boolean }) {
   const { store, aviso } = useDados();
@@ -175,15 +172,25 @@ export function PartilharFotos({ p, vertical }: { p: Produto; vertical?: boolean
   const n = p.fotos.length === 1 ? 'a fotografia' : `as ${p.fotos.length} fotografias`;
   const partilha = podePartilharFicheiros();
   const ios = eIos() && partilha;
-  // Botão com ícone e uma palavra por baixo, para não haver dúvidas sobre o que faz
+  // Botão com ícone; fora da coluna das fotos leva também uma palavra por baixo
   const botao = (b: { onClick(): void; rotulo: string; titulo: string; icone: ReactNode; destacado?: boolean }) => (
     <button type="button" className="acao-foto" onClick={b.onClick} disabled={aPreparar} aria-label={b.titulo} title={b.titulo}>
       <span className={`btn-redondo ${b.destacado ? 'btn-redondo-primario' : ''}`}>{aPreparar ? <span className="a-rodar">↻</span> : b.icone}</span>
-      <small>{b.destacado ? 'Outra vez' : b.rotulo}</small>
+      {!vertical && <small>{b.destacado ? 'Outra vez' : b.rotulo}</small>}
     </button>
   );
+  // Coluna ao lado das fotos (detalhe do produto): só ícones, de cima para baixo descarregar e
+  // partilhar. No iPhone, "descarregar" abre o menu de partilha (é lá que está "Guardar imagens").
+  if (vertical) {
+    return (
+      <>
+        {botao({ onClick: ios ? partilhar : descarregar, rotulo: 'Descarregar', titulo: ios ? `Guardar ${n} nas Fotos` : `Descarregar ${n}`, icone: <IconeDescarregar />, destacado: ios && pronto })}
+        {partilha && botao({ onClick: partilhar, rotulo: 'Partilhar', titulo: `Partilhar ${n}`, icone: <IconePartilhar />, destacado: pronto })}
+      </>
+    );
+  }
   return (
-    <div className={vertical ? 'acoes-fotos acoes-fotos-vertical' : 'acoes-fotos'}>
+    <div className="acoes-fotos">
       {ios
         ? botao({ onClick: partilhar, rotulo: 'Guardar', titulo: `Guardar ${n} nas Fotos`, icone: <IconeDescarregar />, destacado: pronto })
         : (

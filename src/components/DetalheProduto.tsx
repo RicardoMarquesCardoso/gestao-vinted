@@ -128,12 +128,11 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
         </>
       }
     >
-      {/* Fotografias: sempre no mesmo enquadramento (150×200, cortadas se for preciso), para a página
-          ter o mesmo aspeto em todos os produtos. À esquerda "Adicionar"; ao centro as nossas fotos ou,
-          sem elas, a imagem de referência (set LEGO ou TCGplayer); à direita partilhar/descarregar
-          (só com fotos nossas). */}
+      {/* Fotografias: quadrado com 3/4 da largura (cortadas se for preciso), igual em todos os
+          produtos; sem fotos nossas, a imagem de referência (set LEGO ou TCGplayer). No 1/4 à
+          direita, só ícones, de cima para baixo: adicionar, descarregar e partilhar (estes dois só
+          com fotos nossas). Com várias fotos, desliza-se para o lado. */}
       <div className="fotos-com-acoes">
-        <AdicionarFotos aEnviar={aEnviar} enviar={adicionarFoto} />
         <div className="fotos-galeria">
           {p.fotos.length > 0 ? (
             p.fotos.map((r) => <Foto key={r} refFoto={r} alt={p.nome} />)
@@ -141,7 +140,10 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
             <ImagemReferencia url={urlReferencia(p, true) ?? imagemReferencia(p, true)} alt={p.nome} />
           )}
         </div>
-        {p.fotos.length > 0 && <PartilharFotos p={p} vertical />}
+        <div className="acoes-fotos-coluna">
+          <AdicionarFotos aEnviar={aEnviar} enviar={adicionarFoto} />
+          {p.fotos.length > 0 && <PartilharFotos p={p} vertical />}
+        </div>
       </div>
       {p.fotos.length === 0 && (urlReferencia(p) || imagemReferencia(p, true)) && (
         <p className="legenda-referencia mudo">Imagem de referência{urlReferencia(p) ? ' do set' : ' · TCGplayer'}</p>

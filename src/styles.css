@@ -800,26 +800,26 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .avaliar-nao .avaliar-bolinha { background: var(--texto-3); opacity: 0.5; }
 .avaliar-promo .linha-principal small { white-space: normal; }
 .avaliar-resultado .linha-botoes { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
-/* Partilhar / descarregar fotografias (components/fotos.tsx): fotos centradas no ecrã, botões à
-   direita. Grelha com colunas iguais nas pontas, para a foto ficar mesmo ao centro. */
-.fotos-com-acoes { display: grid; grid-template-columns: 56px minmax(0, 1fr) 56px; gap: 6px; align-items: center; margin-bottom: 14px; }
-.fotos-com-acoes .fotos-galeria { grid-column: 2; margin-bottom: 0; }
-/* Cada foto cabe inteira na coluna do centro (se houver várias, desliza-se de uma em uma) */
-/* Todas as fotos com o mesmo tamanho e formato (200×200, quadradas), cortadas
-   se for preciso: assim os botões ao lado ficam sempre no mesmo sítio, seja qual for o produto. */
-.fotos-com-acoes .fotos-galeria { height: 200px; }
-.fotos-com-acoes .fotos-galeria .foto-vazia, .fotos-com-acoes .fotos-galeria .img-ref { width: 200px; height: 200px; flex: none; border-radius: 10px; background: var(--superficie-2); }
-.fotos-com-acoes .fotos-galeria img { width: 200px; height: 200px; max-width: none; flex: none; object-fit: cover; }
+/* Fotografias no detalhe do produto (components/fotos.tsx): a foto é um quadrado com 3/4 da
+   largura, cortado se for preciso, igual em todos os produtos; no 1/4 à direita, uma coluna de
+   ícones (adicionar, descarregar, partilhar). Com várias fotos desliza-se de uma em uma. */
+.fotos-com-acoes { display: grid; grid-template-columns: 3fr 1fr; gap: 10px; align-items: center; margin-bottom: 14px; }
+.fotos-com-acoes .fotos-galeria { grid-column: 1; margin-bottom: 0; aspect-ratio: 1; gap: 8px; }
+.fotos-com-acoes .fotos-galeria > * { flex: 0 0 100%; width: 100%; height: 100%; margin: 0 !important; border-radius: 12px; scroll-snap-align: start; }
+.fotos-com-acoes .fotos-galeria img { max-width: none; object-fit: cover; }
 .fotos-com-acoes .fotos-galeria img.img-ref { object-fit: cover !important; }
+.fotos-com-acoes .fotos-galeria .foto-vazia { background: var(--superficie-2); }
+.acoes-fotos-coluna { grid-column: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+/* Detalhe do grupo: só a foto, ao centro, com 3/4 da largura */
+.fotos-sem-acoes { grid-template-columns: 1fr; justify-items: center; }
+.fotos-sem-acoes .fotos-galeria { width: 75%; }
 /* Centrar as fotos sem cortar o início quando são muitas e se deslizam */
 .fotos-galeria > :first-child { margin-left: auto; }
 .fotos-galeria > :last-child { margin-right: auto; }
 .acoes-fotos { display: flex; gap: 10px; align-items: flex-start; }
-.acoes-fotos-esquerda { grid-column: 1; justify-content: center; }
 .acao-foto.desativado { opacity: 0.6; pointer-events: none; }
-.acoes-fotos-vertical { grid-column: 3; flex-direction: column; align-items: center; }
 .acao-foto { display: flex; flex-direction: column; align-items: center; gap: 3px; background: none; border: 0; padding: 0; cursor: pointer; color: var(--texto-2); font: inherit; }
-.acao-foto .btn-redondo { width: 42px; height: 42px; }
+.acao-foto .btn-redondo { width: 46px; height: 46px; }
 .acao-foto small { font-size: 0.7rem; white-space: nowrap; }
 .acao-foto:disabled { opacity: 0.6; }
 /* Detalhe do produto: etiquetas centradas, como a foto */

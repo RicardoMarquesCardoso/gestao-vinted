@@ -77,7 +77,7 @@ export function DetalheGrupo({ ids, aoFechar }: { ids: string[]; aoFechar(): voi
       }
     >
       {/* Imagem no mesmo enquadramento do detalhe do produto */}
-      <div className="fotos-com-acoes">
+      <div className="fotos-com-acoes fotos-sem-acoes">
         <div className="fotos-galeria">
           {p.fotos[0] ? <Foto refFoto={p.fotos[0]} alt={p.nome} /> : <ImagemReferencia url={urlReferencia(p, true) ?? imagemReferencia(p, true)} alt={p.nome} />}
         </div>
