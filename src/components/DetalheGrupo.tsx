@@ -101,7 +101,6 @@ export function DetalheGrupo({ ids, aoFechar }: { ids: string[]; aoFechar(): voi
       {principal && <LinhaPlano p={principal} />}
 
       <TabelaProdutos itens={itens} />
-      <p className="nota">Toca numa linha para ver ou editar esse produto.</p>
     </Janela>
   );
 }

@@ -42,7 +42,7 @@ Guardar os dados que permitam estas análises desde já, mesmo que ainda não ap
   - Preço de referência: as nossas vendas (2 anos) → BrickLink → eBay com desconto → TCGplayer (Pokémon) → PVP (×0,8 se ainda à venda; se retirado, PVP valorizado desde a retirada pelas taxas das regras, máx. ×2).
   - **BrickEconomy** (análise manual, out/2026): mostra o mercado dos EUA convertido em euros (muitos preços são dólares redondos) e compara com o preço de lá; comparar sempre com o PVP europeu. Na Vinted vende-se a ~0,85 do valor deles. Não ler o site automaticamente (termos de uso); a API Premium, se existir, é a via legítima.
   - **Anuncia-se 1 unidade de cada produto de cada vez**: se já há um igual anunciado, não se sugere anunciar outro. Ao vender (Vendi / Registar venda) um produto anunciado que ainda tem unidades, as que sobram voltam a "por anunciar" (`estadoAposNovaVenda`) e o período de anúncio fecha como "vendido" (`fecharPeriodoVendido`).
-  - **Caixa do produto anunciado** (`resumoAnuncio`, `LinhaPlano`): preço, conta, há quantos dias, lucro ao preço anunciado, "aceitar ofertas até" (o mínimo do plano, `chao`, com o lucro a esse preço) e quando baixar (mesma regra da tarefa Baixar). Pedido do Ricardo.
+  - **Caixa do produto** (`LinhaPlano`), curta e sem textos a explicar (pedido do Ricardo): anunciado → preço, conta, há quantos dias e lucro a esse preço (`resumoAnuncio`); senão → plano e preço sugerido (o porquê só no `title`). O "aceitar ofertas até" foi retirado: o Ricardo e a Cass decidem as ofertas pela experiência.
   - **Sinal nos cartões** (`sinais()`): bolinha verde (a correr) / amarela (há ação) / azul (guardado) / vermelha (anunciado > 60 dias ou prazo acabou) + uma linha com a próxima ação, em vez de etiquetas. Decisão do Ricardo: a interface deve ter sempre harmonia e o mínimo de etiquetas.
   - Regras editáveis em Definições (`regras_plano`). Decisões manuais em `planos` (por set + condição). Tarefas adiadas em `tarefas_adiadas`.
 
@@ -53,6 +53,7 @@ Guardar os dados que permitam estas análises desde já, mesmo que ainda não ap
 ## Ecrã Produtos
 
 - No detalhe do produto, botão 🗑 (ícone do lixo) ao lado do ✏️ para apagar produtos inseridos por engano (pedido do Ricardo): pede confirmação, recusa se houver vendas, apaga também as fotografias do Storage e fica no histórico.
+- **Interface sem textos instrutivos** (pedido do Ricardo): mostrar dados, não explicações.
 - Detalhe de um produto (pedido do Ricardo): em vez da lista de campos e das vendas, a mesma tabela do grupo (`TabelaProdutos`, em `DetalheGrupo.tsx`) com este produto destacado e os outros iguais (também vendidos); tocar na linha dele abre a venda, noutra abre esse produto. O ciclo do set fica numa linha por cima.
 - Produtos iguais (`chaveComparacao`) num só cartão; tocar abre o detalhe do grupo (`DetalheGrupo`, pedido do Ricardo): resumo, anúncio/plano e tabela com todos os produtos iguais, incluindo vendidos. Sem expandir na lista.
 

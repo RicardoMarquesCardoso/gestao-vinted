@@ -139,9 +139,6 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
           <PartilharFotos p={p} vertical />
         </div>
       </div>
-      {p.fotos.length === 0 && (urlReferencia(p) || imagemReferencia(p, true)) && (
-        <p className="legenda-referencia mudo">Imagem de referência{urlReferencia(p) ? ' do set' : ' · TCGplayer'}</p>
-      )}
       {/* Links para ver o set noutros sites (só links; a app não lê nada desses sites). Vinted e eBay
           vendidos na Europa, com a mesma condição do produto (novo → só novos). */}
       {urlReferencia(p) && p.set_numero && (
