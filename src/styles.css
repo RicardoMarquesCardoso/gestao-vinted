@@ -721,6 +721,11 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .linha-plano { padding: 10px 12px; border-radius: var(--raio); background: var(--superficie-2); margin-bottom: 12px; display: grid; gap: 4px; }
 .linha-plano p { margin: 0; }
 .linha-plano .chip { margin-left: 6px; }
+/* Produto anunciado: dois números lado a lado (lucro ao preço anunciado e mínimo a aceitar) */
+.anuncio-numeros { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 4px 0; }
+.anuncio-numeros > div { background: var(--superficie); border-radius: 8px; padding: 6px 10px; }
+.anuncio-numeros dt { font-size: 0.75rem; color: var(--texto-2); }
+.anuncio-numeros dd { margin: 0; font-size: 1.05rem; }
 .opcoes-plano { display: grid; gap: 10px; }
 .opcao { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--linha); border-radius: var(--raio); cursor: pointer; }
 .opcao > span { display: flex; flex-direction: column; gap: 4px; flex: 1; }
@@ -800,7 +805,11 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .fotos-com-acoes { display: grid; grid-template-columns: 56px minmax(0, 1fr) 56px; gap: 6px; align-items: center; margin-bottom: 14px; }
 .fotos-com-acoes .fotos-galeria { grid-column: 2; margin-bottom: 0; }
 /* Cada foto cabe inteira na coluna do centro (se houver várias, desliza-se de uma em uma) */
-.fotos-com-acoes .fotos-galeria img { height: auto; max-height: 200px; max-width: 100%; flex: none; object-fit: contain; }
+/* Todas as fotos com o mesmo tamanho e formato (3:4, como as tiradas ao alto no telemóvel), cortadas
+   se for preciso: assim os botões ao lado ficam sempre no mesmo sítio, seja qual for o produto. */
+.fotos-com-acoes .fotos-galeria { height: 200px; }
+.fotos-com-acoes .fotos-galeria .foto-vazia { width: 150px; height: 200px; flex: none; border-radius: 10px; background: var(--superficie-2); }
+.fotos-com-acoes .fotos-galeria img { width: 150px; height: 200px; max-width: none; flex: none; object-fit: cover; }
 /* Centrar as fotos sem cortar o início quando são muitas e se deslizam */
 .fotos-galeria > :first-child { margin-left: auto; }
 .fotos-galeria > :last-child { margin-right: auto; }

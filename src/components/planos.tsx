@@ -1,7 +1,8 @@
 // Interface dos planos e tarefas (a lógica está em lib/plano.ts):
 //   - CartaoTarefas: lista "O que fazer" no Painel (anunciar, baixar preço, rever).
 //   - SinalProduto: bolinha tipo semáforo + próxima ação nos cartões de produto (lógica em sinais()).
-//   - LinhaPlano: plano, preço sugerido e porquê, no detalhe do produto.
+//   - LinhaPlano: no detalhe do produto. Se está anunciado: o anúncio (preço, conta, há quantos
+//     dias), o lucro, até onde aceitar ofertas e quando baixar; senão o plano, o preço e o porquê.
 //   - FormPlano: mudar o plano à mão (vender / guardar até / seguir a sugestão).
 //   - LinhaPokemon: preço de mercado de produtos Pokémon e associação ao produto certo.
 
@@ -10,7 +11,7 @@ import { fmtData, fmtEuro, hoje, plural } from '../lib/format';
 import { chavePokemon, entradaPokemon, idsPokemon, precoPokemon, urlImagemTcg, useMercado } from '../lib/investimento';
 import type { ProdutoTcg } from '../lib/investimento';
 import { custoUnitario } from '../lib/calc';
-import { CHAVE_ADIADAS, CHAVE_PLANOS, CHAVE_POKEMON_IDS, chavePlano, mesAno, planosManuais, sinais, sugerirPlano, tarefas, tarefasAdiadas } from '../lib/plano';
+import { CHAVE_ADIADAS, CHAVE_PLANOS, CHAVE_POKEMON_IDS, chavePlano, mesAno, planosManuais, resumoAnuncio, sinais, sugerirPlano, tarefas, tarefasAdiadas } from '../lib/plano';
 import type { Contexto, Plano, PlanoManual, Sinal, Tarefa } from '../lib/plano';
 import type { Produto } from '../lib/types';
 import { useDados } from '../state';
@@ -54,11 +55,53 @@ export function SinalProduto({ sinal }: { sinal: Sinal | undefined }) {
   );
 }
 
-/** Linha no detalhe do produto: plano, preço sugerido e porquê. */
+/** Lucro com sinal e cor: "+14 €" (verde) ou "−3 €" (vermelho). */
+const Lucro = ({ v }: { v: number }) => <strong className={v >= 0 ? 'positivo' : 'negativo'}>{v >= 0 ? '+' : '−'}{fmtEuro(Math.abs(v))}</strong>;
+
+/** Caixa no detalhe do produto: o anúncio (se anunciado) ou o plano, preço sugerido e porquê. */
 export function LinhaPlano({ p }: { p: Produto }) {
   const ctx = useContextoPlano();
   const abrir = useAbrir();
   const pl = sugerirPlano(p, ctx);
+  const a = resumoAnuncio(p, ctx);
+  if (a) {
+    // Anunciado: o que interessa é como está o anúncio e até onde negociar
+    return (
+      <div className="linha-plano linha-anuncio">
+        <div>
+          <strong>Anunciado a {fmtEuro(a.preco)}</strong>
+          {a.conta && <span> na {a.conta}</span>}
+          <span className="mudo"> · há {plural(a.dias, 'dia', 'dias')}</span>
+        </div>
+        <dl className="anuncio-numeros">
+          <div>
+            <dt>Lucro a {fmtEuro(a.preco)}</dt>
+            <dd>
+              <Lucro v={a.lucro} />
+              {a.margem !== null && <span className="mudo"> ({Math.round(a.margem * 100)}%)</span>}
+            </dd>
+          </div>
+          <div>
+            <dt>Aceitar ofertas até</dt>
+            <dd>
+              <strong>{fmtEuro(a.chao)}</strong> <span className="mudo">(<Lucro v={a.lucroChao} />)</span>
+            </dd>
+          </div>
+        </dl>
+        <p className="mudo pequeno">
+          {a.baixar
+            ? a.baixar.ja
+              ? `Sem vender há ${a.diasPreco} dias a este preço: baixar para ${fmtEuro(a.baixar.preco)}.`
+              : `Se não vender até ${fmtData(a.baixar.quando)}, baixar para ${fmtEuro(a.baixar.preco)}.`
+            : 'Já está no preço mínimo: não baixar mais.'}
+          {pl.precoSugerido !== null && Math.abs(pl.precoSugerido - a.preco) >= Math.max(2, a.preco * 0.1) &&
+            ` Preço sugerido hoje: ${fmtEuro(pl.precoSugerido)}${pl.precoSugerido > a.preco ? ' (talvez esteja barato)' : ''}.`}
+          {pl.acao === 'guardar' && ` Plano: ${textoPlano(pl)}.`}
+        </p>
+        <button className="link" onClick={() => abrir({ tipo: 'plano', ids: [p.id] })}>Mudar plano</button>
+      </div>
+    );
+  }
   return (
     <div className="linha-plano">
       <div>

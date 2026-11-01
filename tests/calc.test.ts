@@ -255,7 +255,7 @@ test('investimento: rentabilidade anualizada e stock', () => {
   assert.equal(investimento({ produtos: ps, vendas: vs }, null, '2026-10-01').valorEstimadoStock, 150);
 });
 
-import { sugerirPlano, tarefas } from '../src/lib/plano.ts';
+import { resumoAnuncio, sugerirPlano, tarefas } from '../src/lib/plano.ts';
 
 test('plano: vender já quando o lucro compensa, guardar quando ainda vai valorizar', () => {
   const hojeT = '2026-10-27';
@@ -471,4 +471,20 @@ test('vender a unidade anunciada: o período fecha como "vendido", não "retirad
   assert.equal(anuncios[0].fim, '2026-10-31T10:00:00Z');
   // Ao guardar o produto em "por anunciar" com o período já fechado, não muda para "retirado"
   assert.equal(atualizarPeriodos(antes, { ...antes, estado: 'por_anunciar', anuncios }, '2026-10-31T10:00:01Z'), undefined);
+});
+
+test('resumo do anúncio: lucro, mínimo a aceitar e quando baixar', () => {
+  const merc = { brickset: { '2': ['2018-01-01', '2020-12-31', 50, null, 'Retired'] as never }, bricklink: { '2': { n: [55, 10] as [number, number] } } };
+  const ctx = (ps: Produto[], hojeT: string) => ({ dados: { produtos: ps, vendas: [], definicoes: [], contas: [{ id: 'c1', nome: 'RM1' }] as never }, mercado: merc, hoje: hojeT });
+  const d = produto({ id: 'd', set_numero: '2', preco_compra: 30, estado: 'anunciado', condicao: 'Novo e selado', preco_anuncio: 70, data_anuncio: '2026-10-01', conta_id: 'c1' });
+  const r = resumoAnuncio(d, ctx([d], '2026-10-21'))!;
+  assert.equal(r.conta, 'RM1');
+  assert.equal(r.dias, 20);
+  assert.equal(r.lucro, 40);
+  assert.ok(r.chao > 30 && r.lucroChao > 0); // o mínimo dá sempre lucro
+  assert.deepEqual(r.baixar, { preco: 65, quando: '2026-11-30', ja: false }); // 60 dias depois de anunciar
+  // Passados 60 dias sem mexer no preço: baixar já
+  assert.equal(resumoAnuncio(d, ctx([d], '2026-12-05'))!.baixar!.ja, true);
+  // Por anunciar: sem resumo
+  assert.equal(resumoAnuncio({ ...d, estado: 'por_anunciar' }, ctx([d], '2026-10-21')), null);
 });

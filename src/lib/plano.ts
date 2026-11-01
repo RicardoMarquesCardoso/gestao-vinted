@@ -108,7 +108,7 @@ export const tarefasAdiadas = (defs: Definicao[]) => obj<Adiadas>(defs, CHAVE_AD
 export const chavePlano = (p: Produto) => `${chaveComparacao(p)}|${produtoNovo(p) ? 'novo' : 'usado'}`;
 
 export interface Contexto {
-  dados: Pick<Dados, 'produtos' | 'vendas' | 'definicoes'>;
+  dados: Pick<Dados, 'produtos' | 'vendas' | 'definicoes'> & { contas?: Dados['contas'] };
   mercado: Mercado | null;
   /** Ano de lançamento pelo catálogo oficial, quando não há dados da Brickset. */
   anoSet?: (numero: string) => number | null | undefined;
@@ -354,6 +354,55 @@ function desdeUltimaMudanca(p: Produto): string | null {
   const aberto = [...(p.anuncios ?? [])].reverse().find((x) => !x.fim);
   if (aberto) return [aberto.inicio, ...(aberto.precos ?? []).map((x) => x.quando)].sort().pop()!.slice(0, 10);
   return p.data_anuncio;
+}
+
+/** Resumo de um produto anunciado, para o detalhe: o anúncio, o lucro e até onde aceitar ofertas. */
+export interface ResumoAnuncio {
+  preco: number; // preço anunciado
+  conta: string | null; // nome da conta da Vinted
+  dias: number; // dias desde que foi anunciado (período atual)
+  diasPreco: number; // dias desde a última mudança de preço
+  lucro: number; // lucro por unidade se vender ao preço anunciado
+  margem: number | null; // lucro ÷ custo
+  chao: number; // preço mínimo a aceitar (ofertas)
+  lucroChao: number; // lucro se vender pelo mínimo
+  /** Próximo passo para o preço: baixar já, baixar numa data (se não vender), ou nada (já no mínimo). */
+  baixar: { preco: number; quando: string; ja: boolean } | null;
+}
+
+/**
+ * Para um produto ANUNCIADO: preço, conta, há quantos dias, lucro ao preço anunciado e ao preço
+ * mínimo (o "chão" do plano: abaixo disto não se aceitam ofertas) e quando baixar o preço. A regra
+ * de baixar é a mesma da tarefa "Baixar": ao fim de diasBaixar dias sem mexer no preço, baixar
+ * baixarPct, nunca abaixo do mínimo.
+ */
+export function resumoAnuncio(p: Produto, ctx: Contexto): ResumoAnuncio | null {
+  if (p.estado !== 'anunciado' || !p.preco_anuncio) return null;
+  const r = regrasPlano(ctx.dados.definicoes);
+  const plano = sugerirPlano(p, ctx);
+  const custo = custoUnitario(p);
+  const aberto = [...(p.anuncios ?? [])].reverse().find((x) => !x.fim);
+  const inicio = (aberto?.inicio ?? p.data_anuncio ?? ctx.hoje).slice(0, 10);
+  const desde = desdeUltimaMudanca(p) ?? inicio;
+  const diasPreco = Math.max(diasEntre(desde, ctx.hoje), 0);
+  const novo = Math.max(arredEuro(p.preco_anuncio * (1 - r.baixarPct)), plano.chao);
+  const guardarAcima = plano.acao === 'guardar' && !plano.manual && p.preco_anuncio <= (plano.precoSugerido ?? Infinity);
+  const baixar =
+    novo < p.preco_anuncio && !guardarAcima
+      ? { preco: novo, quando: diasPreco >= r.diasBaixar ? ctx.hoje : somarDias(desde, r.diasBaixar), ja: diasPreco >= r.diasBaixar }
+      : null;
+  const lucro = Math.round((p.preco_anuncio - custo) * 100) / 100;
+  return {
+    preco: p.preco_anuncio,
+    conta: ctx.dados.contas?.find((c) => c.id === p.conta_id)?.nome ?? null,
+    dias: Math.max(diasEntre(inicio, ctx.hoje), 0),
+    diasPreco,
+    lucro,
+    margem: custo > 0 ? lucro / custo : null,
+    chao: plano.chao,
+    lucroChao: Math.round((plano.chao - custo) * 100) / 100,
+    baixar,
+  };
 }
 
 export function tarefas(ctx: Contexto): Tarefa[] {

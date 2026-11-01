@@ -306,6 +306,8 @@ Todos estes números estão em **Definições → Regras das sugestões** e pode
 
 A lista **"O que fazer"** no Painel junta as tarefas: *Anunciar X a Y €*, *Baixar X para Y €* e *Rever X* (quando acaba um prazo de guardar escolhido por vocês). Cada tarefa pode ser **adiada** 14 dias. Tocar no título "O que fazer" minimiza ou maximiza a lista (fica lembrado em cada dispositivo).
 
+**Produto anunciado** (`resumoAnuncio`, desenhado por `LinhaPlano`): no detalhe, em vez do plano, mostra o anúncio (preço, conta, há quantos dias), o **lucro ao preço anunciado**, **até onde aceitar ofertas** (o preço mínimo do plano, com o lucro a esse preço) e **quando baixar** (*Se não vender até dd/mm, baixar para Y €*, pela mesma regra da tarefa Baixar). Se o preço sugerido hoje estiver longe do anunciado (≥ 10%), diz qual é.
+
 **Sinal dos produtos** (`sinais()` em `src/lib/plano.ts`, desenhado por `SinalProduto` em `planos.tsx`): em vez de várias etiquetas, cada cartão tem uma bolinha de cor e uma linha com a próxima ação. A cor responde a "tenho de fazer alguma coisa?" e usa as mesmas tarefas do "O que fazer":
 
 | Cor | Quando | Texto |
@@ -468,6 +470,7 @@ Se o eBay recusar as chaves, a tarefa não falha: grava o motivo em `ebay_erro` 
 
 - **Duas versões de cada fotografia** no Storage do Supabase (bucket `fotos`): a **original** com boa qualidade (até 2048 px, JPEG 90%, ~0,5–1 MB), para partilhar ou descarregar, e a **miniatura** (400 px, ~30 KB, mesmo caminho com `.min.jpg`), que é a que a app mostra. No produto (`produtos.fotos`) fica só o caminho da original.
 - **Porquê:** o plano grátis do Supabase tem 1 GB de espaço e **5 GB de tráfego por mês**. As miniaturas poupam o tráfego; as originais só se descarregam ao partilhar. Em out/2026 havia 20 fotografias (5,6 MB). Fotografias antigas, sem miniatura, ganham-na sozinhas da primeira vez que são vistas.
+- **Mesmo tamanho para todas** no detalhe do produto: 150×200 px (3:4, como as fotos tiradas ao alto), cortadas se for preciso, para os botões ao lado ficarem sempre no mesmo sítio.
 - **Adicionar** (`AdicionarFotos`): botão com ícone à **esquerda das fotos** no detalhe do produto (sem fotos, por baixo da imagem de referência). Abre o seletor do telemóvel (tirar foto ou escolher da galeria) e aceita várias de uma vez. Por baixo ficam os links do set: Vinted e Vendidos no eBay (com a condição do produto), Brickset e LEGO.
 - **Partilhar / Descarregar**: botões com ícones e legenda **ao lado das fotos** no detalhe do produto (e na janela Anunciar); a foto e as etiquetas ficam centradas no ecrã.
   - **No iPhone há um só botão, "Guardar"**: abre o menu de partilha do iOS, onde se escolhe *Guardar imagens* (vão para a galeria). A app da Vinted não aparece nesse menu (não recebe fotos de outras apps), e "descarregar" no iPhone só guardaria em Ficheiros. Depois, no anúncio da Vinted, escolhem-se as fotos da galeria (são as mais recentes). Só as **fotos nossas** (`produtos.fotos`), nunca as imagens genéricas da Brickset/TCGplayer. No telemóvel, *Partilhar* abre o menu de partilha do sistema com as originais (Vinted, WhatsApp, galeria…); *Descarregar* grava cada uma como ficheiro (`LEGO 76303 Tumbler Batman - 1.jpg`).
