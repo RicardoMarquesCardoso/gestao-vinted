@@ -856,3 +856,25 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .tabela-grupo tr.linha-atual td { background: var(--superficie-2); font-weight: 600; }
 .tabela-grupo tr.linha-atual td small { font-weight: 400; }
 .ciclo-set { font-size: 0.85rem; text-align: center; margin: 0 0 10px; }
+
+/* ---------- Análises: destaques e dispersão ---------- */
+/* Destaques: cartões pequenos com um número grande; a faixa à esquerda dá o tom (com ▲ ou !) */
+.destaques { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.destaque { background: var(--superficie); border: 1px solid var(--linha); border-left: 4px solid var(--linha); border-radius: var(--raio); padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; box-shadow: var(--sombra); }
+.destaque-bom { border-left-color: var(--positivo); }
+.destaque-atencao { border-left-color: var(--aviso); }
+.destaque-titulo { font-size: 0.78rem; color: var(--texto-2); font-weight: 600; line-height: 1.25; }
+.destaque strong { font-size: 1.3rem; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.destaque small { font-size: 0.75rem; line-height: 1.3; }
+/* Dispersão (SVG): grelha fina, pontos semitransparentes com contorno da superfície */
+.dispersao svg { width: 100%; height: auto; display: block; overflow: visible; }
+.dispersao .grelha { stroke: var(--linha); stroke-width: 0.6; }
+.dispersao .eixo-zero { stroke: var(--texto-3); stroke-width: 0.8; }
+.dispersao .eixo-texto { fill: var(--texto-3); font-size: 8px; font-variant-numeric: tabular-nums; }
+.dispersao .eixo-titulo { fill: var(--texto-3); font-size: 7.5px; }
+.dispersao .ponto { cursor: pointer; }
+.dispersao .ponto-alvo { fill: transparent; }
+.dispersao .ponto-marca { fill: var(--primario); fill-opacity: 0.55; stroke: var(--superficie); stroke-width: 1.5; }
+.dispersao .ponto.ativo .ponto-marca, .dispersao .ponto:hover .ponto-marca { fill-opacity: 0.95; }
+.dispersao .ponto-nome { fill: var(--texto-2); font-size: 8px; pointer-events: none; }
+.dispersao-leitura { font-size: 0.82rem; margin-top: 6px; min-height: 1.3em; }

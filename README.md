@@ -39,7 +39,7 @@ Este README explica **o que a app faz, como está construída e porquê**, para 
 | **Contas** | As contas da Vinted com as barras dos limites (30 vendas / 2000 € por ano). Botão ✏️ para editar cada conta. |
 | **Compras** | Lista das compras. É a única forma de entrar produtos novos. Tem o atalho **Vale a pena?**. |
 | **Vale a pena?** | Antes de comprar: escreve-se só o n.º do set e a app mostra por quanto se vende, em quantos dias, e **até que preço compensa comprar e quantas unidades** (bom / muito bom / oportunidade rara), a diversificar. Tem links para ver o set na Vinted e nos vendidos do eBay. Está na barra de baixo do telemóvel, no lugar onde estavam as Contas (que passaram para *Mais*). |
-| **Análises** | Lucro por mês, conta e categoria; **investimento** (rentabilidade por ano, dinheiro parado, valor do stock); tabela por set; lotes de compra; idade do stock; tempo até vender. |
+| **Análises** | Números do período (lucro, recebido, vendas, margem) com **▲▼ face ao período anterior** (períodos de 6 meses ou mais comparam-se com as mesmas datas do ano passado; os curtos com o período logo antes). **Destaques** (`lib/insights.ts`): melhor e pior tema por rentabilidade por ano (≥ 3 vendas), preço final vs. anunciado (mediana), dias anunciado até vender, stock com mais de 90 dias, vendas que ainda cabem este ano (e contas que no ritmo atual chegam ao limite), maior aposta em stock. Lucro por mês; **rentabilidade vs. tempo por tema** (gráfico de pontos: ROI × dias até vender, tamanho = vendas); **investimento** (rentabilidade por ano, dinheiro parado, valor do stock); por categoria e conta; tabela por set; lotes de compra; idade do stock; tempo até vender. |
 | **Definições** | Texto dos anúncios, regras das sugestões, pessoas, listas, exportação, dados de exemplo e histórico de alterações. |
 
 ---
@@ -497,6 +497,7 @@ src/
     calc.ts                 custos, lucro, limites, estatísticas, lotes, idade do stock
     acertos.ts              saldos e transferências tipo Splitwise
     investimento.ts         rentabilidade anualizada, dados de mercado (useMercado)
+    insights.ts             destaques das Análises (melhor/pior tema, negociação, stock parado, vagas, período anterior)
     plano.ts                planos vender/guardar, preço sugerido, tarefas
     promocoes.ts            promoções recebidas de outra app (lista, novas, sets e preços)
     fotos.ts                fotografias: original + miniatura, caminhos, regras da limpeza

@@ -1,10 +1,14 @@
-// Ecrã "Análises": lucro e gastos por período, conta, categoria; investimento (rentabilidade
-// por ano, dinheiro parado, valor estimado do stock); tabela por set; lotes de compra;
-// idade do stock; tempo até vender. Os cálculos estão em lib/calc.ts e lib/investimento.ts.
+// Ecrã "Análises": números do período com a variação face ao período anterior (▲▼), destaques
+// (lib/insights.ts: melhor/pior tema, preço final vs. anunciado, tempo anunciado, stock parado,
+// vagas nas contas, maior aposta), lucro por mês, rentabilidade vs. tempo por tema (dispersão),
+// investimento, por categoria/conta, subcategorias, lotes, idade do stock, por set e tempo até
+// vender. Os cálculos estão em lib/calc.ts, lib/investimento.ts e lib/insights.ts.
 
 import { useMemo, useState } from 'react';
 import { useAbrir } from '../components/acoes';
-import { BarrasHorizontais, BarrasMensais } from '../components/Graficos';
+import { BarrasHorizontais, BarrasMensais, Dispersao } from '../components/Graficos';
+import { desempenhoTemas, destaques, periodoAnterior, variacao } from '../lib/insights';
+import type { Destaque } from '../lib/insights';
 import { Cartao } from '../components/ui';
 import { PREDEFINICOES, estatisticas, idadeStock, intervaloDe, lotes } from '../lib/calc';
 import type { Intervalo, Predefinicao } from '../lib/calc';
@@ -32,11 +36,24 @@ export function Analises() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [dados, intervalo.inicio, intervalo.fim, conta, texto, h],
   );
+  // Mesmo filtro no período anterior, para as setas ▲▼
+  const anterior = periodoAnterior(intervalo, h);
+  const ant = useMemo(
+    () => (anterior ? estatisticas(dados, { intervalo: anterior, contaId: conta || undefined, texto: texto.trim() || undefined }, h) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dados, anterior?.inicio, anterior?.fim, conta, texto, h],
+  );
+  const lista = useMemo(() => destaques(dados, intervalo, h), [dados, intervalo.inicio, intervalo.fim, h]);
+  // Temas com pelo menos 2 vendas e dias conhecidos, para a dispersão
+  const temas = useMemo(
+    () => desempenhoTemas(dados, intervalo).filter((t) => t.vendas >= 2 && t.dias !== null && t.roi !== null).slice(0, 12),
+    [dados, intervalo.inicio, intervalo.fim],
+  );
   const tempos = rapidos ? [...e.tempos].sort((a, b) => a.dias - b.dias).slice(0, 8) : e.tempos.slice(0, 8);
   const listaLotes = useMemo(() => lotes(dados), [dados]);
   const idade = useMemo(() => idadeStock(dados, h), [dados, h]);
   const subcats = verSub ? e.porSubcategoria : e.porSubcategoria.slice(0, 8);
-  const pct = (x: number | null) => (x === null ? '—' : `${fmtNum(x * 100)}%`);
+  const pct = (x: number | null) => (x === null ? '—' : `${Math.round(x * 100)}%`);
 
   return (
     <div className="pagina">
@@ -59,26 +76,34 @@ export function Analises() {
         <input type="search" className="filtro-procura" placeholder="Produto ou n.º de set" value={texto} onChange={(ev) => setTexto(ev.target.value)} />
       </div>
 
-      <div className="kpis">
-        <div className="kpi kpi-destaque">
-          <span>Lucro</span>
-          <strong className={e.lucro < 0 ? 'negativo' : ''}>{fmtEuro(e.lucro)}</strong>
-          <small>{e.margem !== null ? `margem ${fmtNum(e.margem * 100)}% sobre o custo` : 'sem vendas concluídas'}</small>
-        </div>
-        <div className="kpi"><span>Recebido</span><strong>{fmtEuro(e.recebido)}</strong><small>{plural(e.vendasConcluidas, 'venda', 'vendas')}</small></div>
-        <div className="kpi"><span>Gasto</span><strong>{fmtEuro(e.gasto)}</strong><small>compras no período</small></div>
-        <div className="kpi">
-          <span>Tempo médio até vender</span>
-          <strong>{e.diasMediosVenda !== null ? plural(Math.round(e.diasMediosVenda), 'dia', 'dias') : '—'}</strong>
-          <small>da compra à venda</small>
-        </div>
+      <div className="kpis kpis-4">
+        <Kpi destaque nome="Lucro" valor={fmtEuro(e.lucro)} negativo={e.lucro < 0} agora={e.lucro} antes={ant?.lucro} />
+        <Kpi nome="Recebido" valor={fmtEuro(e.recebido)} agora={e.recebido} antes={ant?.recebido} />
+        <Kpi nome="Vendas" valor={String(e.vendasConcluidas)} agora={e.vendasConcluidas} antes={ant?.vendasConcluidas} />
+        <Kpi nome="Margem" valor={e.margem !== null ? pct(e.margem) : '—'} agora={e.margem ?? 0} antes={ant?.margem ?? undefined} pontos />
       </div>
 
-      <ResumoInvestimentoCartao />
+      {lista.length > 0 && (
+        <div className="destaques">
+          {lista.map((d) => <CartaoDestaque key={d.id} d={d} />)}
+        </div>
+      )}
 
       <Cartao titulo="Lucro por mês">
         <BarrasMensais dados={e.porMes.map((m) => ({ mes: m.mes, valor: m.lucro }))} nome="Lucro por mês" />
       </Cartao>
+
+      <Cartao titulo="Rentabilidade vs. tempo, por tema">
+        <Dispersao
+          pontos={temas.map((t) => ({ nome: t.nome, x: t.dias!, y: t.roi!, peso: t.vendas, detalhe: `${plural(t.vendas, 'venda', 'vendas')} · lucro ${fmtEuro(t.lucro)}${t.rentabAnual !== null ? ` · ${pct(t.rentabAnual)}/ano` : ''}` }))}
+          rotuloX="dias até vender"
+          rotuloY="ROI"
+          fmtX={(v) => String(Math.round(v))}
+          fmtY={(v) => `${Math.round(v * 100)}%`}
+        />
+      </Cartao>
+
+      <ResumoInvestimentoCartao />
 
       <div className="duas-colunas">
         <Cartao titulo="Lucro por categoria">
@@ -89,7 +114,7 @@ export function Analises() {
         </Cartao>
       </div>
 
-      <Cartao titulo="Subcategorias" acao={<span className="mudo">ROI = lucro ÷ custo</span>}>
+      <Cartao titulo="Subcategorias">
         {e.porSubcategoria.length === 0 ? (
           <p className="mudo">Sem vendas no período.</p>
         ) : (
@@ -240,7 +265,7 @@ function ResumoInvestimentoCartao() {
         <div className="kpi kpi-destaque">
           <span>Rentabilidade por ano</span>
           <strong className={r.rentabAnual !== null && r.rentabAnual < 0 ? 'negativo' : ''}>{pctAno(r.rentabAnual)}</strong>
-          <small>lucro ÷ dinheiro preso, em {plural(r.vendasComTempo, 'venda', 'vendas')} com datas</small>
+          <small>{plural(r.vendasComTempo, 'venda', 'vendas')}</small>
         </div>
         <div className="kpi">
           <span>Dinheiro preso por venda</span>
@@ -261,12 +286,6 @@ function ResumoInvestimentoCartao() {
           </small>
         </div>
       </div>
-      <p className="nota">
-        A rentabilidade por ano tem em conta o tempo: 20% de lucro em 2 meses vale mais do que 20% em 2 anos. O valor do stock usa os preços de venda da
-        BrickLink (Europa, últimos 6 meses) e, sem isso, a vossa venda média do mesmo set.
-        {semBrickset && ' Os dados da Brickset e da BrickLink ainda não estão ligados.'}
-        {r.vendasSemTempo > 0 && ` ${plural(r.vendasSemTempo, 'venda não entra', 'vendas não entram')} na rentabilidade por falta de datas.`}
-      </p>
     </Cartao>
   );
 }
@@ -350,7 +369,6 @@ function PorSet({ texto }: { texto: string }) {
           {todos ? 'Mostrar menos' : `Mostrar todos (${linhas.length})`}
         </button>
       )}
-      <p className="nota">Por ano = rentabilidade anualizada das vendas. * Valor estimado pela vossa venda média (sem dados da BrickLink).</p>
     </Cartao>
   );
 }
@@ -365,5 +383,33 @@ function EstadoSet({ l }: { l: LinhaInvestimento }) {
       {m.lancamento && <small className="mudo"> desde {ano(m.lancamento)}</small>}
       {m.pvp ? <small className="mudo"> · PVP {fmtEuro(m.pvp)}</small> : null}
     </span>
+  );
+}
+
+/** Número do topo com a variação face ao período anterior (▲ verde / ▼ vermelho). pontos: variação em pontos percentuais. */
+function Kpi(props: { nome: string; valor: string; agora: number; antes?: number; destaque?: boolean; negativo?: boolean; pontos?: boolean }) {
+  const v = props.antes === undefined ? null : props.pontos ? props.agora - props.antes : variacao(props.agora, props.antes);
+  return (
+    <div className={`kpi ${props.destaque ? 'kpi-destaque' : ''}`}>
+      <span>{props.nome}</span>
+      <strong className={props.negativo ? 'negativo' : ''}>{props.valor}</strong>
+      <small className={v === null || Math.abs(v) < 0.005 ? 'mudo' : v > 0 ? 'positivo' : 'negativo'}>
+        {v === null ? '\u00a0' : `${v > 0 ? '▲' : v < 0 ? '▼' : ''} ${props.pontos ? `${Math.round(Math.abs(v) * 100)} p.p.` : `${Math.round(Math.abs(v) * 100)}%`} vs. anterior`}
+      </small>
+    </div>
+  );
+}
+
+/** Um cartão de destaque: título curto, número grande e uma linha de pormenor. */
+function CartaoDestaque({ d }: { d: Destaque }) {
+  return (
+    <div className={`destaque destaque-${d.tom}`}>
+      <span className="destaque-titulo">
+        {d.tom === 'bom' ? '▲ ' : d.tom === 'atencao' ? '! ' : ''}
+        {d.titulo}
+      </span>
+      <strong>{d.valor}</strong>
+      <small className="mudo">{d.detalhe}</small>
+    </div>
   );
 }

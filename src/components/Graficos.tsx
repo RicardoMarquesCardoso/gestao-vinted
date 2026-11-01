@@ -76,3 +76,82 @@ export function BarrasHorizontais(props: { linhas: { nome: string; valor: number
     </div>
   );
 }
+
+/**
+ * Gráfico de pontos (dispersão) em SVG: um ponto por categoria, com x e y numéricos e o tamanho
+ * a mostrar o peso (ex.: n.º de vendas). Só os maiores levam o nome escrito ao lado; tocar ou
+ * passar o rato num ponto mostra os números todos. Usado em "Rentabilidade vs. tempo".
+ */
+export function Dispersao(props: {
+  pontos: { nome: string; x: number; y: number; peso: number; detalhe: string }[];
+  rotuloX: string;
+  rotuloY: string;
+  fmtX(v: number): string;
+  fmtY(v: number): string;
+}) {
+  const [ativo, setAtivo] = useState<string | null>(null);
+  if (!props.pontos.length) return <p className="mudo">Sem dados no período.</p>;
+  const L = 300, A = 190, mE = 30, mB = 16, mT = 12, mD = 12; // largura, altura e margens
+  const xs = props.pontos.map((p) => p.x);
+  const ys = props.pontos.map((p) => p.y);
+  const passo = (max: number) => { const e = 10 ** Math.floor(Math.log10(max || 1)); return [1, 2, 5, 10].map((k) => k * e).find((k) => max / k <= 5)!; };
+  // Os eixos acabam numa marca redonda logo acima do maior valor
+  const xBruto = Math.max(...xs) * 1.05 || 1;
+  const sx = passo(xBruto);
+  const xMax = Math.ceil(xBruto / sx) * sx;
+  const yBrutoMin = Math.min(0, ...ys) * 1.05;
+  const yBrutoMax = Math.max(...ys, 0) * 1.05 || 1;
+  const sy = passo(yBrutoMax - yBrutoMin);
+  const yMin = Math.floor(yBrutoMin / sy) * sy;
+  const yMax = Math.ceil(yBrutoMax / sy) * sy;
+  const px = (x: number) => mE + (x / xMax) * (L - mE - mD);
+  const py = (y: number) => mT + (1 - (y - yMin) / (yMax - yMin)) * (A - mT - mB);
+  const pesoMax = Math.max(...props.pontos.map((p) => p.peso), 1);
+  const raio = (w: number) => 4 + Math.sqrt(w / pesoMax) * 9;
+  const ticksX = Array.from({ length: Math.round(xMax / sx) + 1 }, (_, i) => i * sx);
+  const ticksY = Array.from({ length: Math.round((yMax - yMin) / sy) + 1 }, (_, i) => yMin + i * sy);
+  // Nomes escritos só nos 3 com mais peso (o resto no toque)
+  const comNome = new Set([...props.pontos].sort((a, b) => b.peso - a.peso).slice(0, 3).map((p) => p.nome));
+  const sel = props.pontos.find((p) => p.nome === ativo);
+  return (
+    <figure className="grafico dispersao">
+      <svg viewBox={`0 0 ${L} ${A}`} role="img" aria-label={`${props.rotuloY} por ${props.rotuloX}`} onMouseLeave={() => setAtivo(null)}>
+        {ticksY.map((v) => (
+          <g key={`y${v}`}>
+            <line x1={mE} x2={L - mD} y1={py(v)} y2={py(v)} className={v === 0 ? 'eixo-zero' : 'grelha'} />
+            <text x={mE - 5} y={py(v) + 3} className="eixo-texto" textAnchor="end">{props.fmtY(v)}</text>
+          </g>
+        ))}
+        {ticksX.map((v) => (
+          <text key={`x${v}`} x={px(v)} y={A - 3} className="eixo-texto" textAnchor="middle">{props.fmtX(v)}</text>
+        ))}
+        {[...props.pontos].sort((a, b) => b.peso - a.peso).map((p) => (
+          <g key={p.nome} className={`ponto ${ativo === p.nome ? 'ativo' : ''}`} onMouseEnter={() => setAtivo(p.nome)} onClick={() => setAtivo(p.nome)}>
+            <circle cx={px(p.x)} cy={py(p.y)} r={raio(p.peso) + 6} className="ponto-alvo" />
+            <circle cx={px(p.x)} cy={py(p.y)} r={raio(p.peso)} className="ponto-marca" />
+            {comNome.has(p.nome) && (
+              // Perto da margem direita, o nome vai para a esquerda do ponto
+              <text
+                x={px(p.x) > L * 0.7 ? px(p.x) - raio(p.peso) - 3 : px(p.x) + raio(p.peso) + 3}
+                y={py(p.y) + 3}
+                textAnchor={px(p.x) > L * 0.7 ? 'end' : 'start'}
+                className="ponto-nome"
+              >
+                {p.nome}
+              </text>
+            )}
+          </g>
+        ))}
+      </svg>
+      <figcaption className="dispersao-leitura">
+        {sel ? (
+          <>
+            <strong>{sel.nome}</strong> · {props.fmtY(sel.y)} · {props.fmtX(sel.x)} <span className="mudo">· {sel.detalhe}</span>
+          </>
+        ) : (
+          <span className="mudo">{props.rotuloY} (vertical) · {props.rotuloX} (horizontal) · tamanho = vendas</span>
+        )}
+      </figcaption>
+    </figure>
+  );
+}
