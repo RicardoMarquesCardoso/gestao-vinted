@@ -524,7 +524,7 @@ src/
     DetalheProduto.tsx      detalhe de um produto
     PesquisaProdutos.tsx    pesquisa de Produtos com sugestões e filtro de categoria
     CabecalhoProdutos.tsx   topo e filtros do ecrã Produtos
-    Graficos.tsx            gráficos de barras simples
+    Graficos.tsx            gráficos feitos à mão: barras por mês, barras horizontais e pontos (Dispersao)
     AvaliarPromocao.tsx     Vale a pena? → Promoção da loja (X% sobre o PVP ou preços da lista)
     DetalheGrupo.tsx        Detalhe de um grupo de produtos iguais; TabelaProdutos (usada também no detalhe do produto)
     DetalheSet.tsx          Detalhe de um set (Um set, e janela ao tocar num set da promoção)
