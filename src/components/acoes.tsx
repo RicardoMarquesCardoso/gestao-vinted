@@ -14,6 +14,7 @@ import { FormConta } from './FormConta';
 import { FormProduto } from './FormProduto';
 import { FormVenda } from './FormVenda';
 import { DetalheProduto } from './DetalheProduto';
+import { DetalheGrupo } from './DetalheGrupo';
 import { FormAnunciar } from './FormAnunciar';
 import { FormVendi } from './FormVendi';
 import { FormPlano } from './planos';
@@ -23,6 +24,7 @@ import type { PrecoPromo } from './DetalheSet';
 export type Acao =
   | { tipo: 'produto'; id?: string }
   | { tipo: 'detalhe'; id: string }
+  | { tipo: 'grupo'; ids: string[] }
   | { tipo: 'compra'; id?: string }
   | { tipo: 'venda'; id?: string; produtoId?: string }
   | { tipo: 'conta'; id?: string }
@@ -61,6 +63,7 @@ export function AcoesProvider({ children }: { children: ReactNode }) {
       {children}
       {atual?.tipo === 'produto' && <FormProduto key={pilha.length} id={atual.id} aoFechar={fechar} />}
       {atual?.tipo === 'detalhe' && <DetalheProduto key={pilha.length} id={atual.id} aoFechar={fechar} />}
+      {atual?.tipo === 'grupo' && <DetalheGrupo key={pilha.length} ids={atual.ids} aoFechar={fechar} />}
       {atual?.tipo === 'compra' && <FormCompra key={pilha.length} id={atual.id} aoFechar={fechar} />}
       {atual?.tipo === 'venda' && <FormVenda key={pilha.length} id={atual.id} produtoId={atual.produtoId} aoFechar={fechar} />}
       {atual?.tipo === 'conta' && <FormConta key={pilha.length} id={atual.id} aoFechar={fechar} />}

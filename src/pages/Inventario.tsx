@@ -2,7 +2,8 @@
 // Vendidos, pesquisa com sugestões (produtos e categorias/subcategorias) e ordenação.
 //
 // Produtos iguais (mesmo n.º de set ou mesmo nome) aparecem agrupados num só cartão com o
-// custo médio; tocar abre o grupo com cada unidade.
+// custo médio; tocar abre o detalhe do grupo (components/DetalheGrupo.tsx), com os produtos
+// numa tabela.
 
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -31,7 +32,6 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
   const [categoriaFiltro, setCategoriaFiltro] = useState<FiltroCategoria | null>(null);
   const [verOutros, setVerOutros] = useState(false);
   const [ordem, setOrdem] = useState<Ordem>('recentes');
-  const [aberto, setAberto] = useState<string | null>(null);
   const [ver, setVer] = useState<VerProdutos>({ porAnunciar: inicial === 'por_vender', anunciados: inicial === 'por_vender', vendidos: inicial === 'vendidos' });
 
   // Vendas válidas de cada produto (a mais recente primeiro)
@@ -177,45 +177,6 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
     );
   }
 
-  /** Uma unidade dentro de um grupo aberto. */
-  function linhaProduto(p: Produto): ReactNode {
-    const disp = unidadesDisponiveis(p, dados.vendas);
-    return (
-      <li key={p.id} className="grupo-linha">
-        <button className="grupo-linha-info" onClick={() => abrir({ tipo: 'detalhe', id: p.id })}>
-          <span className="linha-principal">
-            <span className="truncar">
-              {p.nome}
-              {p.condicao ? <span className="mudo"> · {p.condicao}</span> : null}
-            </span>
-            <small className="mudo">
-              {p.estado === 'vendido' && vendasDe.has(p.id) ? `vendido ${fmtData(vendasDe.get(p.id)![0].data_venda)} · ` : ''}
-              {fmtData(p.data_compra)}
-              {p.conta_id ? ` · ${nomeConta(p.conta_id)}` : ''}
-              {p.notas ? ` · ${p.notas}` : ''}
-            </small>
-          </span>
-          <span className="linha-direita">
-            <SinalProduto sinal={sinaisP.get(p.id)} />
-            {p.estado === 'vendido' && vendasDe.has(p.id) ? (
-              <span className="coluna-valores">
-                <strong>{fmtEuro(vendasDe.get(p.id)!.reduce((a, v) => a + liquidoVenda(v), 0))}</strong>
-                <Valor n={lucroDe(p)} sinal />
-              </span>
-            ) : (
-              <strong>{fmtEuro(custoUnitario(p))}</strong>
-            )}
-          </span>
-        </button>
-        {disp > 0 && (
-          <button className="btn btn-pequeno btn-primario" onClick={() => abrir({ tipo: 'vendi', ids: [p.id] })}>
-            Vendi
-          </button>
-        )}
-      </li>
-    );
-  }
-
   return (
     <div className="pagina">
       <CabecalhoProdutos ver={ver} mudar={setVer} contagens={contagens} exportar={exportar} adicionar={() => abrir({ tipo: 'compra' })} />
@@ -242,11 +203,7 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
               <GrupoProdutos
                 key={g.chave}
                 grupo={g}
-                aberto={aberto === g.chave}
-                alternar={() => setAberto((x) => (x === g.chave ? null : g.chave))}
-                linha={linhaProduto}
-                anunciar={(ids, retirar) => abrir({ tipo: 'anunciar', ids, retirar })}
-                vendi={(ids) => abrir({ tipo: 'vendi', ids })}
+                abrir={() => abrir({ tipo: 'grupo', ids: g.itens.map((x) => x.id) })}
                 sinal={(() => {
                   // O grupo mostra o sinal da unidade mais urgente (vermelho > amarelo > azul > verde)
                   const lista = g.itens.map((x) => sinaisP.get(x.id)).filter((x): x is NonNullable<typeof x> => !!x);
@@ -297,14 +254,14 @@ interface Grupo {
   max: number;
 }
 
-/** Cartão de um grupo de produtos iguais; aberto mostra cada unidade e ações para o grupo. */
-function GrupoProdutos(props: { grupo: Grupo; aberto: boolean; alternar(): void; linha(p: Produto): ReactNode; anunciar(ids: string[], retirar?: boolean): void; vendi(ids: string[]): void; sinal?: ReactNode }) {
+/** Cartão de um grupo de produtos iguais (×N e custo médio); tocar abre o detalhe do grupo. */
+function GrupoProdutos(props: { grupo: Grupo; abrir(): void; sinal?: ReactNode }) {
   const { grupo: g } = props;
   const p = g.itens[0];
   const nomes = new Set(g.itens.map((x) => x.nome.trim().toLowerCase()));
   return (
-    <li className={props.aberto ? 'grupo-aberto' : ''}>
-      <button className={`produto produto-grupo ${props.aberto ? 'ativo' : ''}`} onClick={props.alternar} aria-expanded={props.aberto}>
+    <li>
+      <button className="produto produto-grupo" onClick={props.abrir}>
         <span className="grupo-pilha">
           <ImagemProduto p={p} />
           <span className="grupo-qtd">×{g.unidades}</span>
@@ -312,40 +269,15 @@ function GrupoProdutos(props: { grupo: Grupo; aberto: boolean; alternar(): void;
         <div className="produto-info">
           <div className="produto-nome" title={p.nome}>{p.nome}{nomes.size > 1 ? ' e variantes' : ''}</div>
           <div className="produto-meta">{[categoria(p), p.set_numero].filter(Boolean).join(' · ')}</div>
-          <div className="produto-linha">
-            {props.sinal}
-          </div>
+          <div className="produto-linha">{props.sinal}</div>
           <div className="produto-rodape">
             <span>
               Média {fmtEuro(g.media)}
               {g.max - g.min > 0.004 && <span className="mudo"> ({fmtEuro(g.min)}–{fmtEuro(g.max)})</span>}
             </span>
-            <span className="mudo" aria-hidden="true">{props.aberto ? '▴' : '▾'}</span>
           </div>
         </div>
       </button>
-      {props.aberto && (
-        <div className="grupo-painel">
-          <div className="grupo-acoes">
-            {g.itens.some((x) => x.estado === 'por_anunciar' || x.estado === 'anunciado') && (
-              <button className="btn btn-pequeno btn-primario" onClick={() => props.vendi(g.itens.map((x) => x.id))}>
-                Vendi
-              </button>
-            )}
-            {g.itens.some((x) => x.estado === 'por_anunciar') && (
-              <button className="btn btn-pequeno" onClick={() => props.anunciar(g.itens.map((x) => x.id))}>
-                Anunciar
-              </button>
-            )}
-            {g.itens.some((x) => x.estado === 'anunciado') && (
-              <button className="btn btn-pequeno" onClick={() => props.anunciar(g.itens.map((x) => x.id), true)}>
-                Retirar anúncio
-              </button>
-            )}
-          </div>
-          <ul className="grupo-itens">{g.itens.map((x) => props.linha(x))}</ul>
-        </div>
-      )}
     </li>
   );
 }

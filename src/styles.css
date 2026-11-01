@@ -805,11 +805,11 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .fotos-com-acoes { display: grid; grid-template-columns: 56px minmax(0, 1fr) 56px; gap: 6px; align-items: center; margin-bottom: 14px; }
 .fotos-com-acoes .fotos-galeria { grid-column: 2; margin-bottom: 0; }
 /* Cada foto cabe inteira na coluna do centro (se houver várias, desliza-se de uma em uma) */
-/* Todas as fotos com o mesmo tamanho e formato (3:4, como as tiradas ao alto no telemóvel), cortadas
+/* Todas as fotos com o mesmo tamanho e formato (200×200, quadradas), cortadas
    se for preciso: assim os botões ao lado ficam sempre no mesmo sítio, seja qual for o produto. */
 .fotos-com-acoes .fotos-galeria { height: 200px; }
-.fotos-com-acoes .fotos-galeria .foto-vazia, .fotos-com-acoes .fotos-galeria .img-ref { width: 150px; height: 200px; flex: none; border-radius: 10px; background: var(--superficie-2); }
-.fotos-com-acoes .fotos-galeria img { width: 150px; height: 200px; max-width: none; flex: none; object-fit: cover; }
+.fotos-com-acoes .fotos-galeria .foto-vazia, .fotos-com-acoes .fotos-galeria .img-ref { width: 200px; height: 200px; flex: none; border-radius: 10px; background: var(--superficie-2); }
+.fotos-com-acoes .fotos-galeria img { width: 200px; height: 200px; max-width: none; flex: none; object-fit: cover; }
 .fotos-com-acoes .fotos-galeria img.img-ref { object-fit: cover !important; }
 /* Centrar as fotos sem cortar o início quando são muitas e se deslizam */
 .fotos-galeria > :first-child { margin-left: auto; }
@@ -841,3 +841,13 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 
 /* Legenda pequena por baixo da imagem de referência (quando ainda não há fotos nossas) */
 .legenda-referencia { text-align: center; font-size: 0.75rem; margin: -8px 0 6px; }
+
+/* Detalhe de um grupo: resumo e tabela dos produtos (tocar numa linha abre o produto) */
+.grupo-resumo { margin: 0 0 12px; }
+.grupo-resumo > div { background: var(--superficie-2); }
+.tabela-grupo tr.clicavel { cursor: pointer; }
+.tabela-grupo tr.clicavel:active td { background: var(--superficie-2); }
+.tabela-grupo td { vertical-align: top; }
+.tabela-grupo td:nth-child(3) { white-space: normal; }
+.bloco { display: block; }
+.tabela-grupo th, .tabela-grupo td { padding-left: 6px; padding-right: 6px; }
