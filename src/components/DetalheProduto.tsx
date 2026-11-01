@@ -130,8 +130,8 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
     >
       {/* Fotografias: quadrado com 3/4 da largura (cortadas se for preciso), igual em todos os
           produtos; sem fotos nossas, a imagem de referência (set LEGO ou TCGplayer). No 1/4 à
-          direita, só ícones, de cima para baixo: adicionar, descarregar e partilhar (estes dois só
-          com fotos nossas). Com várias fotos, desliza-se para o lado. */}
+          direita, só ícones, de cima para baixo: adicionar, descarregar e partilhar (estes dois
+          sempre visíveis, mas desativados sem fotos nossas). Com várias fotos, desliza-se para o lado. */}
       <div className="fotos-com-acoes">
         <div className="fotos-galeria">
           {p.fotos.length > 0 ? (
@@ -142,7 +142,7 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
         </div>
         <div className="acoes-fotos-coluna">
           <AdicionarFotos aEnviar={aEnviar} enviar={adicionarFoto} />
-          {p.fotos.length > 0 && <PartilharFotos p={p} vertical />}
+          <PartilharFotos p={p} vertical />
         </div>
       </div>
       {p.fotos.length === 0 && (urlReferencia(p) || imagemReferencia(p, true)) && (

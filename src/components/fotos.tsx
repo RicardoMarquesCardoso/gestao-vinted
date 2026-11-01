@@ -105,7 +105,8 @@ export function PartilharFotos({ p, vertical }: { p: Produto; vertical?: boolean
   const [pronto, setPronto] = useState(false);
   const preparados = useRef<{ chave: string; ficheiros: File[] } | null>(null);
   const chave = p.fotos.join('|');
-  if (!p.fotos.length) return null;
+  // Fora da coluna do detalhe, sem fotos nossas não há botões; na coluna aparecem desativados
+  if (!p.fotos.length && !vertical) return null;
 
   // Vai buscar as originais (ou a miniatura, se o produto já foi limpo) como ficheiros
   async function ficheiros(): Promise<File[]> {
@@ -171,10 +172,11 @@ export function PartilharFotos({ p, vertical }: { p: Produto; vertical?: boolean
 
   const n = p.fotos.length === 1 ? 'a fotografia' : `as ${p.fotos.length} fotografias`;
   const partilha = podePartilharFicheiros();
+  const semFotos = !p.fotos.length;
   const ios = eIos() && partilha;
   // Botão com ícone; fora da coluna das fotos leva também uma palavra por baixo
-  const botao = (b: { onClick(): void; rotulo: string; titulo: string; icone: ReactNode; destacado?: boolean }) => (
-    <button type="button" className="acao-foto" onClick={b.onClick} disabled={aPreparar} aria-label={b.titulo} title={b.titulo}>
+  const botao = (b: { onClick(): void; rotulo: string; titulo: string; icone: ReactNode; destacado?: boolean; desativado?: boolean }) => (
+    <button type="button" className="acao-foto" onClick={b.onClick} disabled={aPreparar || b.desativado} aria-label={b.titulo} title={b.titulo}>
       <span className={`btn-redondo ${b.destacado ? 'btn-redondo-primario' : ''}`}>{aPreparar ? <span className="a-rodar">↻</span> : b.icone}</span>
       {!vertical && <small>{b.destacado ? 'Outra vez' : b.rotulo}</small>}
     </button>
@@ -184,8 +186,10 @@ export function PartilharFotos({ p, vertical }: { p: Produto; vertical?: boolean
   if (vertical) {
     return (
       <>
-        {botao({ onClick: ios ? partilhar : descarregar, rotulo: 'Descarregar', titulo: ios ? `Guardar ${n} nas Fotos` : `Descarregar ${n}`, icone: <IconeDescarregar />, destacado: ios && pronto })}
-        {partilha && botao({ onClick: partilhar, rotulo: 'Partilhar', titulo: `Partilhar ${n}`, icone: <IconePartilhar />, destacado: pronto })}
+        {/* Os dois aparecem sempre; ficam desativados (cinzentos) sem fotos nossas, e partilhar
+            também onde o browser não deixa partilhar ficheiros (ex.: computador) */}
+        {botao({ onClick: ios ? partilhar : descarregar, rotulo: 'Descarregar', titulo: semFotos ? 'Sem fotografias nossas para descarregar' : ios ? `Guardar ${n} nas Fotos` : `Descarregar ${n}`, icone: <IconeDescarregar />, destacado: ios && pronto, desativado: semFotos })}
+        {botao({ onClick: partilhar, rotulo: 'Partilhar', titulo: semFotos ? 'Sem fotografias nossas para partilhar' : partilha ? `Partilhar ${n}` : 'Este browser não deixa partilhar fotografias', icone: <IconePartilhar />, destacado: !ios && pronto, desativado: semFotos || !partilha })}
       </>
     );
   }

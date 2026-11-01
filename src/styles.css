@@ -821,7 +821,7 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .acao-foto { display: flex; flex-direction: column; align-items: center; gap: 3px; background: none; border: 0; padding: 0; cursor: pointer; color: var(--texto-2); font: inherit; }
 .acao-foto .btn-redondo { width: 46px; height: 46px; }
 .acao-foto small { font-size: 0.7rem; white-space: nowrap; }
-.acao-foto:disabled { opacity: 0.6; }
+.acao-foto:disabled { opacity: 0.35; cursor: default; }
 /* Detalhe do produto: etiquetas centradas, como a foto */
 .janela .detalhe-topo { justify-content: center; }
 /* Cartão "Promoções" do Painel (components/CartaoPromocoes.tsx) */
