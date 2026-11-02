@@ -14,7 +14,7 @@ import { urlEbayVendidos, urlVinted } from '../lib/avaliar';
 import { produtoNovo } from '../lib/anuncio';
 import { chaveComparacao, custoUnitario, emInventario, liquidoVenda, lucroVenda, unidadesDisponiveis, vendaValida } from '../lib/calc';
 import { fmtEuro, plural } from '../lib/format';
-import type { Produto } from '../lib/types';
+import type { Produto, Venda } from '../lib/types';
 import { useDados } from '../state';
 
 /** Data curta para a tabela: 2026-10-31 → 31/10/26. */
@@ -107,35 +107,51 @@ export function DetalheGrupo({ ids, aoFechar }: { ids: string[]; aoFechar(): voi
 
 
 /**
- * Tabela com um produto por linha (usada no detalhe do grupo e no detalhe de um produto):
- * data de compra (com unidades, condição e quem pagou), custo por unidade, estado (por anunciar /
- * anunciado na conta X a Y € / vendido em dd/mm na conta X) e o lucro das vendas, com o valor
- * recebido por baixo. Tocar numa linha abre o detalhe desse produto; na linha do produto que já
- * está aberto (atual), abre a venda dele para editar, se houver.
+ * Tabela com UMA LINHA POR UNIDADE (pedido do Ricardo: o n.º de linhas tem de bater certo com as
+ * unidades), usada no detalhe do grupo e no detalhe de um produto. Um produto com 3 unidades e 1
+ * vendida dá 3 linhas: a vendida (data, conta e lucro dessa venda) e as 2 que sobram (a 1.ª
+ * "Anunciado" se o produto está anunciado, porque se anuncia 1 de cada vez; as outras "Por
+ * anunciar"). Colunas: data de compra (com condição e quem pagou), custo por unidade, estado e
+ * lucro. Tocar numa linha abre esse produto; numa linha vendida do produto já aberto (atual),
+ * abre a venda para editar.
  */
 export function TabelaProdutos({ itens, atual }: { itens: Produto[]; atual?: string }) {
   const { dados, nomeConta, nomePagador } = useDados();
   const abrir = useAbrir();
-  const vendasDe = (x: Produto) =>
-    dados.vendas.filter((v) => v.produto_id === x.id && vendaValida(v)).sort((a, b) => b.data_venda.localeCompare(a.data_venda));
 
-  /** Estado de um produto em duas partes: principal ("Anunciado") e pormenor ("RM1 · 55 €"). */
-  const estado = (x: Produto): [string, string] => {
+  interface Linha {
+    chave: string;
+    p: Produto;
+    venda?: Venda;
+    estado: [string, string];
+  }
+  const linhas: Linha[] = [];
+  for (const x of itens) {
+    const vendas = dados.vendas.filter((v) => v.produto_id === x.id && vendaValida(v)).sort((a, b) => a.data_venda.localeCompare(b.data_venda));
+    // Unidades vendidas: uma linha por unidade de cada venda
+    for (const v of vendas)
+      for (let u = 0; u < Math.max(v.quantidade, 1); u++)
+        linhas.push({ chave: `${v.id}-${u}`, p: x, venda: v, estado: [`Vendido ${dataCurta(v.data_venda)}`, v.conta_id ? nomeConta(v.conta_id) : ''] });
+    // Unidades que sobram
     const disp = unidadesDisponiveis(x, dados.vendas);
-    const vendidas = vendasDe(x).reduce((a, v) => a + v.quantidade, 0);
-    const extraVendidas = vendidas && disp ? `${vendidas} vendida${vendidas > 1 ? 's' : ''}` : '';
-    if (x.estado === 'anunciado')
-      return ['Anunciado', [x.conta_id ? nomeConta(x.conta_id) : '', x.preco_anuncio ? fmtEuro(x.preco_anuncio) : '', extraVendidas].filter(Boolean).join(' · ')];
-    if (x.estado === 'por_anunciar') return ['Por anunciar', [disp > 1 ? `${disp} un.` : '', extraVendidas].filter(Boolean).join(' · ')];
-    const v = vendasDe(x)[0];
-    if (x.estado === 'vendido' && v) return [`Vendido ${dataCurta(v.data_venda)}`, v.conta_id ? nomeConta(v.conta_id) : ''];
-    return [x.estado === 'devolvido' ? 'Devolvido' : x.estado === 'cancelado' ? 'Cancelado' : x.estado, ''];
-  };
+    for (let u = 0; u < disp; u++) {
+      const anunciada = x.estado === 'anunciado' && u === 0;
+      linhas.push({
+        chave: `${x.id}-s${u}`,
+        p: x,
+        estado: anunciada
+          ? ['Anunciado', [x.conta_id ? nomeConta(x.conta_id) : '', x.preco_anuncio ? fmtEuro(x.preco_anuncio) : ''].filter(Boolean).join(' · ')]
+          : ['Por anunciar', ''],
+      });
+    }
+    // Devolvidos/cancelados (sem unidades disponíveis nem vendas): uma linha com o estado
+    if (!vendas.length && !disp)
+      linhas.push({ chave: x.id, p: x, estado: [x.estado === 'devolvido' ? 'Devolvido' : x.estado === 'cancelado' ? 'Cancelado' : x.estado, ''] });
+  }
 
-  const tocar = (x: Produto) => {
-    if (x.id !== atual) return abrir({ tipo: 'detalhe', id: x.id });
-    const v = vendasDe(x)[0];
-    if (v) abrir({ tipo: 'venda', id: v.id });
+  const tocar = (l: Linha) => {
+    if (l.p.id !== atual) return abrir({ tipo: 'detalhe', id: l.p.id });
+    if (l.venda) abrir({ tipo: 'venda', id: l.venda.id });
   };
 
   return (
@@ -150,28 +166,24 @@ export function TabelaProdutos({ itens, atual }: { itens: Produto[]; atual?: str
           </tr>
         </thead>
         <tbody>
-          {itens.map((x) => {
-            const vs = vendasDe(x);
-            const l = vs.reduce((a, v) => a + lucroVenda(v, x), 0);
-            const [e1, e2] = estado(x);
+          {linhas.map((l) => {
+            const q = Math.max(l.venda?.quantidade ?? 1, 1);
             return (
-              <tr key={x.id} className={`clicavel ${x.id === atual ? 'linha-atual' : ''}`} onClick={() => tocar(x)}>
+              <tr key={l.chave} className={`clicavel ${l.p.id === atual ? 'linha-atual' : ''}`} onClick={() => tocar(l)}>
                 <td>
-                  {dataCurta(x.data_compra)}
-                  <small className="mudo bloco">
-                    {[x.quantidade > 1 ? `${x.quantidade} un.` : null, x.condicao, nomePagador(x)].filter((t) => t && t !== '—').join(' · ')}
-                  </small>
+                  {dataCurta(l.p.data_compra)}
+                  <small className="mudo bloco">{[l.p.condicao, nomePagador(l.p)].filter((t) => t && t !== '—').join(' · ')}</small>
                 </td>
-                <td className="num">{fmtEuro(custoUnitario(x))}</td>
+                <td className="num">{fmtEuro(custoUnitario(l.p))}</td>
                 <td>
-                  {e1}
-                  {e2 && <small className="mudo bloco">{e2}</small>}
+                  {l.estado[0]}
+                  {l.estado[1] && <small className="mudo bloco">{l.estado[1]}</small>}
                 </td>
                 <td className="num">
-                  {vs.length ? (
+                  {l.venda ? (
                     <>
-                      <Valor n={l} sinal />
-                      <small className="mudo bloco">{fmtEuro(vs.reduce((a, v) => a + liquidoVenda(v), 0))}</small>
+                      <Valor n={lucroVenda(l.venda, l.p) / q} sinal />
+                      <small className="mudo bloco">{fmtEuro(liquidoVenda(l.venda) / q)}</small>
                     </>
                   ) : (
                     <span className="mudo">—</span>
