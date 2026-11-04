@@ -588,10 +588,14 @@ export const CHAVE_SETS_AVALIAR = 'sets_avaliar';
 // ---------- Pesquisas do eBay feitas no botão ----------
 
 /**
- * "Procurar no eBay" (pedido do Ricardo, nov/2026): o eBay de um set só se pesquisa quando se
- * carrega no botão, e no máximo uma vez a cada 7 dias por set. Cada pesquisa fica guardada em
- * definicoes.ebay_pesquisas ({ "77057": { data, mediana, anuncios } }), partilhada pelos dois,
- * para que conte nas avaliações (aqui e nas promoções) sem voltar a pesquisar.
+ * Pesquisas do eBay guardadas em definicoes.ebay_pesquisas ({ "77057": { data, mediana, anuncios,
+ * auto? } }), partilhadas pelos dois, para contarem nas avaliações (aqui e nas promoções) sem voltar
+ * a pesquisar. Vêm de dois sítios (pedido do Ricardo, nov/2026), sempre no máximo 1 por set a cada
+ * 7 dias:
+ *   - o botão "Procurar no eBay" do detalhe do set (função ebay-set);
+ *   - a rotação automática dos sets da última lista do Continente (função ebay-rotacao, chamada
+ *     pelo pg_cron a cada 7 minutos, 1 set de cada vez, no máximo 200 por dia; "auto": true).
+ * Quem guarda é sempre a função SQL registar_pesquisa_ebay (junta sem apagar as outras).
  */
 export const CHAVE_PESQUISAS_EBAY = 'ebay_pesquisas';
 export const DIAS_ENTRE_PESQUISAS = 7;
@@ -601,6 +605,8 @@ export interface PesquisaEbay {
   /** Mediana do preço PEDIDO; null quando havia menos de 3 anúncios. */
   mediana: number | null;
   anuncios: number;
+  /** true quando veio da rotação automática do Continente. */
+  auto?: boolean;
 }
 
 type Defs = { chave: string; valor: unknown }[];

@@ -311,3 +311,94 @@ end;
 $$;
 revoke all on function public.receber_promocao(text, text, text, numeric, jsonb, date) from public;
 grant execute on function public.receber_promocao(text, text, text, numeric, jsonb, date) to anon, authenticated;
+
+-- ---------------------------------------------------------------------
+-- 8) eBay: pesquisas guardadas (definicoes.ebay_pesquisas) e rotação automática
+--    dos sets do Continente (pedido do Ricardo, nov/2026).
+--    - registar_pesquisa_ebay: junta UMA pesquisa ao objeto { set: { data, mediana, anuncios } },
+--      sem apagar as outras (merge atómico). Chamada pela função ebay-set (botão "Procurar no
+--      eBay", com o token de quem pede: tem de ser membro) e pela função ebay-rotacao (com o
+--      token_rotacao_ebay; essas ficam com "auto": true).
+--    - sets_rotacao_ebay: os próximos sets a procurar: os da última lista do Continente que não
+--      temos em stock (esses já vêm na tarefa diária) e não foram procurados há menos de 7 dias.
+--      Primeiro os nunca procurados com desconto, depois os outros nunca procurados, depois os
+--      mais antigos. No máximo 200 automáticos por dia (hora de Lisboa).
+--    - O pg_cron chama a função ebay-rotacao a cada 7 minutos, 1 set de cada vez (4 pedidos ao
+--      eBay, espaçados), para espalhar as pesquisas ao longo do dia.
+-- ---------------------------------------------------------------------
+insert into public.definicoes (chave, valor)
+values ('token_rotacao_ebay', to_jsonb(replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', '')))
+on conflict (chave) do nothing;
+
+create or replace function public.registar_pesquisa_ebay(p_set text, p_mediana numeric, p_anuncios int, p_token text default null)
+returns void
+language plpgsql security definer set search_path to 'public' as $$
+declare
+  auto boolean := p_token is not null;
+  s text := regexp_replace(trim(coalesce(p_set, '')), '-\d+$', '');
+begin
+  if auto then
+    if not exists (select 1 from definicoes d where d.chave = 'token_rotacao_ebay' and d.valor #>> '{}' = p_token) then
+      raise exception 'Código inválido' using errcode = '28000';
+    end if;
+  elsif not public.e_membro() then
+    raise exception 'Sem permissão' using errcode = '28000';
+  end if;
+  if s !~ '^\d{3,7}$' then raise exception 'Set inválido'; end if;
+  insert into definicoes (chave, valor)
+  values ('ebay_pesquisas', jsonb_build_object(s, jsonb_strip_nulls(jsonb_build_object(
+    'data', to_char(now() at time zone 'Europe/Lisbon', 'YYYY-MM-DD'),
+    'mediana', p_mediana, 'anuncios', greatest(coalesce(p_anuncios, 0), 0),
+    'auto', case when auto then true end))))
+  on conflict (chave) do update
+    set valor = (case when jsonb_typeof(definicoes.valor) = 'object' then definicoes.valor else '{}'::jsonb end) || excluded.valor;
+end;
+$$;
+revoke all on function public.registar_pesquisa_ebay(text, numeric, int, text) from public;
+grant execute on function public.registar_pesquisa_ebay(text, numeric, int, text) to anon, authenticated;
+
+create or replace function public.sets_rotacao_ebay(token text, limite int default 1)
+returns setof text
+language sql stable security definer set search_path to 'public' as $$
+  with hoje as (select (now() at time zone 'Europe/Lisbon')::date as d),
+  pesq as (
+    select e.k, e.v from definicoes, jsonb_each(case when jsonb_typeof(valor) = 'object' then valor else '{}'::jsonb end) as e(k, v)
+    where chave = 'ebay_pesquisas'
+  ),
+  feitos_hoje as (
+    select count(*) as n from pesq, hoje where pesq.v ->> 'data' = to_char(hoje.d, 'YYYY-MM-DD') and (pesq.v ->> 'auto') = 'true'
+  ),
+  ultima as (
+    select x from definicoes d, jsonb_array_elements(case when jsonb_typeof(d.valor) = 'array' then d.valor else '[]'::jsonb end) as x
+    where d.chave = 'promocoes' and x ->> 'loja' = 'Continente'
+    order by x ->> 'recebida' desc limit 1
+  ),
+  itens as (
+    select regexp_replace(trim(i ->> 'set'), '-\d+$', '') as s,
+           bool_or(i ->> 'desconto' is not null
+                   or (i ->> 'preco' ~ '^\d+(\.\d+)?$' and i ->> 'pvp' ~ '^\d+(\.\d+)?$' and (i ->> 'preco')::numeric < (i ->> 'pvp')::numeric)) as com_desconto
+    from ultima, jsonb_array_elements(case when jsonb_typeof(ultima.x -> 'itens') = 'array' then ultima.x -> 'itens' else '[]'::jsonb end) as i
+    where trim(i ->> 'set') ~ '^\d{3,7}(-\d+)?$'
+    group by 1
+  )
+  select itens.s from itens cross join hoje left join pesq on pesq.k = itens.s
+  where exists (select 1 from definicoes d where d.chave = 'token_rotacao_ebay' and d.valor #>> '{}' = token)
+    and not exists (select 1 from produtos p where regexp_replace(trim(coalesce(p.set_numero, '')), '-\d+$', '') = itens.s)
+    and (pesq.v is null or (pesq.v ->> 'data')::date <= hoje.d - 7)
+  order by (pesq.v is not null), (not itens.com_desconto), (pesq.v ->> 'data') nulls first, itens.s
+  limit greatest(0, least(coalesce(limite, 1), 200 - (select n from feitos_hoje)));
+$$;
+revoke all on function public.sets_rotacao_ebay(text, int) from public;
+grant execute on function public.sets_rotacao_ebay(text, int) to anon, authenticated;
+
+-- Agendamento (pg_cron + pg_net): a cada 7 minutos chama a função ebay-rotacao com o código.
+-- (corre-se uma vez; para parar: select cron.unschedule('ebay-rotacao');)
+create extension if not exists pg_net;
+create extension if not exists pg_cron;
+-- select cron.schedule('ebay-rotacao', '*/7 * * * *', $c$
+--   select net.http_post(
+--     url := 'https://<projeto>.supabase.co/functions/v1/ebay-rotacao',
+--     headers := '{"Content-Type":"application/json"}'::jsonb,
+--     body := jsonb_build_object('token', (select valor #>> '{}' from public.definicoes where chave = 'token_rotacao_ebay')),
+--     timeout_milliseconds := 60000)
+-- $c$);

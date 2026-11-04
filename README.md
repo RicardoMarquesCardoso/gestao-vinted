@@ -206,7 +206,8 @@ Para não ter de mudar a estrutura da base de dados a cada nova ideia, as config
 | `promocoes` | Promoções recebidas de outra app (as 50 mais recentes) |
 | `promocoes_vistas` | Promoções dispensadas do Painel |
 | `sets_avaliar` | Sets que acompanhávamos sem os ter (antigo botão *Acompanhar*, substituído pelo *Procurar no eBay*): a tarefa diária continua a ir buscar o eBay deles |
-| `ebay_pesquisas` | Pesquisas do botão *Procurar no eBay*, por set: `{ data, mediana, anuncios }`. No máximo uma por set a cada 7 dias |
+| `ebay_pesquisas` | Pesquisas do eBay por set: `{ data, mediana, anuncios, auto? }`, do botão *Procurar no eBay* ou da rotação automática do Continente (`auto: true`). No máximo uma por set a cada 7 dias. Escreve-se só pela função SQL `registar_pesquisa_ebay` |
+| `token_rotacao_ebay` | Código que o pg_cron envia à função `ebay-rotacao` |
 
 ---
 
@@ -367,7 +368,7 @@ escalão / unidades = os mesmos do modo "Um set" (bom / muito bom / oportunidade
 compensa a partir de = desconto da loja sobre o PVP que, já com o extra, chega ao preço máximo "bom"
 ```
 
-Os que compensam aparecem primeiro, pelo **lucro seguro** (o lucro mesmo que a venda fique abaixo do esperado pelo erro típico da fonte). Numa lista recebida mostram-se só os que compensam e os que têm desconto; os outros ficam em *Mostrar os outros N*. **Diversificar por tema:** no máximo 2 compras do mesmo tema por promoção. Mostra o total a gastar, descarrega para Excel (CSV) A lista **não pesquisa o eBay sozinha**: usa as pesquisas já guardadas e o eBay da tarefa diária. Para pesquisar um set, toca-se nele e carrega-se em *Procurar no eBay*.
+Os que compensam aparecem primeiro, pelo **lucro seguro** (o lucro mesmo que a venda fique abaixo do esperado pelo erro típico da fonte). Numa lista recebida mostram-se só os que compensam e os que têm desconto; os outros ficam em *Mostrar os outros N*. **Diversificar por tema:** no máximo 2 compras do mesmo tema por promoção. Mostra o total a gastar, descarrega para Excel (CSV) A lista não pede o eBay ao abrir: usa as pesquisas guardadas (os sets do Continente vão sendo procurados sozinhos, ver *Rotação do Continente*) e o eBay da tarefa diária. Para pesquisar já um set, toca-se nele e carrega-se em *Procurar no eBay*.
 
 A app **não abre o link da loja**: o browser não deixa uma página ler outros sites, e fazê-lo num servidor seria recolha automática (termos de uso).
 
@@ -392,9 +393,18 @@ O ecrã **Vale a pena?** precisa do eBay de sets que talvez nunca tivemos, e a t
 2. Usa as chaves do eBay **guardadas nos segredos do Supabase** (não no código nem no telemóvel) e faz a mesma pesquisa da tarefa diária (novos, preço fixo, eBay DE/FR/ES/IT, n.º do set no título, sem partes).
 3. Devolve a mediana do preço pedido e o n.º de anúncios. A app aplica o mesmo desconto real (`calibrarEbay`).
 
-**Só corre quando se carrega no botão** *Procurar no eBay* do detalhe do set (pedido do Ricardo, nov/2026); abrir o detalhe ou uma promoção não pesquisa nada. O resultado fica em `definicoes.ebay_pesquisas` (partilhado pelos dois) e conta logo nas avaliações, aqui e nas promoções. **O mesmo set só se volta a procurar passados 7 dias**: até lá o botão mostra a data da pesquisa e a partir de quando se pode repetir. Se a tarefa diária tiver um eBay mais recente desse set, usa-se o dela.
+**Corre quando se carrega no botão** *Procurar no eBay* do detalhe do set (pedido do Ricardo, nov/2026); abrir o detalhe ou uma promoção não pesquisa nada. A própria função guarda o resultado em `definicoes.ebay_pesquisas` (função SQL `registar_pesquisa_ebay`, partilhado pelos dois) e conta logo nas avaliações, aqui e nas promoções. **O mesmo set só se volta a procurar passados 7 dias**: até lá o botão mostra a data da pesquisa e a partir de quando se pode repetir. Se a tarefa diária tiver um eBay mais recente desse set, usa-se o dela.
 
 Se as chaves ainda não estiverem no Supabase, a função responde `sem_chaves` e o botão avisa que faltam; nada fica guardado.
+
+### Rotação do Continente (função `ebay-rotacao`)
+
+Para o eBay já estar lá quando chega uma promoção, os sets do **Continente** vão sendo procurados sozinhos (pedido do Ricardo, nov/2026):
+
+- O **pg_cron** do Supabase chama a função `ebay-rotacao` **a cada 7 minutos**, com o código `definicoes.token_rotacao_ebay`. Cada chamada procura **1 set**, nas 4 lojas do eBay uma de cada vez, com 2 s entre pedidos. Assim as chamadas ficam espalhadas pelo dia.
+- Qual set: a função SQL `sets_rotacao_ebay` escolhe da **última lista do Continente** os que não temos em stock (esses já vêm na tarefa diária) e não foram procurados há menos de 7 dias: primeiro os nunca procurados com desconto, depois os outros, depois os mais antigos.
+- **No máximo 200 sets por dia** (hora de Lisboa), ~800 das 5000 chamadas diárias da Browse API. Em nov/2026 a lista tinha 647 sets (603 sem os nossos): a primeira volta demora ~3 dias; depois, com a regra dos 7 dias, são ~90 por dia.
+- Para parar: `select cron.unschedule('ebay-rotacao');` no SQL Editor do Supabase.
 
 ### Promoções enviadas por outra app (função `receber_promocao`)
 
@@ -544,6 +554,8 @@ scripts/
 .github/workflows/          as GitHub Actions (catalogo.yml, mercado.yml)
 supabase/schema.sql         tabelas, regras de segurança e funções da base de dados
 supabase/functions/ebay-set Edge Function: eBay de um set, pedido no botão (só para membros)
+supabase/functions/ebay-rotacao Edge Function: rotação automática dos sets do Continente (pg_cron)
+supabase/functions/_shared/ebay.ts pesquisa do eBay partilhada pelas duas
 tests/                      testes automáticos dos cálculos
 CLAUDE.md                   notas e regras para o Claude quando altera a app
 ```

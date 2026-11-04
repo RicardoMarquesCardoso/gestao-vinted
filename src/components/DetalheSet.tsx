@@ -8,8 +8,9 @@
 // A secção "De onde vem o preço de venda" é curta: uma linha por fonte (nossas vendas, eBay com o
 // preço típico e o n.º de anúncios, PVP), com ✓ na que conta. Sem notas técnicas (pedido do Ricardo).
 //
-// EBAY SÓ NO BOTÃO (pedido do Ricardo, nov/2026): "Procurar no eBay" pede o eBay deste set à
-// função ebay-set do Supabase e guarda o resultado em definicoes.ebay_pesquisas. Só se pode
+// EBAY NO BOTÃO (pedido do Ricardo, nov/2026): "Procurar no eBay" pede o eBay deste set à
+// função ebay-set do Supabase, que guarda o resultado em definicoes.ebay_pesquisas. Os sets do
+// Continente também vão sendo procurados sozinhos (função ebay-rotacao). Só se pode
 // voltar a procurar o mesmo set passados 7 dias (lib/avaliar.ts, proximaPesquisa). Abrir o
 // detalhe não pesquisa nada.
 //
@@ -19,7 +20,7 @@
 import { useMemo, useState } from 'react';
 import { useCatalogoSets } from './catalogo';
 import { Cartao, ImagemReferencia, Janela, urlReferencia } from './ui';
-import { CHAVE_PESQUISAS_EBAY, pesquisaEbay, pesquisasEbay, precosCompra, proximaPesquisa, urlEbayVendidos, urlVinted } from '../lib/avaliar';
+import { pesquisaEbay, precosCompra, proximaPesquisa, urlEbayVendidos, urlVinted } from '../lib/avaliar';
 import type { Escalao, NomeEscalao } from '../lib/avaliar';
 import { diasEntre } from '../lib/calc';
 import { fmtData, fmtEuro, fmtMesAno, hoje, plural } from '../lib/format';
@@ -56,7 +57,7 @@ export function JanelaSet({ set, promo, aoFechar }: { set: string; promo?: Preco
 
 /** Toda a informação de um set (n.º já válido). promo: o preço numa promoção, se vier de uma lista. */
 export function DetalheSet({ set: n, promo }: { set: string; promo?: PrecoPromo }) {
-  const { dados, store, guardar, aviso } = useDados();
+  const { dados, store, recarregar, aviso } = useDados();
   const mercado = useMercado();
   const procurarSet = useCatalogoSets();
   const h = hoje();
@@ -83,9 +84,9 @@ export function DetalheSet({ set: n, promo }: { set: string; promo?: PrecoPromo 
       const r = await ebayAoVivo(base);
       if (r.erro === 'sem_chaves') return aviso('Faltam as chaves do eBay nos segredos das Edge Functions do Supabase.');
       if (r.erro) return aviso(`O eBay não respondeu (${r.detalhe ?? r.erro}). Tenta mais tarde.`);
-      const nova = { data: h, mediana: r.mediana ?? null, anuncios: r.anuncios ?? 0 };
-      await guardar('definicoes', [{ chave: CHAVE_PESQUISAS_EBAY, valor: { ...pesquisasEbay(defs), [base]: nova } }]);
-      aviso(nova.mediana ? `eBay: ~${Math.round(nova.mediana)} € em ${nova.anuncios} anúncios.` : `eBay: só ${plural(nova.anuncios, 'anúncio', 'anúncios')}, poucos para contar.`);
+      // A função ebay-set já guardou a pesquisa (definicoes.ebay_pesquisas); basta recarregar
+      await recarregar();
+      aviso(r.mediana ? `eBay: ~${Math.round(r.mediana)} € em ${r.anuncios} anúncios.` : `eBay: só ${plural(r.anuncios ?? 0, 'anúncio', 'anúncios')}, poucos para contar.`);
     } catch (e) {
       aviso(`O eBay não respondeu (${e instanceof Error ? e.message : String(e)}).`);
     } finally {
