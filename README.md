@@ -345,7 +345,7 @@ Acima do preço do escalão **Bom** não compensa comprar.
 
 **Diversificar (decisão do Ricardo):** acumular muitas unidades do mesmo set só compensa numa oportunidade de outro mundo. Anuncia-se uma unidade de cada vez, por isso cada unidade a mais demora mais a vender e prende dinheiro. Além das unidades por escalão, **nunca se fica com mais de 10% do dinheiro em stock num só set** (`maxCapitalPorSet`); se ainda não há nenhuma unidade, deixa-se sempre comprar 1. As três regras editam-se em Definições. Cada linha mostra também o lucro e quanto rende por ano a esse preço (com várias unidades, o dinheiro fica preso em média (n + 1) ÷ 2 vezes o tempo de uma venda).
 
-Mostra ainda quantas vendas cabem este ano nas contas ativas (30 por conta) e de onde vem o preço de venda, com o erro típico de cada fonte.
+Mostra ainda, de forma simples, de onde vem o preço de venda: uma linha por fonte, com ✓ na que conta (as nossas vendas; o eBay com o preço típico e o n.º aproximado de anúncios; ou o PVP × o rácio a que vendemos). Sem notas técnicas sobre o eBay, o tempo até vender ou as vendas que restam nas contas (pedido do Ricardo, nov/2026); o erro típico continua a contar no cálculo das promoções.
 
 **Limitação:** os dias até vender vêm das datas de compra, que na importação da folha ficaram no dia 1 do mês, e incluem sets guardados de propósito. Servem só como ordem de grandeza. Quando houver dados suficientes do tempo **anunciado** (desde 27/10/2026), passa a usar-se esse.
 

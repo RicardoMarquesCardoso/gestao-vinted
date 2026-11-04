@@ -213,7 +213,7 @@ export function estimativas(ctx: ContextoAvaliacao, set: string, ebayAoVivo?: [n
     r.push({
       fonte: 'ebay',
       preco: eb[0] * fator,
-      texto: `${eb[1]} anúncios a ~${Math.round(eb[0])} € → a ~${Math.round(fator * 100)}%, como costumamos vender`,
+      texto: `preço típico ~${Math.round(eb[0])} € em ~${eb[1]} anúncios (vendemos a ~${Math.round(fator * 100)}% disso)`,
     });
   }
   // 3. PVP × o rácio a que costumamos vender (fase atual do set)
@@ -224,7 +224,7 @@ export function estimativas(ctx: ContextoAvaliacao, set: string, ebayAoVivo?: [n
     r.push({
       fonte: 'pvp',
       preco: m.pvp * racio,
-      texto: `${Math.round(m.pvp)} € → a ~${Math.round(racio * 100)}% (${retirado ? 'sets já retirados' : 'sets ainda à venda'}, pelas nossas vendas)`,
+      texto: `${Math.round(m.pvp)} € × ~${Math.round(racio * 100)}% (${retirado ? 'set já retirado' : 'set ainda à venda'})`,
     });
   }
   return r;

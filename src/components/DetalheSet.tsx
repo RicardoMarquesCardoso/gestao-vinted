@@ -5,6 +5,9 @@
 //   - "Promoção da loja": tocar num set da lista abre esta informação numa janela (JanelaSet),
 //     com o preço da promoção no topo.
 //
+// A secção "De onde vem o preço de venda" é curta: uma linha por fonte (nossas vendas, eBay com o
+// preço típico e o n.º de anúncios, PVP), com ✓ na que conta. Sem notas técnicas (pedido do Ricardo).
+//
 // NADA SE GUARDA: tudo é calculado na hora a partir do que a app já tem carregado (as nossas
 // vendas, o mercado-sets.json do dia, o catálogo) e do eBay ao vivo, que fica só em memória até se
 // fechar a app. Fechar a janela descarta tudo; não ocupa espaço no Supabase.
@@ -14,9 +17,9 @@ import { useCatalogoSets } from './catalogo';
 import { precoEbay, useEbayVivo } from './ebayVivo';
 import type { EstadoEbay } from './ebayVivo';
 import { Cartao, ImagemReferencia, Janela, urlReferencia } from './ui';
-import { CHAVE_SETS_AVALIAR, ERRO_TIPICO, precosCompra, urlEbayVendidos, urlVinted } from '../lib/avaliar';
+import { CHAVE_SETS_AVALIAR, precosCompra, urlEbayVendidos, urlVinted } from '../lib/avaliar';
 import type { Escalao, NomeEscalao } from '../lib/avaliar';
-import { diasEntre, usoConta } from '../lib/calc';
+import { diasEntre } from '../lib/calc';
 import { fmtData, fmtEuro, fmtMesAno, hoje, plural } from '../lib/format';
 import { useMercado } from '../lib/investimento';
 import { regrasPlano } from '../lib/plano';
@@ -24,7 +27,6 @@ import { useDados } from '../state';
 
 const NOME_FONTE = { vendas: 'As nossas vendas', ebay: 'eBay', pvp: 'PVP' } as const;
 const NOME_ESCALAO: Record<NomeEscalao, string> = { rara: 'Oportunidade rara', otimo: 'Muito bom', bom: 'Bom' };
-const BASE_TEMPO = { set: 'pelas nossas vendas deste set', tema: 'pelas vendas do mesmo tema', geral: 'pela média de todas as vendas' } as const;
 
 /** O preço de um set numa promoção, para mostrar no topo do detalhe (vem da linha da lista). */
 export interface PrecoPromo {
@@ -68,20 +70,6 @@ export function DetalheSet({ set: n, promo }: { set: string; promo?: PrecoPromo 
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [valido, n, oficial?.tema, aoVivo?.[0], aoVivo?.[1], dados, mercado, h],
   );
-
-  // Vendas que ainda cabem este ano nas contas ativas (cada compra vai gastar uma)
-  const vagas = useMemo(() => {
-    let total = 0;
-    let comLimite = false;
-    for (const c of dados.contas.filter((x) => x.ativa)) {
-      const l = usoConta(c, dados, h).limites.find((x) => x.nome.startsWith('Vendas'));
-      if (l?.restante != null) {
-        total += Math.max(l.restante, 0);
-        comLimite = true;
-      }
-    }
-    return comLimite ? total : null;
-  }, [dados, h]);
 
   const acompanhados = lista(CHAVE_SETS_AVALIAR);
   const base = n.replace(/-\d+$/, '');
@@ -149,14 +137,13 @@ export function DetalheSet({ set: n, promo }: { set: string; promo?: PrecoPromo 
 
           {a.estimativas.length > 0 && (
             <>
-              <h4 className="secao-form">De onde vem o preço de venda (✓ = o que conta)</h4>
+              <h4 className="secao-form">De onde vem o preço de venda</h4>
               <ul className="lista-simples avaliar-fontes">
                 {a.estimativas.map((e, i) => (
                   <li key={e.fonte} className={i === 0 ? '' : 'mudo'}>
                     <span>
                       <strong>{NOME_FONTE[e.fonte]}</strong>
                       {i === 0 ? ' ✓' : ''} · {e.texto}
-                      <small className="mudo"> · erro típico ~{Math.round(ERRO_TIPICO[e.fonte] * 100)}%</small>
                     </span>
                     <span>{fmtEuro(e.preco)}</span>
                   </li>
@@ -164,12 +151,7 @@ export function DetalheSet({ set: n, promo }: { set: string; promo?: PrecoPromo 
               </ul>
             </>
           )}
-
-          <p className="nota">
-            {estadoEbay(store.modo, estadoN ?? null)}
-            {a.tempo && ` Tempo até vender ${BASE_TEMPO[a.tempo.base]} (${a.tempo.n}).`}
-            {vagas !== null && ` Restam ${vagas} vendas este ano nas contas ativas.`}
-          </p>
+          {estadoN === 'a_procurar' && <p className="nota">A procurar no eBay…</p>}
         </Cartao>
       )}
 
@@ -209,17 +191,6 @@ function LinhaEscalao({ e, venda, dias }: { e: Escalao; venda: number; dias: num
       <span className="avaliar-comprar">{e.comprar > 0 ? `comprar ${e.comprar}` : 'não comprar'}</span>
     </li>
   );
-}
-
-/** Uma frase sobre o eBay ao vivo, para se saber se o valor do eBay é de agora ou do dia. */
-function estadoEbay(modo: string, r: EstadoEbay | null): string {
-  if (modo !== 'supabase') return 'Modo demonstração: sem eBay ao vivo.';
-  if (r === 'a_procurar') return 'A procurar no eBay…';
-  if (!r) return '';
-  if (r.erro === 'sem_chaves') return 'eBay ao vivo ainda sem chaves no Supabase: usa-se o eBay da tarefa diária, se existir.';
-  if (r.erro) return `eBay ao vivo indisponível (${r.detalhe ?? r.erro}).`;
-  if (!r.mediana) return `eBay agora: só ${plural(r.anuncios ?? 0, 'anúncio', 'anúncios')} de novos na Europa, poucos para contar.`;
-  return `eBay agora: ${r.anuncios} anúncios de novos na Europa.`;
 }
 
 /** O preço na promoção e o que dá: "63,74 € (−25%) · lucro ~12 € (19%) · comprar 1". */
