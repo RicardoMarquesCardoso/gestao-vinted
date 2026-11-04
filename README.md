@@ -68,7 +68,7 @@ flowchart LR
     EB[eBay Europa<br/>preços pedidos LEGO]
   end
   subgraph Supabase Edge Functions
-    EF[ebay-set<br/>eBay de 1 set, na hora]
+    EF[ebay-set<br/>eBay de 1 set, no botão]
   end
 
   P -- "1. descarrega o site" --> A
@@ -205,7 +205,8 @@ Para não ter de mudar a estrutura da base de dados a cada nova ideia, as config
 | `token_promocoes` | Código secreto para outra app enviar promoções (função `receber_promocao`) |
 | `promocoes` | Promoções recebidas de outra app (as 50 mais recentes) |
 | `promocoes_vistas` | Promoções dispensadas do Painel |
-| `sets_avaliar` | Sets que acompanhamos sem os ter (botão *Acompanhar* do **Vale a pena?**): a tarefa diária vai buscar o eBay deles |
+| `sets_avaliar` | Sets que acompanhávamos sem os ter (antigo botão *Acompanhar*, substituído pelo *Procurar no eBay*): a tarefa diária continua a ir buscar o eBay deles |
+| `ebay_pesquisas` | Pesquisas do botão *Procurar no eBay*, por set: `{ data, mediana, anuncios }`. No máximo uma por set a cada 7 dias |
 
 ---
 
@@ -329,7 +330,7 @@ Escreve-se só o n.º do set. A app calcula (`precosCompra`):
 ```
 preço de venda esperado = a primeira que existir de:
     1. as nossas vendas deste set (as mesmas dos planos)
-    2. eBay: mediana pedida AGORA (função ebay-set) ou a do dia × a % a que costumamos vender (calibrarEbay)
+    2. eBay: mediana pedida (botão Procurar no eBay, ou a da tarefa diária se for mais recente) × a % a que costumamos vender (calibrarEbay)
     3. PVP × a % do PVP a que costumamos vender (calibrarPvp), à parte para sets à venda e retirados
 dias até vender        = mediana (compra → venda) das nossas vendas deste set; senão do tema (≥ 5 vendas); senão de todas
 preço máximo (escalão) = venda esperada ÷ (1 + margem do escalão), e nunca mais do que venda − 5 €
@@ -353,7 +354,7 @@ Mostra ainda, de forma simples, de onde vem o preço de venda: uma linha por fon
 
 #### Promoção da loja (modo do mesmo ecrã, `components/AvaliarPromocao.tsx`, `avaliarPromocao`)
 
-Tocar num set da lista abre o mesmo detalhe do modo "Um set" (`components/DetalheSet.tsx`, `JanelaSet`), com o preço da promoção no topo e as nossas vendas desse set. É calculado na hora com o que a app já tem carregado (vendas, `mercado-sets.json`, catálogo, eBay ao vivo em memória): não se guarda nada e fechar a janela descarta tudo.
+Tocar num set da lista abre o mesmo detalhe do modo "Um set" (`components/DetalheSet.tsx`, `JanelaSet`), com o preço da promoção no topo e as nossas vendas desse set. É calculado na hora com o que a app já tem carregado (vendas, `mercado-sets.json`, catálogo, pesquisas do eBay guardadas). Só o botão *Procurar no eBay* guarda alguma coisa (ver abaixo).
 
 - **Escolhe-se a loja** (botões com as lojas que já enviaram listas, ex.: *Continente*) e a app mostra a **lista mais recente dessa loja** (`lojasRecebidas`). *Outra lista* deixa colar uma lista à mão: os números, ou o texto copiado da página da loja; `extrairItens` encontra os sets, os preços e as percentagens (ignora códigos de barras e números que não são sets).
 - **Desconto extra** (pedido do Ricardo): promoções que a lista não mostra e valem para tudo, ex.: **10% em cartão no Continente**. Aplica-se sobre o preço de cada set: 100 € a −30% = 70 €, e com os 10% do cartão fica **63 €**. Vem preenchido com o valor da loja (`EXTRA_POR_LOJA` em `lib/promocoes.ts`: Continente 10%) e pode mudar-se quando houver uma promoção melhor. Numa lista colada sem preços, é o desconto da loja sobre o PVP.
@@ -366,7 +367,7 @@ escalão / unidades = os mesmos do modo "Um set" (bom / muito bom / oportunidade
 compensa a partir de = desconto da loja sobre o PVP que, já com o extra, chega ao preço máximo "bom"
 ```
 
-Os que compensam aparecem primeiro, pelo **lucro seguro** (o lucro mesmo que a venda fique abaixo do esperado pelo erro típico da fonte). Numa lista recebida mostram-se só os que compensam e os que têm desconto; os outros ficam em *Mostrar os outros N*. **Diversificar por tema:** no máximo 2 compras do mesmo tema por promoção. Mostra o total a gastar, descarrega para Excel (CSV) e tem o botão *Acompanhar os sem eBay*. O eBay na hora só se pede para os sets com desconto (no máximo 25).
+Os que compensam aparecem primeiro, pelo **lucro seguro** (o lucro mesmo que a venda fique abaixo do esperado pelo erro típico da fonte). Numa lista recebida mostram-se só os que compensam e os que têm desconto; os outros ficam em *Mostrar os outros N*. **Diversificar por tema:** no máximo 2 compras do mesmo tema por promoção. Mostra o total a gastar, descarrega para Excel (CSV) A lista **não pesquisa o eBay sozinha**: usa as pesquisas já guardadas e o eBay da tarefa diária. Para pesquisar um set, toca-se nele e carrega-se em *Procurar no eBay*.
 
 A app **não abre o link da loja**: o browser não deixa uma página ler outros sites, e fazê-lo num servidor seria recolha automática (termos de uso).
 
@@ -383,7 +384,7 @@ Estes dados são preparados por **GitHub Actions** (pasta `.github/workflows/`).
 | `public/catalogo-sets.json` | `scripts/catalogo.py` | Mensal | ~26 mil sets LEGO (Rebrickable): nome, ano, tema. Preenche o formulário ao escrever o n.º do set. |
 | `public/mercado-sets.json` | `scripts/mercado.py` | Diário (5h43 UTC) | **eBay**: mediana dos preços pedidos por cada set nosso, novo, nas lojas eBay da Alemanha, França, Espanha e Itália. Guarda também o **histórico do eBay** (`ebay_hist`: uma linha por set quando o preço muda, ou pelo menos uma por semana). **PokemonPriceTracker**: preço dos produtos Pokémon selados (TCGplayer, EUA). **Brickset**: lançamento, retirada (real ou prevista), PVP. **BrickLink**: preparado, sem acesso. |
 
-### eBay na hora (função `ebay-set` no Supabase)
+### Procurar no eBay (botão, função `ebay-set` no Supabase)
 
 O ecrã **Vale a pena?** precisa do eBay de sets que talvez nunca tivemos, e a tarefa diária só vai buscar os nossos. Por isso há uma **Edge Function** no Supabase (`supabase/functions/ebay-set/index.ts`), um pequeno programa que corre na nuvem do Supabase quando é chamado:
 
@@ -391,7 +392,9 @@ O ecrã **Vale a pena?** precisa do eBay de sets que talvez nunca tivemos, e a t
 2. Usa as chaves do eBay **guardadas nos segredos do Supabase** (não no código nem no telemóvel) e faz a mesma pesquisa da tarefa diária (novos, preço fixo, eBay DE/FR/ES/IT, n.º do set no título, sem partes).
 3. Devolve a mediana do preço pedido e o n.º de anúncios. A app aplica o mesmo desconto real (`calibrarEbay`).
 
-Se as chaves ainda não estiverem no Supabase, a função responde `sem_chaves` e a app usa o eBay da tarefa diária. Nesse caso, o botão **Acompanhar** junta o set a `definicoes.sets_avaliar`, e a função SQL `sets_mercado` passa a incluí-lo na lista da tarefa diária.
+**Só corre quando se carrega no botão** *Procurar no eBay* do detalhe do set (pedido do Ricardo, nov/2026); abrir o detalhe ou uma promoção não pesquisa nada. O resultado fica em `definicoes.ebay_pesquisas` (partilhado pelos dois) e conta logo nas avaliações, aqui e nas promoções. **O mesmo set só se volta a procurar passados 7 dias**: até lá o botão mostra a data da pesquisa e a partir de quando se pode repetir. Se a tarefa diária tiver um eBay mais recente desse set, usa-se o dela.
+
+Se as chaves ainda não estiverem no Supabase, a função responde `sem_chaves` e o botão avisa que faltam; nada fica guardado.
 
 ### Promoções enviadas por outra app (função `receber_promocao`)
 
@@ -529,7 +532,6 @@ src/
     DetalheGrupo.tsx        Detalhe de um grupo de produtos iguais; TabelaProdutos (usada também no detalhe do produto)
     DetalheSet.tsx          Detalhe de um set (Um set, e janela ao tocar num set da promoção)
     CartaoPromocoes.tsx     Painel: promoções recebidas de outra app e quantos sets compensam
-    ebayVivo.ts             eBay na hora para um ou vários sets (função ebay-set), com memória
   pages/                    ecrãs
     Painel.tsx  Inventario.tsx (Produtos)  Compras.tsx  Contas.tsx  Acertos.tsx
     Analises.tsx  Definicoes.tsx  ReverNomes.tsx  Entrar.tsx  Avaliar.tsx (Vale a pena?)
@@ -541,7 +543,7 @@ scripts/
   mercado.py                gera os dados de mercado (GitHub Action diária)
 .github/workflows/          as GitHub Actions (catalogo.yml, mercado.yml)
 supabase/schema.sql         tabelas, regras de segurança e funções da base de dados
-supabase/functions/ebay-set Edge Function: eBay de um set, na hora (só para membros)
+supabase/functions/ebay-set Edge Function: eBay de um set, pedido no botão (só para membros)
 tests/                      testes automáticos dos cálculos
 CLAUDE.md                   notas e regras para o Claude quando altera a app
 ```
@@ -589,7 +591,7 @@ O ficheiro `CLAUDE.md` tem a visão do projeto e as regras que o Claude segue se
 
 Para acrescentar alguém, junta o email à tabela `membros` e cria-lhe o utilizador.
 
-### eBay na hora (para o Vale a pena?)
+### Procurar no eBay (para o Vale a pena?)
 
 No Supabase: **Edge Functions → Secrets → Add new secret**, e criar `EBAY_CLIENT_ID` e `EBAY_CLIENT_SECRET` com o *App ID* e o *Cert ID* do "Production keyset" (developer.ebay.com). A função `ebay-set` já está publicada; para a voltar a publicar depois de a alterar, usa-se o Supabase (o Claude faz isso).
 
@@ -614,5 +616,5 @@ No ecrã de entrada: **Experimentar com dados de exemplo**. Os dados ficam só n
 - **Sincronização:** não é instantânea. A app atualiza de minuto a minuto e ao voltar a ela.
 - **Preços Pokémon:** vêm do TCGplayer, que é o mercado dos EUA. A API do Cardmarket não aceita novos pedidos, e um plano pago da PokemonPriceTracker daria preços do Cardmarket.
 - **Sugestões LEGO:** sem a BrickLink, não há preços de **venda** reais de mercado. A referência são as nossas vendas, os anúncios do eBay (preços pedidos) e o PVP da Brickset (valorizado se o set já foi retirado). Os valores das regras devem ser afinados com os dados reais de tempo anunciado.
-- **Compras:** já existe o **Vale a pena?** (avaliar uma promoção à mão). Próximos passos: lista de desejos com preço-alvo (a partir de `sets_avaliar`), guardar cada estimativa para repetir o teste com o passado, e decidir se os planos devem usar o PVP medido em vez das taxas de valorização (mostrar primeiro o impacto no stock).
+- **Compras:** já existe o **Vale a pena?** (avaliar uma promoção à mão). Próximos passos: lista de desejos com preço-alvo, guardar cada estimativa para repetir o teste com o passado, e decidir se os planos devem usar o PVP medido em vez das taxas de valorização (mostrar primeiro o impacto no stock).
 - **Vinted e eBay vendidos:** não há acesso automático (termos de uso). Podem enviar-se capturas de ecrã ao Claude para registar preços observados.

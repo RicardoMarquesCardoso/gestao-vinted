@@ -3,7 +3,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { avaliarCompra, avaliarPromocao, calibrarPvp, estimativas, extrairItens, extrairSets, precosCompra, tempoAteVender, urlEbayVendidos, urlVinted, RACIO_PVP_A_VENDA } from '../src/lib/avaliar.ts';
+import { avaliarCompra, avaliarPromocao, calibrarPvp, estimativas, extrairItens, extrairSets, precosCompra, tempoAteVender, urlEbayVendidos, urlVinted, RACIO_PVP_A_VENDA, proximaPesquisa } from '../src/lib/avaliar.ts';
 import type { Mercado } from '../src/lib/investimento.ts';
 import type { Produto, Venda } from '../src/lib/types.ts';
 
@@ -278,4 +278,30 @@ test('desconto extra (ex.: 10% em cartão) sobre o preço final de cada set', ()
   // Sem desconto na lista, o extra aplica-se ao PVP
   const [s0] = avaliarPromocao(['11111'], 0, ctx, { extra: 0.1 });
   assert.deepEqual([s0.precoLoja, s0.preco], [100, 90]);
+});
+
+test('procurar no eBay: só se repete passados 7 dias', () => {
+  assert.equal(proximaPesquisa(null, HOJE), null);
+  assert.equal(proximaPesquisa({ data: '2026-10-25', mediana: 80, anuncios: 10 }, HOJE), '2026-11-01');
+  assert.equal(proximaPesquisa({ data: '2026-10-22', mediana: 80, anuncios: 10 }, HOJE), null); // 7 dias: já pode
+});
+
+test('a pesquisa guardada conta como eBay, mas a da tarefa diária ganha se for mais recente', () => {
+  const pesquisa = { '10280': { data: '2026-10-28', mediana: 100, anuncios: 5 } };
+  const dados = { produtos: [], vendas: [], definicoes: [{ chave: 'ebay_pesquisas', valor: pesquisa as never }] };
+  // Sem eBay da tarefa diária: usa a pesquisa (100 × 63% de reserva)
+  let e = estimativas({ dados, mercado: mercado({}), hoje: HOJE }, '10280');
+  assert.equal(Math.round(e[0].preco), 63);
+  assert.match(e[0].texto, /procurado a 28\/10/);
+  // Tarefa diária mais antiga: continua a pesquisa
+  e = estimativas({ dados, mercado: mercado({ ebay: { '10280': [80, 10] }, ebay_hist: { '10280': [['2026-10-27', 80, 10]] } }), hoje: HOJE }, '10280');
+  assert.equal(Math.round(e[0].preco), 63);
+  // Tarefa diária mais recente: ganha
+  e = estimativas({ dados, mercado: mercado({ ebay: { '10280': [80, 10] }, ebay_hist: { '10280': [['2026-10-29', 80, 10]] } }), hoje: HOJE }, '10280');
+  assert.equal(Math.round(e[0].preco), 50);
+});
+
+test('uma pesquisa com menos de 3 anúncios não conta como preço', () => {
+  const dados = { produtos: [], vendas: [], definicoes: [{ chave: 'ebay_pesquisas', valor: { '10280': { data: HOJE, mediana: null, anuncios: 2 } } as never }] };
+  assert.equal(estimativas({ dados, mercado: mercado({}), hoje: HOJE }, '10280').length, 0);
 });

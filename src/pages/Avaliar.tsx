@@ -4,15 +4,14 @@
 //
 // Um set: escreve-se só o n.º do set e aparece o detalhe (components/DetalheSet.tsx). A app:
 //   1. mostra o set (nome e imagem do catálogo, lançamento, retirada e PVP);
-//   2. pergunta ao eBay os preços desse set NO MOMENTO (função ebay-set no Supabase, API oficial);
+//   2. usa o eBay desse set se já foi procurado (botão "Procurar no eBay", função ebay-set no
+//      Supabase, API oficial; no máximo uma vez por set a cada 7 dias) ou se está na tarefa diária;
 //   3. calcula com lib/avaliar.ts (precosCompra) por quanto se vende, em quantos dias, e os
 //      preços de compra por escalão (bom / muito bom / oportunidade rara) com as unidades a
 //      comprar em cada um, a diversificar: 1 por defeito, mais só em oportunidades raras, e nunca
 //      mais de 10% do dinheiro em stock num só set;
 //   4. dá links para ver o set na Vinted e nos vendidos do eBay (abertos por nós, à mão).
 //
-// "Acompanhar" guarda o set em definicoes.sets_avaliar: a tarefa diária passa a ir buscar o eBay
-// dele, mesmo sem o termos em stock (útil enquanto a função ao vivo não tiver as chaves).
 
 import { useState } from 'react';
 import { AvaliarPromocao } from '../components/AvaliarPromocao';

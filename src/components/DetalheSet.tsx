@@ -8,21 +8,24 @@
 // A secção "De onde vem o preço de venda" é curta: uma linha por fonte (nossas vendas, eBay com o
 // preço típico e o n.º de anúncios, PVP), com ✓ na que conta. Sem notas técnicas (pedido do Ricardo).
 //
-// NADA SE GUARDA: tudo é calculado na hora a partir do que a app já tem carregado (as nossas
-// vendas, o mercado-sets.json do dia, o catálogo) e do eBay ao vivo, que fica só em memória até se
-// fechar a app. Fechar a janela descarta tudo; não ocupa espaço no Supabase.
+// EBAY SÓ NO BOTÃO (pedido do Ricardo, nov/2026): "Procurar no eBay" pede o eBay deste set à
+// função ebay-set do Supabase e guarda o resultado em definicoes.ebay_pesquisas. Só se pode
+// voltar a procurar o mesmo set passados 7 dias (lib/avaliar.ts, proximaPesquisa). Abrir o
+// detalhe não pesquisa nada.
+//
+// Tudo o resto é calculado na hora a partir do que a app já tem carregado (as nossas vendas, o
+// mercado-sets.json do dia, o catálogo, as pesquisas guardadas); não se guarda mais nada.
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useCatalogoSets } from './catalogo';
-import { precoEbay, useEbayVivo } from './ebayVivo';
-import type { EstadoEbay } from './ebayVivo';
 import { Cartao, ImagemReferencia, Janela, urlReferencia } from './ui';
-import { CHAVE_SETS_AVALIAR, precosCompra, urlEbayVendidos, urlVinted } from '../lib/avaliar';
+import { CHAVE_PESQUISAS_EBAY, pesquisaEbay, pesquisasEbay, precosCompra, proximaPesquisa, urlEbayVendidos, urlVinted } from '../lib/avaliar';
 import type { Escalao, NomeEscalao } from '../lib/avaliar';
 import { diasEntre } from '../lib/calc';
 import { fmtData, fmtEuro, fmtMesAno, hoje, plural } from '../lib/format';
 import { useMercado } from '../lib/investimento';
 import { regrasPlano } from '../lib/plano';
+import { ebayAoVivo } from '../lib/supabase';
 import { useDados } from '../state';
 
 const NOME_FONTE = { vendas: 'As nossas vendas', ebay: 'eBay', pvp: 'PVP' } as const;
@@ -53,33 +56,41 @@ export function JanelaSet({ set, promo, aoFechar }: { set: string; promo?: Preco
 
 /** Toda a informação de um set (n.º já válido). promo: o preço numa promoção, se vier de uma lista. */
 export function DetalheSet({ set: n, promo }: { set: string; promo?: PrecoPromo }) {
-  const { dados, store, guardar, lista, aviso } = useDados();
+  const { dados, store, guardar, aviso } = useDados();
   const mercado = useMercado();
   const procurarSet = useCatalogoSets();
   const h = hoje();
   const valido = true;
   const oficial = procurarSet(n);
 
-  // eBay na hora para este set (pedido meio segundo depois de se parar de escrever), só com sessão real
-  const respostas = useEbayVivo(valido ? [n] : [], store.modo === 'supabase');
-  const estadoN: EstadoEbay | undefined = valido ? respostas[n] : undefined;
-  const aoVivo = precoEbay(estadoN);
-
   const a = useMemo(
-    () => (valido ? precosCompra({ set: n, tema: oficial?.tema, ebayAoVivo: aoVivo }, { dados, mercado, hoje: h }) : null),
+    () => (valido ? precosCompra({ set: n, tema: oficial?.tema }, { dados, mercado, hoje: h }) : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [valido, n, oficial?.tema, aoVivo?.[0], aoVivo?.[1], dados, mercado, h],
+    [valido, n, oficial?.tema, dados, mercado, h],
   );
 
-  const acompanhados = lista(CHAVE_SETS_AVALIAR);
   const base = n.replace(/-\d+$/, '');
-  const aAcompanhar = acompanhados.includes(base);
-  const temosOSet = dados.produtos.some((p) => p.set_numero?.trim().replace(/-\d+$/, '') === base);
+  const defs = dados.definicoes as unknown as { chave: string; valor: unknown }[];
+  const pesquisa = pesquisaEbay(defs, base);
+  const proxima = proximaPesquisa(pesquisa, h);
+  const [aProcurar, setAProcurar] = useState(false);
 
-  async function alternarAcompanhar() {
-    const novos = aAcompanhar ? acompanhados.filter((x) => x !== base) : [...acompanhados, base];
-    await guardar('definicoes', [{ chave: CHAVE_SETS_AVALIAR, valor: novos }]);
-    aviso(aAcompanhar ? 'Deixou de acompanhar este set.' : 'A acompanhar: a partir de amanhã a tarefa diária vai buscar o eBay deste set.');
+  // Procurar no eBay: uma pesquisa, guardada para os dois; não se repete antes de 7 dias
+  async function procurarEbay() {
+    if (proxima || aProcurar) return;
+    setAProcurar(true);
+    try {
+      const r = await ebayAoVivo(base);
+      if (r.erro === 'sem_chaves') return aviso('Faltam as chaves do eBay nos segredos das Edge Functions do Supabase.');
+      if (r.erro) return aviso(`O eBay não respondeu (${r.detalhe ?? r.erro}). Tenta mais tarde.`);
+      const nova = { data: h, mediana: r.mediana ?? null, anuncios: r.anuncios ?? 0 };
+      await guardar('definicoes', [{ chave: CHAVE_PESQUISAS_EBAY, valor: { ...pesquisasEbay(defs), [base]: nova } }]);
+      aviso(nova.mediana ? `eBay: ~${Math.round(nova.mediana)} € em ${nova.anuncios} anúncios.` : `eBay: só ${plural(nova.anuncios, 'anúncio', 'anúncios')}, poucos para contar.`);
+    } catch (e) {
+      aviso(`O eBay não respondeu (${e instanceof Error ? e.message : String(e)}).`);
+    } finally {
+      setAProcurar(false);
+    }
   }
 
   const m = a?.mercado;
@@ -151,15 +162,21 @@ export function DetalheSet({ set: n, promo }: { set: string; promo?: PrecoPromo 
               </ul>
             </>
           )}
-          {estadoN === 'a_procurar' && <p className="nota">A procurar no eBay…</p>}
+          {pesquisa && !pesquisa.mediana && (
+            <p className="nota">eBay a {fmtData(pesquisa.data).slice(0, 5)}: só {plural(pesquisa.anuncios, 'anúncio', 'anúncios')} de novos, poucos para contar.</p>
+          )}
         </Cartao>
       )}
 
       <NossasVendas set={base} />
 
-      {valido && !temosOSet && store.modo === 'supabase' && (
-        <button className="btn" onClick={alternarAcompanhar}>
-          {aAcompanhar ? '★ A acompanhar este set (deixar)' : '☆ Acompanhar este set'}
+      {valido && store.modo === 'supabase' && (
+        <button className="btn" onClick={procurarEbay} disabled={!!proxima || aProcurar}>
+          {aProcurar
+            ? 'A procurar no eBay…'
+            : proxima
+              ? `eBay procurado a ${fmtData(pesquisa!.data).slice(0, 5)} · de novo a partir de ${fmtData(proxima).slice(0, 5)}`
+              : 'Procurar no eBay'}
         </button>
       )}
     </>

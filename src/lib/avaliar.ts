@@ -20,8 +20,9 @@
 // PREÇO DE VENDA ESPERADO, por esta ordem (a primeira que existir):
 //   1. As nossas vendas do mesmo set (as mesmas da função referencia() dos planos).
 //   2. O eBay: mediana dos preços PEDIDOS na Europa × a percentagem a que costumamos vender
-//      (calibrarEbay). Pode vir "ao vivo" (pedido no momento à função ebay-set do Supabase) ou
-//      dos dados do dia (mercado-sets.json).
+//      (calibrarEbay). Vem da pesquisa feita no botão "Procurar no eBay" (função ebay-set do
+//      Supabase, guardada em definicoes.ebay_pesquisas; no máximo uma por set a cada 7 dias) ou,
+//      se a tarefa diária tiver um valor mais recente, dos dados do dia (mercado-sets.json).
 //   3. O PVP da Brickset × a percentagem do PVP a que costumamos vender, medida nas nossas
 //      vendas (calibrarPvp), separada para sets ainda à venda e já retirados.
 //
@@ -37,6 +38,7 @@ import { produtoNovo } from './anuncio';
 import { custoUnitario, diasEntre, emInventario, unidadesDisponiveis, vendaValida } from './calc';
 import { descontoEbayEfetivo, infoMercado } from './investimento';
 import type { InfoMercado, Mercado } from './investimento';
+import { fmtData } from './format';
 import { referencia, regrasPlano } from './plano';
 import type { Dados, Produto } from './types';
 
@@ -205,15 +207,23 @@ export function estimativas(ctx: ContextoAvaliacao, set: string, ebayAoVivo?: [n
   // 1. As nossas vendas (mesma regra dos planos: últimos 2 anos, o último ano pesa mais)
   const ref = referencia(produtoDoSet(set.trim()), { dados: ctx.dados, mercado: ctx.mercado, hoje: ctx.hoje });
   if (ref?.fonte === 'vendas') r.push({ fonte: 'vendas', preco: ref.preco, texto: ref.texto });
-  // 2. eBay (ao vivo, se houver; senão o do dia)
+  // 2. eBay: o passado à função; senão o mais recente entre a pesquisa do botão e o da tarefa diária
   const m = infoMercado(ctx.mercado, set, ctx.hoje);
-  const eb = ebayAoVivo && ebayAoVivo[1] >= 3 ? ebayAoVivo : m?.ebay && m.ebay[1] >= 3 ? m.ebay : null;
+  const pesquisa = ebayPesquisado(ctx, set);
+  const diario = m?.ebay && m.ebay[1] >= 3 ? m.ebay : null;
+  let eb: [number, number] | null = null;
+  let quando = '';
+  if (ebayAoVivo && ebayAoVivo[1] >= 3) eb = ebayAoVivo;
+  else if (pesquisa && (!diario || pesquisa.data >= dataEbayDiario(ctx.mercado, set))) {
+    eb = [pesquisa.mediana, pesquisa.anuncios];
+    quando = ` · procurado a ${fmtData(pesquisa.data).slice(0, 5)}`;
+  } else eb = diario;
   if (eb) {
     const fator = 1 - descontoEbayEfetivo(ctx.dados, ctx.mercado, ctx.hoje);
     r.push({
       fonte: 'ebay',
       preco: eb[0] * fator,
-      texto: `preço típico ~${Math.round(eb[0])} € em ~${eb[1]} anúncios (vendemos a ~${Math.round(fator * 100)}% disso)`,
+      texto: `preço típico ~${Math.round(eb[0])} € em ~${eb[1]} anúncios (vendemos a ~${Math.round(fator * 100)}% disso)${quando}`,
     });
   }
   // 3. PVP × o rácio a que costumamos vender (fase atual do set)
@@ -569,5 +579,59 @@ export function urlEbayVendidos(set: string, novo = true): string {
   return `https://www.ebay.com/sch/i.html?_nkw=${q}&_sacat=0&LH_Sold=1&LH_Complete=1&LH_PrefLoc=5${novo ? '&LH_ItemCondition=1000' : ''}&rt=nc`;
 }
 
-/** Sets que acompanhamos sem os ter (a tarefa diária vai buscar o eBay deles): definicoes.sets_avaliar. */
+/**
+ * Sets que acompanhávamos sem os ter: definicoes.sets_avaliar. O botão "Acompanhar" foi trocado
+ * pelo "Procurar no eBay" (nov/2026); a lista que já existia continua a entrar na tarefa diária.
+ */
 export const CHAVE_SETS_AVALIAR = 'sets_avaliar';
+
+// ---------- Pesquisas do eBay feitas no botão ----------
+
+/**
+ * "Procurar no eBay" (pedido do Ricardo, nov/2026): o eBay de um set só se pesquisa quando se
+ * carrega no botão, e no máximo uma vez a cada 7 dias por set. Cada pesquisa fica guardada em
+ * definicoes.ebay_pesquisas ({ "77057": { data, mediana, anuncios } }), partilhada pelos dois,
+ * para que conte nas avaliações (aqui e nas promoções) sem voltar a pesquisar.
+ */
+export const CHAVE_PESQUISAS_EBAY = 'ebay_pesquisas';
+export const DIAS_ENTRE_PESQUISAS = 7;
+
+export interface PesquisaEbay {
+  data: string;
+  /** Mediana do preço PEDIDO; null quando havia menos de 3 anúncios. */
+  mediana: number | null;
+  anuncios: number;
+}
+
+type Defs = { chave: string; valor: unknown }[];
+
+/** Todas as pesquisas guardadas (vazio se não houver nenhuma). */
+export function pesquisasEbay(definicoes: Defs): Record<string, PesquisaEbay> {
+  const v = definicoes.find((d) => d.chave === CHAVE_PESQUISAS_EBAY)?.valor;
+  return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, PesquisaEbay>) : {};
+}
+
+/** A pesquisa guardada deste set, se existir. */
+export const pesquisaEbay = (definicoes: Defs, set: string): PesquisaEbay | null => pesquisasEbay(definicoes)[numeroBase(set)] ?? null;
+
+/** Data a partir da qual se pode voltar a pesquisar este set, ou null se já se pode. */
+export function proximaPesquisa(p: PesquisaEbay | null, hoje: string): string | null {
+  if (!p) return null;
+  const d = new Date(`${p.data}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + DIAS_ENTRE_PESQUISAS);
+  const proxima = d.toISOString().slice(0, 10);
+  return proxima > hoje ? proxima : null;
+}
+
+/** A pesquisa guardada, só se tiver preço utilizável (pelo menos 3 anúncios). */
+function ebayPesquisado(ctx: ContextoAvaliacao, set: string): { data: string; mediana: number; anuncios: number } | null {
+  const p = pesquisaEbay(ctx.dados.definicoes as unknown as Defs, set);
+  return p && p.mediana && p.anuncios >= 3 ? { data: p.data, mediana: p.mediana, anuncios: p.anuncios } : null;
+}
+
+/** Data do último valor do eBay que a tarefa diária guardou para o set ('' se não se sabe). */
+function dataEbayDiario(m: Mercado | null, set: string): string {
+  const h = m?.ebay_hist?.[numeroBase(set)];
+  return h?.length ? h[h.length - 1][0] : '';
+}
+

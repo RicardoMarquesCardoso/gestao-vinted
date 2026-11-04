@@ -18,11 +18,15 @@
 // os escalões, de onde vem o preço de venda e as nossas vendas do set. É calculado na hora com o
 // que a app já tem, por isso não se guarda nada.
 //
+// EBAY: a lista não pesquisa o eBay sozinha (pedido do Ricardo, nov/2026). Usa as pesquisas já
+// guardadas (botão "Procurar no eBay" no detalhe de cada set, no máximo 1 por set a cada 7 dias)
+// e o eBay da tarefa diária; para pesquisar um set, toca-se nele e carrega-se no botão.
+//
 // A app não abre o link da loja: ler páginas de outros sites é bloqueado pelo browser e, num
 // servidor, seria recolha automática (termos de uso).
 
 import { useMemo, useState } from 'react';
-import { CHAVE_SETS_AVALIAR, avaliarPromocao } from '../lib/avaliar';
+import { avaliarPromocao } from '../lib/avaliar';
 import type { LinhaPromo, NomeEscalao } from '../lib/avaliar';
 import { descarregar, paraCsv } from '../lib/csv';
 import { fmtDataHora, fmtEuro, hoje, lerNumero, plural } from '../lib/format';
@@ -30,7 +34,6 @@ import { useMercado } from '../lib/investimento';
 import { descontoDe, extraPadrao, lojasRecebidas, promocoesRecebidas, setsDaPromocao } from '../lib/promocoes';
 import { useDados } from '../state';
 import { useCatalogoSets } from './catalogo';
-import { precoEbay, useEbayVivo } from './ebayVivo';
 import { Cartao } from './ui';
 import { useAbrir } from './acoes';
 
@@ -40,7 +43,7 @@ const MANUAL = '';
 const pct = (x: number) => String(Math.round(x * 1000) / 10).replace('.', ',');
 
 export function AvaliarPromocao({ idInicial }: { idInicial?: string }) {
-  const { dados, store, guardar, lista, aviso } = useDados();
+  const { dados } = useDados();
   const abrir = useAbrir();
   const mercado = useMercado();
   const catalogo = useCatalogoSets();
@@ -68,18 +71,13 @@ export function AvaliarPromocao({ idInicial }: { idInicial?: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [texto, promo, mercado, catalogo.carregado],
   );
-  // eBay na hora só para os sets com desconto na lista (ou todos, numa lista colada), no máximo 25
   const comDesconto = (s: string) => descontos[s] !== null || (precos[s] !== null && pvps[s] !== null && precos[s]! < pvps[s]!);
-  const paraEbay = (promo ? sets.filter(comDesconto) : sets).slice(0, 25);
-  const ebay = useEbayVivo(paraEbay, store.modo === 'supabase');
-  const chaveEbay = paraEbay.map((s) => precoEbay(ebay[s])?.join('/') ?? '').join(',');
 
   const linhas = useMemo(
     () =>
       sets.length
         ? avaliarPromocao(sets, promo ? descontoDe(promo) : 0, { dados, mercado, hoje: h }, {
             tema: (n) => catalogo(n)?.tema,
-            ebayAoVivo: (n) => precoEbay(ebay[n]),
             precos,
             descontos,
             pvps,
@@ -87,22 +85,13 @@ export function AvaliarPromocao({ idInicial }: { idInicial?: string }) {
           })
         : [],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sets, precos, descontos, pvps, promo, e, dados, mercado, h, chaveEbay, catalogo.carregado],
+    [sets, precos, descontos, pvps, promo, e, dados, mercado, h, catalogo.carregado],
   );
   const aComprar = linhas.filter((l) => l.comprar > 0);
   const total = aComprar.reduce((a, l) => a + l.comprar * (l.preco ?? 0), 0);
-  const aProcurar = paraEbay.some((s) => ebay[s] === 'a_procurar');
   // Visíveis: os que compensam e os que têm desconto na lista (numa lista colada, todos)
   const visiveis = verTodos || !promo ? linhas : linhas.filter((l) => l.comprar > 0 || comDesconto(l.set));
   const escondidos = linhas.length - visiveis.length;
-  // Sets sem preço de venda do eBay nem nosso: acompanhá-los faz a tarefa diária ir buscar o eBay
-  const acompanhados = lista(CHAVE_SETS_AVALIAR);
-  const semEbay = visiveis.filter((l) => l.precos.venda?.fonte !== 'vendas' && l.precos.venda?.fonte !== 'ebay' && !acompanhados.includes(l.set)).map((l) => l.set);
-
-  async function acompanhar() {
-    await guardar('definicoes', [{ chave: CHAVE_SETS_AVALIAR, valor: [...acompanhados, ...semEbay] }]);
-    aviso(`${plural(semEbay.length, 'set', 'sets')} a acompanhar: a partir de amanhã a tarefa diária vai buscar o eBay.`);
-  }
 
   function exportar() {
     descarregar(
@@ -179,7 +168,6 @@ export function AvaliarPromocao({ idInicial }: { idInicial?: string }) {
             ) : (
               <>Nenhum compensa{e > 0 ? `, mesmo com ${pct(e)}% extra` : ''}.</>
             )}
-            {aProcurar && <span className="mudo"> A procurar no eBay…</span>}
           </p>
           <ul className="lista-simples avaliar-promo">
             {visiveis.map((l) => (
@@ -215,13 +203,10 @@ export function AvaliarPromocao({ idInicial }: { idInicial?: string }) {
           )}
           <div className="linha-botoes">
             <button className="btn" onClick={exportar}>Descarregar para Excel</button>
-            {store.modo === 'supabase' && semEbay.length > 0 && (
-              <button className="btn" onClick={acompanhar}>Acompanhar os {semEbay.length} sem eBay</button>
-            )}
           </div>
           <p className="nota">
             PVP: o da loja, se vier na lista; senão o da LEGO Alemanha (Brickset). "Compensa a partir de" é o desconto da loja sobre o PVP necessário, já contando o extra. Os sets sem eBay nem
-            vendas nossas usam o PVP × a % a que costumamos vender, que é conservador.
+            vendas nossas usam o PVP × a % a que costumamos vender, que é conservador. Para ver o eBay de um set, toca nele e carrega em "Procurar no eBay".
           </p>
         </Cartao>
       )}
