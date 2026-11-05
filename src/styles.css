@@ -890,3 +890,15 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .avaliar-precisa { font-weight: 600; color: var(--texto); }
 .avaliar-esgotar { color: var(--sinal-amarelo); font-weight: 600; white-space: normal; }
 .avaliar-resultado .secao-form { margin-top: 14px; }
+
+/* Linha de um set da promoção (pedido do Ricardo, nov/2026): legível no telemóvel. Por cima o set
+   e "comprar N"; por baixo três números grandes lado a lado (PVP, desconto, venda esperada), cada
+   um com uma etiqueta pequena; no fim uma linha discreta (precisa de ≥X%, lucro). */
+.avaliar-linha-promo { align-items: flex-start; padding: 12px 0; }
+.avaliar-linha-promo .avaliar-bolinha { margin-top: 6px; }
+.avaliar-topo { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.avaliar-topo .truncar { flex: 1; min-width: 0; }
+.avaliar-numeros { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 6px 0 4px; font-size: 1.05rem; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.avaliar-numeros small { display: block; font-size: 0.72rem; font-weight: 400; color: var(--texto-3); text-transform: uppercase; letter-spacing: 0.03em; }
+.avaliar-linha-promo .linha-principal > small.mudo { font-size: 0.8rem; }
+.avaliar-promo .avaliar-linha-promo.clicavel::after { align-self: center; }

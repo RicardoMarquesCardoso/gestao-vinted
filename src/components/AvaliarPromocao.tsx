@@ -342,35 +342,50 @@ function precisaDe(l: LinhaPromo) {
 }
 
 /**
- * Uma linha: bolinha do escalão, nome, de quanto desconto precisa, preço (na loja → final) → venda
- * esperada, lucro, quantas comprar e, se houver, os sinais de que pode esgotar (⚡).
+ * Uma linha (pensada para o telemóvel, pedido do Ricardo): por cima o set e quantas comprar; por
+ * baixo, em destaque, os três números que importam: PVP, desconto e preço esperado de venda. Numa
+ * linha pequena e discreta: de quanto desconto precisa e o lucro. Se houver, os sinais ⚡.
+ * O escalão já se vê pela cor da bolinha, por isso não se escreve.
  * comprarA: na simulação, o desconto a que se avaliou (para "comprar 1 a 50%").
  */
 function LinhaSet({ l, nome, sinais, comprarA, abrir }: { l: LinhaPromo; nome?: string; sinais: string[]; comprarA?: number; abrir(): void }) {
   const classe = l.comprar > 0 && l.escalao ? `avaliar-${l.escalao}` : 'avaliar-nao';
   const comExtra = l.precoLoja !== null && l.preco !== null && l.preco < l.precoLoja;
-  // Desconto da LOJA sobre o PVP (o mesmo de "precisa de ≥X%"; o extra mostra-se à parte)
-  const descLoja = l.precoLoja !== null && l.pvp ? Math.round((1 - l.precoLoja / l.pvp) * 100) : 0;
+  // Desconto total sobre o PVP (já com o extra do cartão, se houver)
+  const desc = l.descontoAplicado !== null ? Math.round(l.descontoAplicado * 100) : null;
+  const extras = [
+    precisaDe(l),
+    l.margem !== null ? `lucro ${Math.round(l.margem * 100)}%` : '',
+    comExtra ? `com extra: ${fmtEuro(l.preco)}` : '',
+    l.comprar === 0 && l.motivo && !/a partir de|Não compensa com nenhum/.test(l.motivo) ? l.motivo : '',
+  ].filter(Boolean);
   return (
-    <li className={`avaliar-escalao ${classe} clicavel`} onClick={abrir} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && abrir()}>
+    <li className={`avaliar-escalao avaliar-linha-promo ${classe} clicavel`} onClick={abrir} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && abrir()}>
       <span className="avaliar-bolinha" aria-hidden="true" />
       <span className="linha-principal">
-        <span className="truncar">
-          <strong>{l.set}</strong> {nome ?? ''}
-        </span>
-        <small>
-          <span className="avaliar-precisa">{precisaDe(l)}</span>
-          <span className="mudo">
-            {l.preco === null ? ' · —' : ` · ${fmtEuro(l.precoLoja)}${descLoja ? ` (−${descLoja}%)` : ''}${comExtra ? ` → ${fmtEuro(l.preco)} com extra` : ''}`}
-            {l.precos.venda ? ` · vende ~${fmtEuro(l.precos.venda.preco)}` : ''}
-            {l.margem !== null ? ` · lucro ${Math.round(l.margem * 100)}%` : ''}
-            {l.comprar > 0 && l.escalao ? ` · ${NOME_ESCALAO[l.escalao]}` : ''}
-            {l.comprar === 0 && l.motivo && !/a partir de|Não compensa com nenhum/.test(l.motivo) ? ` · ${l.motivo}` : ''}
+        <span className="avaliar-topo">
+          <span className="truncar">
+            <strong>{l.set}</strong> {nome ?? ''}
           </span>
-        </small>
+          <span className="avaliar-comprar">{l.comprar > 0 ? `comprar ${l.comprar}${comprarA ? ` a ${comprarA}%` : ''}` : 'não'}</span>
+        </span>
+        <span className="avaliar-numeros">
+          <span>
+            <small>PVP</small>
+            {l.pvp ? fmtEuro(l.pvp) : '—'}
+          </span>
+          <span>
+            <small>Desconto</small>
+            {desc !== null && l.preco !== null ? `−${desc}%` : '—'}
+          </span>
+          <span>
+            <small>Vende</small>
+            {l.precos.venda ? `~${fmtEuro(l.precos.venda.preco)}` : '—'}
+          </span>
+        </span>
+        <small className="mudo">{extras.join(' · ')}</small>
         {sinais.length > 0 && <small className="avaliar-esgotar">⚡ {sinais.join(' · ')}</small>}
       </span>
-      <span className="avaliar-comprar">{l.comprar > 0 ? `comprar ${l.comprar}${comprarA ? ` a ${comprarA}%` : ''}` : 'não'}</span>
     </li>
   );
 }

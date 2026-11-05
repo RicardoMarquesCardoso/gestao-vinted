@@ -368,6 +368,8 @@ escalão / unidades = os mesmos do modo "Um set" (bom / muito bom / oportunidade
 compensa a partir de = desconto da loja sobre o PVP que, já com o extra, chega ao preço máximo "bom"
 ```
 
+**Cada linha** (pedido do Ricardo, nov/2026, pensado para o telemóvel): por cima o set e "comprar N"; por baixo, em destaque e lado a lado, **PVP · Desconto · Vende** (desconto total sobre o PVP, já com o extra; venda esperada). Numa linha pequena: "precisa de ≥X%", o lucro e, se houver extra, o preço final. O escalão vê-se só pela cor da bolinha.
+
 **Ordem** (pedido do Ricardo, nov/2026): por defeito, *Menos desconto necessário*: cada set mostra "precisa de ≥X%" (o "compensa a partir de") e a lista vai do que precisa de menos desconto para o que precisa de mais (`ordenarPorDesconto`). *Recomendação* volta à ordem antiga, abaixo.
 
 **Simular promoção anunciada** (ex.: "amanhã Lego de 35% a 50% no Continente"): preenche-se *de … a …%* e a app avalia **todos** os sets da lista com esse desconto da loja (ignora os preços de hoje, mantém o PVP e o desconto extra; `simularPromocao`). Mostra três grupos, cada um pelo desconto de que precisa: *Compensam já com 35%* (com quantas comprar a 35%), *Só com mais desconto, até 50%* (quantas comprar a 50%) e, escondidos, os que não compensam nem com 50%. *limpar* volta à lista normal.
