@@ -259,6 +259,35 @@ function taxa(data: string, retirada: string | null, r: RegrasPlano) {
 }
 
 /** Produtos que podem valer a pena guardar: sets LEGO novos com n.º e produtos Pokémon selados. */
+/**
+ * Lucro potencial do stock (pedido do Ricardo, Análises): se se vendesse cada unidade em stock ao
+ * preço de referência (o "preço avaliado", ver referencia acima), quanto se ganharia face ao custo.
+ * "filtro" escolhe os produtos (o mesmo filtro de conta/texto do ecrã). As unidades sem preço de
+ * referência não entram no lucro e contam-se à parte (semPreco), para se saber o que falta.
+ */
+export function lucroPotencial(ctx: Contexto, filtro: (p: Produto) => boolean = () => true) {
+  let lucro = 0;
+  let valor = 0;
+  let custo = 0;
+  let unidades = 0;
+  let semPreco = 0;
+  for (const p of ctx.dados.produtos) {
+    if (!emInventario(p) || !filtro(p)) continue;
+    const u = unidadesDisponiveis(p, ctx.dados.vendas);
+    if (u <= 0) continue;
+    const ref = referencia(p, ctx);
+    if (!ref) {
+      semPreco += u;
+      continue;
+    }
+    unidades += u;
+    valor += ref.preco * u;
+    custo += custoUnitario(p) * u;
+    lucro += (ref.preco - custoUnitario(p)) * u;
+  }
+  return { lucro, valor, custo, unidades, semPreco };
+}
+
 export const ehPokemon = (p: Pick<Produto, 'marca'>) => /pok[eé]mon/i.test(p.marca ?? '');
 export const paraInvestir = (p: Produto) =>
   produtoNovo(p) && ((!!p.set_numero?.trim() && (!p.marca || /lego/i.test(p.marca))) || ehPokemon(p));

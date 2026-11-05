@@ -489,14 +489,14 @@ test('resumo do anúncio: lucro, mínimo a aceitar e quando baixar', () => {
   assert.equal(resumoAnuncio({ ...d, estado: 'por_anunciar' }, ctx([d], '2026-10-21')), null);
 });
 
-test('vendas por semana: de segunda a domingo, com as semanas sem vendas', async () => {
+test('vendas por semana: de segunda a domingo, com as semanas sem vendas, lucro e gastos', async () => {
   const { inicioSemana } = await import('../src/lib/calc.ts');
   assert.equal(inicioSemana('2026-11-05'), '2026-11-02'); // quinta → segunda
   assert.equal(inicioSemana('2026-11-02'), '2026-11-02');
   assert.equal(inicioSemana('2026-11-08'), '2026-11-02'); // domingo → mesma semana
   const d: Dados = {
     pessoas: [], contas: [], compras: [], acertos: [], definicoes: [],
-    produtos: [produto({ id: 'p1', quantidade: 3 })],
+    produtos: [produto({ id: 'p1', quantidade: 3, data_compra: '2026-10-12', preco_compra: 15, custos_adicionais: 0 })],
     vendas: [
       venda({ id: 'v1', produto_id: 'p1', data_venda: '2026-10-13', preco_venda: 20 }),
       venda({ id: 'v2', produto_id: 'p1', data_venda: '2026-10-14', preco_venda: 30 }),
@@ -505,6 +505,9 @@ test('vendas por semana: de segunda a domingo, com as semanas sem vendas', async
   };
   const e = estatisticas(d, { intervalo: { inicio: null, fim: null } }, '2026-11-05');
   assert.deepEqual(e.porSemana.map((w) => [w.semana, w.vendas]), [['2026-10-12', 2], ['2026-10-19', 0], ['2026-10-26', 1], ['2026-11-02', 0]]);
+  // Gastos na semana da compra e lucro por semana
+  assert.equal(e.porSemana[0].gasto, 15); // custo do produto na semana da compra
+  assert.ok(e.porSemana[0].lucro > 0 && e.porSemana[0].lucro < e.porSemana[0].receita);
 });
 
 test('vezesNaConta: vendidos nessa conta + anunciados lá agora, só dos iguais', async () => {

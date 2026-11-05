@@ -1,4 +1,7 @@
-// Ecrã "Análises": números do período com a variação face ao período anterior (▲▼), destaques
+// Ecrã "Análises". No topo, os 4 números principais (pedido do Ricardo): dinheiro investido (custo
+// do stock), lucro concretizado (no período), lucro potencial (stock ao preço de referência,
+// lib/plano.ts → lucroPotencial) e valorização média das vendas (lucro ÷ custo, no período); logo a
+// seguir as vendas por semana (recebido com o lucro noutra cor + gastos a vermelho). Depois: destaques
 // (lib/insights.ts: melhor/pior tema, preço final vs. anunciado, tempo anunciado, stock parado,
 // vagas nas contas, maior aposta), lucro por mês, rentabilidade vs. tempo por tema (dispersão),
 // investimento, por categoria/conta, subcategorias, lotes, idade do stock, por set e tempo até
@@ -6,11 +9,13 @@
 
 import { useMemo, useState } from 'react';
 import { useAbrir } from '../components/acoes';
-import { BarrasHorizontais, BarrasMensais, Dispersao } from '../components/Graficos';
+import { BarrasHorizontais, BarrasMensais, BarrasSemanas, Dispersao } from '../components/Graficos';
+import { useContextoPlano } from '../components/planos';
+import { lucroPotencial } from '../lib/plano';
 import { desempenhoTemas, destaques, periodoAnterior, variacao } from '../lib/insights';
 import type { Destaque } from '../lib/insights';
 import { Cartao } from '../components/ui';
-import { PREDEFINICOES, estatisticas, idadeStock, intervaloDe, lotes } from '../lib/calc';
+import { PREDEFINICOES, correspondeTexto, estatisticas, idadeStock, intervaloDe, lotes } from '../lib/calc';
 import type { Intervalo, Predefinicao } from '../lib/calc';
 import { fmtEuro, fmtMes, fmtNum, hoje, plural } from '../lib/format';
 import { investimento, useMercado } from '../lib/investimento';
@@ -44,6 +49,12 @@ export function Analises() {
     [dados, anterior?.inicio, anterior?.fim, conta, texto, h],
   );
   const lista = useMemo(() => destaques(dados, intervalo, h), [dados, intervalo.inicio, intervalo.fim, h]);
+  // Lucro potencial do stock ao preço de referência (lib/plano.ts), com o mesmo filtro de conta/texto
+  const ctxPlano = useContextoPlano();
+  const potencial = useMemo(
+    () => lucroPotencial(ctxPlano, (p) => (!conta || p.conta_id === conta) && correspondeTexto(p, texto.trim() || undefined)),
+    [ctxPlano, conta, texto],
+  );
   // Temas com pelo menos 2 vendas e dias conhecidos, para a dispersão
   const temas = useMemo(
     () => desempenhoTemas(dados, intervalo).filter((t) => t.vendas >= 2 && t.dias !== null && t.roi !== null).slice(0, 12),
@@ -76,27 +87,30 @@ export function Analises() {
         <input type="search" className="filtro-procura" placeholder="Produto ou n.º de set" value={texto} onChange={(ev) => setTexto(ev.target.value)} />
       </div>
 
+      {/* Os 4 números principais (pedido do Ricardo). Dinheiro investido e lucro potencial são o
+          estado de agora (não dependem do período); lucro e valorização são das vendas do período. */}
       <div className="kpis kpis-4">
-        <Kpi destaque nome="Lucro" valor={fmtEuro(e.lucro)} negativo={e.lucro < 0} agora={e.lucro} antes={ant?.lucro} />
-        <Kpi nome="Recebido" valor={fmtEuro(e.recebido)} agora={e.recebido} antes={ant?.recebido} />
-        <Kpi nome="Vendas" valor={String(e.vendasConcluidas)} agora={e.vendasConcluidas} antes={ant?.vendasConcluidas} />
-        <Kpi nome="Margem" valor={e.margem !== null ? pct(e.margem) : '—'} agora={e.margem ?? 0} antes={ant?.margem ?? undefined} pontos />
+        <Kpi nome="Dinheiro investido" valor={fmtEuro(e.inventarioCusto)} agora={0} detalhe={`parado em stock · ${plural(e.inventarioUnidades, 'unidade', 'unidades')}`} />
+        <Kpi destaque nome="Lucro concretizado" valor={fmtEuro(e.lucro)} negativo={e.lucro < 0} agora={e.lucro} antes={ant?.lucro} />
+        <Kpi
+          nome="Lucro potencial"
+          valor={fmtEuro(potencial.lucro)}
+          negativo={potencial.lucro < 0}
+          agora={0}
+          detalhe={`se vendesse o stock a ${fmtEuro(potencial.valor)}${potencial.semPreco ? ` · ${potencial.semPreco} sem preço` : ''}`}
+        />
+        <Kpi nome="Valorização média" valor={e.margem !== null ? pct(e.margem) : '—'} negativo={(e.margem ?? 0) < 0} agora={e.margem ?? 0} antes={ant?.margem ?? undefined} pontos />
       </div>
+
+      <Cartao titulo="Vendas por semana">
+        <BarrasSemanas dados={e.porSemana} />
+      </Cartao>
 
       {lista.length > 0 && (
         <div className="destaques">
           {lista.map((d) => <CartaoDestaque key={d.id} d={d} />)}
         </div>
       )}
-
-      <Cartao titulo="Vendas por semana">
-        <BarrasMensais
-          dados={e.porSemana.map((w) => ({ mes: w.semana, valor: w.vendas }))}
-          nome="Vendas por semana"
-          rotulo={(k) => `${k.slice(8, 10)}/${k.slice(5, 7)}`}
-          formatar={(v, k) => `${plural(v, 'venda', 'vendas')} · ${fmtEuro(e.porSemana.find((w) => w.semana === k)?.receita ?? 0)}`}
-        />
-      </Cartao>
 
       <Cartao titulo="Lucro por mês">
         <BarrasMensais dados={e.porMes.map((m) => ({ mes: m.mes, valor: m.lucro }))} nome="Lucro por mês" />
@@ -395,15 +409,20 @@ function EstadoSet({ l }: { l: LinhaInvestimento }) {
 }
 
 /** Número do topo com a variação face ao período anterior (▲ verde / ▼ vermelho). pontos: variação em pontos percentuais. */
-function Kpi(props: { nome: string; valor: string; agora: number; antes?: number; destaque?: boolean; negativo?: boolean; pontos?: boolean }) {
+/** Um número principal: com "antes" mostra ▲▼ vs. o período anterior; com "detalhe", essa linha em vez disso. */
+function Kpi(props: { nome: string; valor: string; agora: number; antes?: number; destaque?: boolean; negativo?: boolean; pontos?: boolean; detalhe?: string }) {
   const v = props.antes === undefined ? null : props.pontos ? props.agora - props.antes : variacao(props.agora, props.antes);
   return (
     <div className={`kpi ${props.destaque ? 'kpi-destaque' : ''}`}>
       <span>{props.nome}</span>
       <strong className={props.negativo ? 'negativo' : ''}>{props.valor}</strong>
+      {props.detalhe ? (
+        <small className="mudo">{props.detalhe}</small>
+      ) : (
       <small className={v === null || Math.abs(v) < 0.005 ? 'mudo' : v > 0 ? 'positivo' : 'negativo'}>
         {v === null ? '\u00a0' : `${v > 0 ? '▲' : v < 0 ? '▼' : ''} ${props.pontos ? `${Math.round(Math.abs(v) * 100)} p.p.` : `${Math.round(Math.abs(v) * 100)}%`} vs. anterior`}
       </small>
+      )}
     </div>
   );
 }

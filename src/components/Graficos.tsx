@@ -62,6 +62,66 @@ export function BarrasMensais(props: {
   );
 }
 
+/**
+ * Vendas por semana (pedido do Ricardo): em cada semana, duas barras lado a lado na mesma escala
+ * em euros. A primeira é o recebido, com a parte de baixo noutra cor = o lucro (o lucro é uma parte
+ * do recebido); a segunda, vermelha, são os gastos em compras nessa semana. Tocar numa semana mostra
+ * os números por cima. Por defeito mostra a última semana.
+ */
+export function BarrasSemanas(props: { dados: { semana: string; vendas: number; receita: number; lucro: number; gasto: number }[] }) {
+  const [ativo, setAtivo] = useState<number | null>(null);
+  if (!props.dados.length) return <p className="mudo">Sem dados no período.</p>;
+  const max = Math.max(...props.dados.map((d) => Math.max(d.receita, d.gasto)), 1);
+  const destaque = ativo ?? props.dados.length - 1;
+  const d = props.dados[destaque];
+  const rotulo = (k: string) => `${k.slice(8, 10)}/${k.slice(5, 7)}`;
+  const alt = (v: number) => `${(Math.max(v, 0) / max) * 100}%`;
+  const passo = Math.ceil(props.dados.length / 8);
+  return (
+    <figure className="grafico" aria-label="Vendas por semana">
+      <div className="grafico-leitura grafico-leitura-semana">
+        <span className="mudo">{rotulo(d.semana)}</span>
+        <strong>{d.vendas === 1 ? '1 venda' : `${d.vendas} vendas`}</strong>
+        <span>
+          <i className="legenda legenda-receita" /> {fmtEuro(d.receita)}
+        </span>
+        <span className={d.lucro < 0 ? 'negativo' : ''}>
+          <i className="legenda legenda-lucro" /> lucro {fmtEuro(d.lucro)}
+        </span>
+        <span>
+          <i className="legenda legenda-gasto" /> gastos {fmtEuro(d.gasto)}
+        </span>
+      </div>
+      <div className="grafico-area" onMouseLeave={() => setAtivo(null)}>
+        {props.dados.map((x, i) => (
+          <button
+            key={x.semana}
+            className={`grafico-coluna grafico-semana ${i === destaque ? 'ativa' : ''}`}
+            onMouseEnter={() => setAtivo(i)}
+            onFocus={() => setAtivo(i)}
+            onClick={() => setAtivo(i)}
+            aria-label={`${rotulo(x.semana)}: ${x.vendas} vendas, recebido ${fmtEuro(x.receita)}, lucro ${fmtEuro(x.lucro)}, gastos ${fmtEuro(x.gasto)}`}
+          >
+            <span className="barra-par">
+              <span className="barra-receita" style={{ height: alt(x.receita) }}>
+                <span className="barra-lucro" style={{ height: x.receita > 0 ? `${(Math.max(Math.min(x.lucro, x.receita), 0) / x.receita) * 100}%` : 0 }} />
+              </span>
+              <span className="barra-gasto" style={{ height: alt(x.gasto) }} />
+            </span>
+          </button>
+        ))}
+      </div>
+      <div className="grafico-eixo grafico-eixo-livre">
+        {props.dados.map((x, i) => (
+          <span key={x.semana} className={i === destaque ? 'ativa' : ''}>
+            {props.dados.length > 8 && i % passo && i !== destaque ? '' : rotulo(x.semana)}
+          </span>
+        ))}
+      </div>
+    </figure>
+  );
+}
+
 /** Barras horizontais para comparar categorias (contas, pessoas…). */
 export function BarrasHorizontais(props: { linhas: { nome: string; valor: number; detalhe?: string }[] }) {
   if (!props.linhas.length) return <p className="mudo">Sem dados no período.</p>;

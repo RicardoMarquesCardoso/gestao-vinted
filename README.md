@@ -265,9 +265,20 @@ A ideia central: **um lucro de 20% em 1 mês vale muito mais do que 20% em 2 ano
 
 Sempre que um produto muda para *anunciado*, abre-se um período, e quando deixa de estar fecha-se, com o motivo (vendido ou retirado; vender a unidade anunciada de um produto com mais unidades conta como vendido, `fecharPeriodoVendido`). As mudanças de preço ficam registadas dentro do período. Tudo fica no campo `produtos.anuncios`. Assim, com o tempo, vai dar para saber quanto demora cada tipo de produto a vender **depois de anunciado** e se baixar o preço ajuda.
 
-### Vendas por semana (ecrã Análises)
+### Topo das Análises: 4 números e vendas por semana
 
-Gráfico de barras com o **número de vendas** de cada semana (segunda a domingo), com os filtros do ecrã (período, conta, produto). Inclui as semanas sem vendas, para se ver uma quebra, e mostra no máximo as últimas 26 semanas do período. Tocar numa barra mostra o n.º de vendas e o recebido (`estatisticas` → `porSemana`, `inicioSemana`).
+Pedido do Ricardo (nov/2026). No topo do ecrã:
+
+| Número | O que é | Depende do período? |
+|---|---|---|
+| **Dinheiro investido** | Custo das unidades em stock (dinheiro parado) | Não, é o stock de agora |
+| **Lucro concretizado** | Lucro das vendas concluídas | Sim (▲▼ vs. período anterior) |
+| **Lucro potencial** | Se se vendesse cada unidade em stock ao preço de referência (`referencia` do plano: nossas vendas → BrickLink → eBay → TCGplayer → PVP), menos o custo (`lucroPotencial`). As unidades sem preço de referência não entram e aparecem como "N sem preço" | Não |
+| **Valorização média** | Lucro ÷ custo das vendas do período | Sim (▲▼ em pontos percentuais) |
+
+Os filtros de conta e de produto aplicam-se aos quatro.
+
+Logo a seguir, **Vendas por semana** (segunda a domingo, últimas 26 semanas do período, semanas vazias incluídas): em cada semana, uma barra com o **recebido** e, por baixo noutra cor, a parte que é **lucro**; ao lado, uma barra **vermelha** com os **gastos** em compras dessa semana. Tocar numa semana mostra o n.º de vendas, o recebido, o lucro e os gastos (`estatisticas` → `porSemana`, `BarrasSemanas`).
 
 ### Análises de investimento (`src/lib/investimento.ts`)
 

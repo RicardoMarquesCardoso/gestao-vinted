@@ -389,8 +389,8 @@ export interface Estatisticas {
   diasMediosVenda: number | null;
   margem: number | null; // lucro / custo das vendas
   porMes: { mes: string; lucro: number; receita: number; gasto: number }[];
-  /** Vendas por semana (de segunda a domingo), as últimas até 26 semanas do período, sem saltar semanas vazias. */
-  porSemana: { semana: string; vendas: number; receita: number }[];
+  /** Por semana (de segunda a domingo): vendas, recebido, lucro e gastos em compras; as últimas até 26 semanas do período, sem saltar semanas vazias. */
+  porSemana: { semana: string; vendas: number; receita: number; lucro: number; gasto: number }[];
   porConta: LinhaGrupo[];
   porPessoa: LinhaGrupo[];
   porCategoria: LinhaCategoria[];
@@ -401,7 +401,7 @@ export interface Estatisticas {
 }
 
 /** O produto corresponde ao texto de pesquisa? (nome, set, tema, marca, descrição) */
-function correspondeTexto(p: Produto | undefined, texto?: string) {
+export function correspondeTexto(p: Produto | undefined, texto?: string) {
   if (!texto) return true;
   if (!p) return false;
   const t = texto.toLowerCase();
@@ -509,17 +509,29 @@ export function estatisticas(d: Dados, f: Filtro, hoje: string): Estatisticas {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([k, m]) => ({ mes: k, lucro: arred(m.lucro), receita: arred(m.receita), gasto: arred(m.gasto) }));
 
-  // Por semana (pedido do Ricardo): n.º de vendas e recebido, semana a semana, incluindo as
-  // semanas sem vendas (para se ver a quebra). Vai até ao fim do período (ou hoje) e mostra no
-  // máximo as últimas 26 semanas, para o gráfico se ler no telemóvel.
-  const semanas = new Map<string, { vendas: number; receita: number }>();
+  // Por semana (pedido do Ricardo): n.º de vendas, recebido, lucro e gastos em compras, semana a
+  // semana, incluindo as semanas vazias (para se ver a quebra). Os gastos seguem a mesma regra do
+  // "por mês": compras inteiras (sem filtro) ou só o custo dos produtos que correspondem ao filtro.
+  // Vai até ao fim do período (ou hoje) e mostra no máximo as últimas 26 semanas.
+  const semanas = new Map<string, { vendas: number; receita: number; lucro: number; gasto: number }>();
+  const semana = (data: string) => {
+    const k = inicioSemana(data);
+    let w = semanas.get(k);
+    if (!w) semanas.set(k, (w = { vendas: 0, receita: 0, lucro: 0, gasto: 0 }));
+    return w;
+  };
   for (const v of concluidas) {
-    const k = inicioSemana(v.data_venda);
-    const w = semanas.get(k) ?? { vendas: 0, receita: 0 };
+    const w = semana(v.data_venda);
     w.vendas += 1;
     w.receita += liquidoVenda(v);
-    semanas.set(k, w);
+    w.lucro += lucroVenda(v, produtoPorId.get(v.produto_id));
   }
+  if (f.texto || f.contaId) {
+    for (const c of comprasFiltradas)
+      for (const p of d.produtos)
+        if (p.compra_id === c.id && correspondeTexto(p, f.texto) && (!f.contaId || p.conta_id === f.contaId)) semana(c.data).gasto += custoTotalProduto(p);
+  } else for (const c of comprasFiltradas) semana(c.data).gasto += totalCompra(c);
+  for (const p of produtosSoltos) if (p.data_compra) semana(p.data_compra).gasto += custoTotalProduto(p);
   const porSemana: Estatisticas['porSemana'] = [];
   if (semanas.size) {
     const fimSemanas = inicioSemana(f.intervalo.fim && f.intervalo.fim < hoje ? f.intervalo.fim : hoje);
@@ -528,7 +540,7 @@ export function estatisticas(d: Dados, f: Filtro, hoje: string): Estatisticas {
     if (k < primeira) k = primeira;
     for (; k <= fimSemanas; k = somarDias(k, 7)) {
       const w = semanas.get(k);
-      porSemana.push({ semana: k, vendas: w?.vendas ?? 0, receita: arred(w?.receita ?? 0) });
+      porSemana.push({ semana: k, vendas: w?.vendas ?? 0, receita: arred(w?.receita ?? 0), lucro: arred(w?.lucro ?? 0), gasto: arred(w?.gasto ?? 0) });
     }
   }
 

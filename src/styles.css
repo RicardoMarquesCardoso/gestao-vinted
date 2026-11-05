@@ -918,3 +918,18 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 
 /* Aviso na janela Anunciar: muitos artigos iguais na mesma conta da Vinted */
 .alerta-repetido { background: var(--aviso-fundo); border-radius: var(--raio); padding: 10px 12px; margin: 12px 0 0; font-size: 0.9rem; }
+
+/* Vendas por semana: recebido (com o lucro noutra cor por baixo) e gastos, lado a lado (pedido do Ricardo) */
+.grafico-leitura-semana { flex-wrap: wrap; column-gap: 12px; row-gap: 2px; }
+.grafico-leitura-semana span { font-size: 0.85rem; white-space: nowrap; }
+.barra-par { position: absolute; left: 12%; right: 12%; top: 0; bottom: 0; display: flex; align-items: flex-end; gap: 2px; }
+.barra-receita, .barra-gasto { flex: 1; position: relative; border-radius: 3px 3px 0 0; min-height: 1px; opacity: 0.85; }
+.barra-receita { background: var(--barra); display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; }
+.barra-lucro { display: block; width: 100%; background: var(--positivo); }
+.barra-gasto { background: var(--negativo); }
+.grafico-coluna.ativa .barra-receita, .grafico-coluna.ativa .barra-gasto { opacity: 1; }
+.legenda { display: inline-block; width: 9px; height: 9px; border-radius: 2px; vertical-align: baseline; }
+.legenda-receita { background: var(--barra); }
+.legenda-lucro { background: var(--positivo); }
+.legenda-gasto { background: var(--negativo); }
+.grafico-eixo-livre span { overflow: visible; }
