@@ -20,7 +20,7 @@
 import { useMemo, useState } from 'react';
 import { useCatalogoSets } from './catalogo';
 import { Cartao, ImagemReferencia, Janela, urlReferencia } from './ui';
-import { pesquisaEbay, precosCompra, proximaPesquisa, urlEbayVendidos, urlVinted } from '../lib/avaliar';
+import { descontoPara, pesquisaEbay, precosCompra, proximaPesquisa, urlEbayVendidos, urlVinted } from '../lib/avaliar';
 import type { Escalao, NomeEscalao } from '../lib/avaliar';
 import { diasEntre } from '../lib/calc';
 import { fmtData, fmtEuro, fmtMesAno, hoje, plural } from '../lib/format';
@@ -135,7 +135,7 @@ export function DetalheSet({ set: n, promo }: { set: string; promo?: PrecoPromo 
               </p>
               <ul className="lista-simples avaliar-escaloes">
                 {a.escaloes.map((e) => (
-                  <LinhaEscalao key={e.nome} e={e} venda={a.venda!.preco} dias={a.tempo?.dias ?? null} />
+                  <LinhaEscalao key={e.nome} e={e} venda={a.venda!.preco} dias={a.tempo?.dias ?? null} pvp={m?.pvp ?? null} />
                 ))}
               </ul>
               <p className="avaliar-motivo">
@@ -188,8 +188,10 @@ export function DetalheSet({ set: n, promo }: { set: string; promo?: PrecoPromo 
  * Uma linha por escalão: "Muito bom · até 42 € · comprar 2", com o lucro e a rentabilidade por ano
  * a esse preço. As unidades vendem-se uma de cada vez, por isso com mais unidades o dinheiro fica
  * preso, em média, mais tempo: (n + 1) ÷ 2 vezes o tempo de uma venda.
+ * À frente do preço, o desconto sobre o PVP preciso para lá chegar (pedido do Ricardo): "até 25 € (−38%)".
  */
-function LinhaEscalao({ e, venda, dias }: { e: Escalao; venda: number; dias: number | null }) {
+function LinhaEscalao({ e, venda, dias, pvp }: { e: Escalao; venda: number; dias: number | null; pvp: number | null }) {
+  const desc = descontoPara(pvp, e.precoMax);
   const lucro = venda - e.precoMax;
   const margem = e.precoMax > 0 ? lucro / e.precoMax : null;
   const diasMedios = dias !== null ? (Math.max(dias, 7) * (Math.max(e.comprar, 1) + 1)) / 2 : null;
@@ -200,6 +202,7 @@ function LinhaEscalao({ e, venda, dias }: { e: Escalao; venda: number; dias: num
       <span className="linha-principal">
         <span>
           <strong>{NOME_ESCALAO[e.nome]}</strong> · até <strong>{fmtEuro(e.precoMax)}</strong>
+          {desc !== null && <span className="mudo">{desc > 0 ? ` (−${Math.round(desc * 100)}%)` : ' (PVP)'}</span>}
         </span>
         <small className="mudo">
           lucro ≥ {fmtEuro(lucro)} ({Math.round(e.margem * 100)}%){rentab !== null ? ` · ~${Math.round(rentab * 100)}%/ano` : ''}

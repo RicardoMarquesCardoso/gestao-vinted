@@ -342,3 +342,10 @@ test('pode esgotar: sai de produção em breve, eBay acima do PVP, vendemos depr
   const [b] = avaliarPromocao(['22222'], 0.3, ctx);
   assert.deepEqual(sinaisEsgotar(b, HOJE), ['no eBay pedem 130% do PVP']);
 });
+
+test('descontoPara: desconto sobre o PVP para chegar ao preço máximo', async () => {
+  const { descontoPara } = await import('../src/lib/avaliar');
+  assert.equal(descontoPara(39.99, 25), 0.38); // 1 − 25/39,99 = 37,5% → 38%
+  assert.equal(descontoPara(39.99, 45), 0); // acima do PVP: o PVP já serve
+  assert.equal(descontoPara(null, 25), null);
+});

@@ -355,6 +355,8 @@ Mostra ainda, de forma simples, de onde vem o preço de venda: uma linha por fon
 
 Desde nov/2026 (pedido do Ricardo) não há separadores "Um set" / "Promoção da loja": é tudo o mesmo ecrã. No topo, numa só linha: o seletor da loja (as lojas que enviaram listas + *Outra lista*), a caixa para procurar um set (n.º, "começa por", ou parte do nome) e o desconto (%). Se o set procurado não está na lista da loja, ou não há lista, aparece o detalhe dele (o que antes era "Um set").
 
+Em cada escalão, à frente de "até X €", aparece o **desconto sobre o PVP** necessário para lá chegar (`descontoPara`: 1 − X ÷ PVP, arredondado ao 1% acima), ou "(PVP)" se o próprio PVP já serve.
+
 #### Promoção da loja (modo do mesmo ecrã, `components/AvaliarPromocao.tsx`, `avaliarPromocao`)
 
 Tocar num set da lista abre o mesmo detalhe do modo "Um set" (`components/DetalheSet.tsx`, `JanelaSet`), com o preço da promoção no topo e as nossas vendas desse set. É calculado na hora com o que a app já tem carregado (vendas, `mercado-sets.json`, catálogo, pesquisas do eBay guardadas). Só o botão *Procurar no eBay* guarda alguma coisa (ver abaixo).

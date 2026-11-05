@@ -507,8 +507,11 @@ export interface LinhaPromo {
   motivo: string;
 }
 
-/** Desconto mínimo sobre o PVP para pagar no máximo "precoMax" (arredondado ao 1% acima). */
-const descontoPara = (pvp: number | null, precoMax: number | undefined) =>
+/**
+ * Desconto mínimo sobre o PVP para pagar no máximo "precoMax" (arredondado ao 1% acima, para
+ * chegar mesmo a esse preço). 0 = o PVP já serve; null = sem PVP.
+ */
+export const descontoPara = (pvp: number | null, precoMax: number | undefined) =>
   pvp && precoMax && precoMax > 0 && precoMax < pvp * 0.99 ? Math.ceil((1 - precoMax / pvp) * 100) / 100 : pvp && precoMax && precoMax >= pvp * 0.99 ? 0 : null;
 
 /**
