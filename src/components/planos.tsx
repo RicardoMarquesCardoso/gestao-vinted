@@ -10,7 +10,7 @@ import { useMemo, useState } from 'react';
 import { fmtData, fmtEuro, hoje, plural } from '../lib/format';
 import { chavePokemon, entradaPokemon, idsPokemon, precoPokemon, urlImagemTcg, useMercado } from '../lib/investimento';
 import type { ProdutoTcg } from '../lib/investimento';
-import { custoUnitario } from '../lib/calc';
+import { custoUnitario, somarDias } from '../lib/calc';
 import { CHAVE_ADIADAS, CHAVE_PLANOS, CHAVE_POKEMON_IDS, chavePlano, mesAno, planosManuais, resumoAnuncio, sinais, sugerirPlano, tarefas, tarefasAdiadas } from '../lib/plano';
 import type { Contexto, Plano, PlanoManual, Sinal, Tarefa } from '../lib/plano';
 import type { Produto } from '../lib/types';
@@ -131,7 +131,7 @@ export function CartaoTarefas() {
   async function adiar(t: Tarefa) {
     const h = hoje();
     const atuais = Object.fromEntries(Object.entries(tarefasAdiadas(dados.definicoes)).filter(([, ate]) => ate > h));
-    const ate = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
+    const ate = somarDias(h, 14); // data local (a de UTC podia dar um dia a menos perto da meia-noite)
     await guardar('definicoes', [{ chave: CHAVE_ADIADAS, valor: { ...atuais, [t.id]: ate } as never }]);
     aviso(`Adiado até ${fmtData(ate)}.`);
   }

@@ -104,8 +104,13 @@ export const idsPokemon = (defs: { chave: string; valor: unknown }[] | undefined
 
 const VAZIO: Mercado = { brickset: {}, bricklink: {} };
 let pedido: Promise<Mercado> | null = null;
+let pedidoEm = 0;
+/** Com a app aberta muito tempo, volta a ler os dados do dia passadas 6 horas. */
+const VALIDADE_MERCADO = 6 * 3600 * 1000;
 
 function carregarMercado() {
+  if (pedido && Date.now() - pedidoEm > VALIDADE_MERCADO) pedido = null;
+  if (!pedido) pedidoEm = Date.now();
   pedido ??= fetch('mercado-sets.json', { cache: 'no-cache' })
     .then((r) => (r.ok ? r.json() : VAZIO))
     .then((j: Partial<Mercado>) => ({ ...VAZIO, ...j }))

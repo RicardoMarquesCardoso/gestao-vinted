@@ -14,6 +14,15 @@
 // unidades, a diversificar (por set e por tema), e a partir de que desconto passaria a compensar.
 // Mostram-se primeiro os que compensam e os que têm desconto; os outros ficam escondidos.
 //
+// ORDEM (pedido do Ricardo, nov/2026): por defeito, pelos que precisam de MENOS desconto para
+// compensar ("precisa de ≥X%"); em alternativa, a recomendação (os que compensam, pelo lucro seguro).
+//
+// SIMULAR UMA PROMOÇÃO ANUNCIADA (ex.: "amanhã Lego de 35% a 50% no Continente"): com "de … a …%"
+// preenchido, avalia TODOS os sets da lista com esse desconto da loja (lib/avaliar.ts,
+// simularPromocao) e mostra: os que compensam já com o mais baixo, os que só compensam com mais
+// (até ao mais alto) e, escondidos, os outros. ⚡ marca os que podem esgotar (sinaisEsgotar: sai de
+// produção em breve, eBay acima do PVP, ou vendemo-lo depressa), para comprar logo.
+//
 // TOCAR NUM SET abre o detalhe dele (components/DetalheSet.tsx) numa janela: o preço da promoção,
 // os escalões, de onde vem o preço de venda e as nossas vendas do set. É calculado na hora com o
 // que a app já tem, por isso não se guarda nada.
@@ -26,7 +35,7 @@
 // servidor, seria recolha automática (termos de uso).
 
 import { useMemo, useState } from 'react';
-import { avaliarPromocao } from '../lib/avaliar';
+import { avaliarPromocao, ordenarPorDesconto, simularPromocao, sinaisEsgotar } from '../lib/avaliar';
 import type { LinhaPromo, NomeEscalao } from '../lib/avaliar';
 import { descarregar, paraCsv } from '../lib/csv';
 import { fmtDataHora, fmtEuro, hoje, lerNumero, plural } from '../lib/format';
@@ -42,6 +51,8 @@ const NOME_ESCALAO: Record<NomeEscalao, string> = { rara: 'oportunidade rara', o
 const MANUAL = '';
 const pct = (x: number) => String(Math.round(x * 1000) / 10).replace('.', ',');
 
+type Ordem = 'desconto' | 'lucro';
+
 export function AvaliarPromocao({ idInicial }: { idInicial?: string }) {
   const { dados } = useDados();
   const abrir = useAbrir();
@@ -54,8 +65,16 @@ export function AvaliarPromocao({ idInicial }: { idInicial?: string }) {
   const [extra, setExtra] = useState(() => (inicial ? pct(extraPadrao(inicial)) : ''));
   const [texto, setTexto] = useState('');
   const [verTodos, setVerTodos] = useState(false);
+  const [ordem, setOrdem] = useState<Ordem>('desconto');
+  const [simDe, setSimDe] = useState('');
+  const [simA, setSimA] = useState('');
+  const [soEsgotar, setSoEsgotar] = useState(false);
   const h = hoje();
   const e = Math.min(Math.max(lerNumero(extra), 0), 90) / 100;
+  const limitar = (x: string) => Math.min(Math.max(lerNumero(x), 0), 90) / 100;
+  const de = limitar(simDe);
+  const a = limitar(simA);
+  const simulando = de > 0 || a > 0;
 
   function escolher(l: string) {
     setLoja(l);
@@ -72,52 +91,94 @@ export function AvaliarPromocao({ idInicial }: { idInicial?: string }) {
     [texto, promo, mercado, catalogo.carregado],
   );
   const comDesconto = (s: string) => descontos[s] !== null || (precos[s] !== null && pvps[s] !== null && precos[s]! < pvps[s]!);
+  const tema = (n: string) => catalogo(n)?.tema;
 
+  // Avaliação com os preços da lista (modo normal)
   const linhas = useMemo(
     () =>
-      sets.length
-        ? avaliarPromocao(sets, promo ? descontoDe(promo) : 0, { dados, mercado, hoje: h }, {
-            tema: (n) => catalogo(n)?.tema,
-            precos,
-            descontos,
-            pvps,
-            extra: e,
-          })
+      sets.length && !simulando
+        ? avaliarPromocao(sets, promo ? descontoDe(promo) : 0, { dados, mercado, hoje: h }, { tema, precos, descontos, pvps, extra: e })
         : [],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sets, precos, descontos, pvps, promo, e, dados, mercado, h, catalogo.carregado],
+    [sets, precos, descontos, pvps, promo, e, dados, mercado, h, catalogo.carregado, simulando],
   );
+  // Simulação: todos os sets com o mesmo desconto da loja, de "de" a "a"
+  const sim = useMemo(
+    () => (sets.length && simulando ? simularPromocao(sets, de || a, a || de, { dados, mercado, hoje: h }, { tema, pvps, extra: e }) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sets, pvps, de, a, e, dados, mercado, h, catalogo.carregado, simulando],
+  );
+
+  const sinais = (l: LinhaPromo) => sinaisEsgotar(l, h);
+  const filtrar = (ls: LinhaPromo[]) => (soEsgotar ? ls.filter((l) => sinais(l).length > 0) : ls);
+
+  // Modo normal: visíveis = os que compensam e os que têm desconto na lista (numa lista colada, todos)
+  const ordenadas = ordem === 'desconto' ? ordenarPorDesconto(linhas) : linhas;
+  const visiveis = filtrar(verTodos || !promo ? ordenadas : ordenadas.filter((l) => l.comprar > 0 || comDesconto(l.set)));
+  const escondidos = filtrar(ordenadas).length - visiveis.length;
   const aComprar = linhas.filter((l) => l.comprar > 0);
-  const total = aComprar.reduce((a, l) => a + l.comprar * (l.preco ?? 0), 0);
-  // Visíveis: os que compensam e os que têm desconto na lista (numa lista colada, todos)
-  const visiveis = verTodos || !promo ? linhas : linhas.filter((l) => l.comprar > 0 || comDesconto(l.set));
-  const escondidos = linhas.length - visiveis.length;
+  const total = aComprar.reduce((x, l) => x + l.comprar * (l.preco ?? 0), 0);
+
+  // Simulação: comprar já (ao desconto mais baixo) e quantos podem esgotar
+  const simComprar = sim?.compensaJa.filter((l) => l.comprar > 0) ?? [];
+  const simTotal = simComprar.reduce((x, l) => x + l.comprar * (l.preco ?? 0), 0);
+  const nEsgotar = sim ? [...sim.compensaJa, ...sim.comMais].filter((l) => sinais(l).length > 0).length : linhas.filter((l) => (l.comprar > 0 || comDesconto(l.set)) && sinais(l).length > 0).length;
+
+  const abrirSet = (l: LinhaPromo) =>
+    abrir({
+      tipo: 'set',
+      set: l.set,
+      promo: {
+        loja: sim ? `${loja || 'Lista'} (simulação a −${Math.round((l.descontoAplicado ?? 0) * 100)}%)` : loja || 'Lista',
+        preco: l.preco,
+        precoLoja: l.precoLoja,
+        descontoAplicado: l.descontoAplicado,
+        lucro: l.lucro,
+        margem: l.margem,
+        comprar: l.comprar,
+        escalao: l.escalao,
+        descontoMinimo: l.descontoMinimo,
+        motivo: l.motivo ?? null,
+      },
+    });
+  const linha = (l: LinhaPromo, comprarA?: number) => (
+    <LinhaSet key={l.set} l={l} nome={catalogo(l.set)?.nome} sinais={sinais(l)} comprarA={comprarA} abrir={() => abrirSet(l)} />
+  );
 
   function exportar() {
+    const grupos: [string, LinhaPromo[]][] = sim
+      ? [[`Compensa com ${pct(sim.de)}%`, sim.compensaJa], [`Só até ${pct(sim.a)}%`, sim.comMais], ['Não compensa', sim.resto]]
+      : [['', ordenadas]];
+    const todas: { g: string; l: LinhaPromo }[] = grupos.flatMap(([g, ls]) => ls.map((l) => ({ g, l })));
     descarregar(
-      `promocao-${(loja || 'lista').toLowerCase().replace(/\W+/g, '-')}-${h}.csv`,
-      paraCsv(linhas, [
-        { titulo: 'Set', valor: (l) => l.set },
-        { titulo: 'Nome', valor: (l) => catalogo(l.set)?.nome ?? '' },
-        { titulo: 'Tema', valor: (l) => l.tema },
-        { titulo: 'PVP', valor: (l) => l.pvp },
-        { titulo: 'PVP de', valor: (l) => (l.pvpOrigem === 'loja' ? 'loja' : l.pvpOrigem === 'brickset' ? 'Brickset' : '') },
-        { titulo: 'Preço na loja', valor: (l) => l.precoLoja },
-        { titulo: `Preço final (com ${pct(e)}% extra)`, valor: (l) => l.preco },
-        { titulo: 'Desconto total sobre o PVP (%)', valor: (l) => (l.descontoAplicado !== null ? Math.round(l.descontoAplicado * 100) : null) },
-        { titulo: 'Vende-se por', valor: (l) => (l.precos.venda ? Math.round(l.precos.venda.preco * 100) / 100 : null) },
-        { titulo: 'Fonte', valor: (l) => l.precos.venda?.fonte },
-        { titulo: 'Lucro', valor: (l) => (l.lucro !== null ? Math.round(l.lucro * 100) / 100 : null) },
-        { titulo: 'Lucro %', valor: (l) => (l.margem !== null ? Math.round(l.margem * 100) : null) },
-        { titulo: 'Escalão', valor: (l) => (l.escalao ? NOME_ESCALAO[l.escalao] : 'não compensa') },
-        { titulo: 'Comprar', valor: (l) => l.comprar },
-        { titulo: 'Em stock', valor: (l) => l.precos.emStock },
-        { titulo: 'Pagar no máximo (bom)', valor: (l) => l.precos.escaloes.find((x) => x.nome === 'bom')?.precoMax },
-        { titulo: 'Compensa a partir de (% da loja)', valor: (l) => (l.descontoMinimo !== null ? Math.round(l.descontoMinimo * 100) : 'nunca') },
-        { titulo: 'Nota', valor: (l) => l.motivo },
+      `promocao-${(loja || 'lista').toLowerCase().replace(/\W+/g, '-')}${sim ? `-simulacao-${pct(sim.de)}-${pct(sim.a)}` : ''}-${h}.csv`,
+      paraCsv(todas, [
+        ...(sim ? [{ titulo: 'Grupo', valor: (x: { g: string; l: LinhaPromo }) => x.g }] : []),
+        { titulo: 'Set', valor: ({ l }) => l.set },
+        { titulo: 'Nome', valor: ({ l }) => catalogo(l.set)?.nome ?? '' },
+        { titulo: 'Tema', valor: ({ l }) => l.tema },
+        { titulo: 'Precisa de (% da loja)', valor: ({ l }) => (l.descontoMinimo !== null ? Math.round(l.descontoMinimo * 100) : 'nunca') },
+        { titulo: 'Pode esgotar', valor: ({ l }) => sinais(l).join('; ') },
+        { titulo: 'PVP', valor: ({ l }) => l.pvp },
+        { titulo: 'PVP de', valor: ({ l }) => (l.pvpOrigem === 'loja' ? 'loja' : l.pvpOrigem === 'brickset' ? 'Brickset' : '') },
+        { titulo: 'Preço na loja', valor: ({ l }) => l.precoLoja },
+        { titulo: `Preço final (com ${pct(e)}% extra)`, valor: ({ l }) => l.preco },
+        { titulo: 'Desconto total sobre o PVP (%)', valor: ({ l }) => (l.descontoAplicado !== null ? Math.round(l.descontoAplicado * 100) : null) },
+        { titulo: 'Vende-se por', valor: ({ l }) => (l.precos.venda ? Math.round(l.precos.venda.preco * 100) / 100 : null) },
+        { titulo: 'Fonte', valor: ({ l }) => l.precos.venda?.fonte },
+        { titulo: 'Lucro', valor: ({ l }) => (l.lucro !== null ? Math.round(l.lucro * 100) / 100 : null) },
+        { titulo: 'Lucro %', valor: ({ l }) => (l.margem !== null ? Math.round(l.margem * 100) : null) },
+        { titulo: 'Escalão', valor: ({ l }) => (l.escalao ? NOME_ESCALAO[l.escalao] : 'não compensa') },
+        { titulo: 'Comprar', valor: ({ l }) => l.comprar },
+        { titulo: 'Em stock', valor: ({ l }) => l.precos.emStock },
+        { titulo: 'Pagar no máximo (bom)', valor: ({ l }) => l.precos.escaloes.find((x) => x.nome === 'bom')?.precoMax },
+        { titulo: 'Nota', valor: ({ l }) => l.motivo },
       ]),
     );
   }
+
+  const deTxt = sim ? `${pct(sim.de)}%` : '';
+  const aTxt = sim ? `${pct(sim.a)}%` : '';
 
   return (
     <>
@@ -150,63 +211,123 @@ export function AvaliarPromocao({ idInicial }: { idInicial?: string }) {
         </>
       )}
 
-      <label className="campo avaliar-campo">
-        <span className="campo-rotulo">{promo ? 'Desconto extra (ex.: cartão)' : 'Desconto da loja'}</span>
-        <span className="campo-unidade">
-          <input inputMode="decimal" value={extra} onChange={(ev) => setExtra(ev.target.value.replace(/[^\d.,]/g, ''))} placeholder="0" />
-          <span className="mudo">% {promo ? 'sobre o preço de cada set' : 'sobre o preço (ou o PVP)'}</span>
-        </span>
-      </label>
+      <div className="avaliar-campos">
+        <label className="campo avaliar-campo">
+          <span className="campo-rotulo">{promo ? 'Desconto extra (ex.: cartão)' : 'Desconto da loja'}</span>
+          <span className="campo-unidade">
+            <input inputMode="decimal" value={extra} onChange={(ev) => setExtra(ev.target.value.replace(/[^\d.,]/g, ''))} placeholder="0" />
+            <span className="mudo">% {promo ? 'sobre o preço' : 'sobre o preço (ou o PVP)'}</span>
+          </span>
+        </label>
+        <div className="campo avaliar-campo avaliar-sim">
+          <span className="campo-rotulo">Simular promoção anunciada</span>
+          <span className="campo-unidade">
+            <input inputMode="decimal" aria-label="Desconto mínimo" value={simDe} onChange={(ev) => setSimDe(ev.target.value.replace(/[^\d.,]/g, ''))} placeholder="de" />
+            <span className="mudo">a</span>
+            <input inputMode="decimal" aria-label="Desconto máximo" value={simA} onChange={(ev) => setSimA(ev.target.value.replace(/[^\d.,]/g, ''))} placeholder="até" />
+            <span className="mudo">%</span>
+            {simulando && (
+              <button className="link" onClick={() => (setSimDe(''), setSimA(''))}>
+                limpar
+              </button>
+            )}
+          </span>
+        </div>
+      </div>
 
       {sets.length > 0 && (
         <Cartao className="avaliar-resultado">
-          <p className="avaliar-resumo">
-            {aComprar.length ? (
-              <>
-                Comprar <strong>{plural(aComprar.length, 'set', 'sets')}</strong> ({plural(aComprar.reduce((a, l) => a + l.comprar, 0), 'unidade', 'unidades')}), <strong>{fmtEuro(total)}</strong> no total.
-              </>
-            ) : (
-              <>Nenhum compensa{e > 0 ? `, mesmo com ${pct(e)}% extra` : ''}.</>
+          {sim ? (
+            <p className="avaliar-resumo">
+              {simComprar.length ? (
+                <>
+                  Com <strong>{deTxt}</strong>: comprar <strong>{plural(simComprar.length, 'set', 'sets')}</strong> ({plural(simComprar.reduce((x, l) => x + l.comprar, 0), 'unidade', 'unidades')}),{' '}
+                  <strong>{fmtEuro(simTotal)}</strong>.
+                </>
+              ) : (
+                <>Com {deTxt}, nenhum compensa.</>
+              )}
+              {sim.a > sim.de && sim.comMais.length > 0 && (
+                <>
+                  {' '}
+                  Com {aTxt}, mais {plural(sim.comMais.length, 'set', 'sets')}.
+                </>
+              )}
+            </p>
+          ) : (
+            <p className="avaliar-resumo">
+              {aComprar.length ? (
+                <>
+                  Comprar <strong>{plural(aComprar.length, 'set', 'sets')}</strong> ({plural(aComprar.reduce((x, l) => x + l.comprar, 0), 'unidade', 'unidades')}), <strong>{fmtEuro(total)}</strong> no total.
+                </>
+              ) : (
+                <>Nenhum compensa{e > 0 ? `, mesmo com ${pct(e)}% extra` : ''}.</>
+              )}
+            </p>
+          )}
+
+          <div className="avaliar-filtros">
+            {!sim && (
+              <div className="segmentos segmentos-mini" role="radiogroup" aria-label="Ordenar">
+                <button role="radio" aria-checked={ordem === 'desconto'} className={ordem === 'desconto' ? 'ativo' : ''} onClick={() => setOrdem('desconto')}>
+                  Menos desconto necessário
+                </button>
+                <button role="radio" aria-checked={ordem === 'lucro'} className={ordem === 'lucro' ? 'ativo' : ''} onClick={() => setOrdem('lucro')}>
+                  Recomendação
+                </button>
+              </div>
             )}
-          </p>
-          <ul className="lista-simples avaliar-promo">
-            {visiveis.map((l) => (
-              <LinhaSet
-                key={l.set}
-                l={l}
-                nome={catalogo(l.set)?.nome}
-                abrir={() =>
-                  abrir({
-                    tipo: 'set',
-                    set: l.set,
-                    promo: {
-                      loja: loja || 'Lista',
-                      preco: l.preco,
-                      precoLoja: l.precoLoja,
-                      descontoAplicado: l.descontoAplicado,
-                      lucro: l.lucro,
-                      margem: l.margem,
-                      comprar: l.comprar,
-                      escalao: l.escalao,
-                      descontoMinimo: l.descontoMinimo,
-                      motivo: l.motivo ?? null,
-                    },
-                  })
-                }
-              />
-            ))}
-          </ul>
-          {escondidos > 0 && (
-            <button className="link" onClick={() => setVerTodos(true)}>
-              Mostrar os outros {escondidos} (sem desconto na lista)
-            </button>
+            {nEsgotar > 0 && (
+              <button className={`btn btn-mini${soEsgotar ? ' ativo' : ''}`} aria-pressed={soEsgotar} onClick={() => setSoEsgotar((x) => !x)}>
+                ⚡ {soEsgotar ? 'Mostrar todos' : `Só os que podem esgotar (${nEsgotar})`}
+              </button>
+            )}
+          </div>
+
+          {sim ? (
+            <>
+              <h4 className="secao-form">Compensam já com {deTxt} · {filtrar(sim.compensaJa).length}</h4>
+              {filtrar(sim.compensaJa).length ? <ul className="lista-simples avaliar-promo">{filtrar(sim.compensaJa).map((l) => linha(l))}</ul> : <p className="nota">Nenhum.</p>}
+              {sim.a > sim.de && (
+                <>
+                  <h4 className="secao-form">Só com mais desconto, até {aTxt} · {filtrar(sim.comMais).length}</h4>
+                  {filtrar(sim.comMais).length ? (
+                    <ul className="lista-simples avaliar-promo">{filtrar(sim.comMais).map((l) => linha(l, Math.round((l.descontoAplicado ?? 0) * 100)))}</ul>
+                  ) : (
+                    <p className="nota">Nenhum.</p>
+                  )}
+                </>
+              )}
+              {verTodos ? (
+                <>
+                  <h4 className="secao-form">Não compensam nem com {aTxt} · {filtrar(sim.resto).length}</h4>
+                  <ul className="lista-simples avaliar-promo">{filtrar(sim.resto).map((l) => linha(l))}</ul>
+                </>
+              ) : (
+                filtrar(sim.resto).length > 0 && (
+                  <button className="link" onClick={() => setVerTodos(true)}>
+                    Mostrar os outros {filtrar(sim.resto).length} (não compensam nem com {aTxt})
+                  </button>
+                )
+              )}
+            </>
+          ) : (
+            <>
+              <ul className="lista-simples avaliar-promo">{visiveis.map((l) => linha(l))}</ul>
+              {escondidos > 0 && (
+                <button className="link" onClick={() => setVerTodos(true)}>
+                  Mostrar os outros {escondidos} (sem desconto na lista)
+                </button>
+              )}
+            </>
           )}
           <div className="linha-botoes">
             <button className="btn" onClick={exportar}>Descarregar para Excel</button>
           </div>
           <p className="nota">
-            PVP: o da loja, se vier na lista; senão o da LEGO Alemanha (Brickset). "Compensa a partir de" é o desconto da loja sobre o PVP necessário, já contando o extra. Os sets sem eBay nem
-            vendas nossas usam o PVP × a % a que costumamos vender, que é conservador. Para ver o eBay de um set, toca nele e carrega em "Procurar no eBay".
+            "Precisa de ≥X%" é o desconto da loja sobre o PVP a partir do qual compensa, já contando o extra
+            {e > 0 ? ` de ${pct(e)}%` : ''}. ⚡ Pode esgotar: sai de produção nos próximos meses, no eBay pedem mais do que o PVP, ou nós vendemo-lo depressa (não sabemos o stock da loja). PVP: o da loja, se vier na lista; senão o da
+            LEGO Alemanha (Brickset). Os sets sem eBay nem vendas nossas usam o PVP × a % a que costumamos vender, que é conservador.
           </p>
         </Cartao>
       )}
@@ -214,10 +335,22 @@ export function AvaliarPromocao({ idInicial }: { idInicial?: string }) {
   );
 }
 
-/** Uma linha: bolinha do escalão, nome, preço (na loja → final) → venda esperada, lucro e quantas comprar. */
-function LinhaSet({ l, nome, abrir }: { l: LinhaPromo; nome?: string; abrir(): void }) {
+/** "precisa de ≥21%", "compensa sem desconto" ou "não compensa". */
+function precisaDe(l: LinhaPromo) {
+  if (l.descontoMinimo === null) return l.precos.venda ? 'não compensa' : 'sem preço de venda';
+  return l.descontoMinimo <= 0 ? 'compensa sem desconto' : `precisa de ≥${Math.round(l.descontoMinimo * 100)}%`;
+}
+
+/**
+ * Uma linha: bolinha do escalão, nome, de quanto desconto precisa, preço (na loja → final) → venda
+ * esperada, lucro, quantas comprar e, se houver, os sinais de que pode esgotar (⚡).
+ * comprarA: na simulação, o desconto a que se avaliou (para "comprar 1 a 50%").
+ */
+function LinhaSet({ l, nome, sinais, comprarA, abrir }: { l: LinhaPromo; nome?: string; sinais: string[]; comprarA?: number; abrir(): void }) {
   const classe = l.comprar > 0 && l.escalao ? `avaliar-${l.escalao}` : 'avaliar-nao';
   const comExtra = l.precoLoja !== null && l.preco !== null && l.preco < l.precoLoja;
+  // Desconto da LOJA sobre o PVP (o mesmo de "precisa de ≥X%"; o extra mostra-se à parte)
+  const descLoja = l.precoLoja !== null && l.pvp ? Math.round((1 - l.precoLoja / l.pvp) * 100) : 0;
   return (
     <li className={`avaliar-escalao ${classe} clicavel`} onClick={abrir} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && abrir()}>
       <span className="avaliar-bolinha" aria-hidden="true" />
@@ -225,17 +358,19 @@ function LinhaSet({ l, nome, abrir }: { l: LinhaPromo; nome?: string; abrir(): v
         <span className="truncar">
           <strong>{l.set}</strong> {nome ?? ''}
         </span>
-        <small className="mudo">
-          {l.preco === null
-            ? '—'
-            : `${comExtra ? `${fmtEuro(l.precoLoja)} → ` : ''}${fmtEuro(l.preco)}${l.descontoAplicado ? ` (−${Math.round(l.descontoAplicado * 100)}%)` : ''}`}
-          {l.precos.venda ? ` · vende ~${fmtEuro(l.precos.venda.preco)}` : ''}
-          {l.margem !== null ? ` · ${Math.round(l.margem * 100)}%` : ''}
-          {l.comprar > 0 && l.escalao ? ` · ${NOME_ESCALAO[l.escalao]}` : ''}
-          {l.motivo ? ` · ${l.motivo}` : ''}
+        <small>
+          <span className="avaliar-precisa">{precisaDe(l)}</span>
+          <span className="mudo">
+            {l.preco === null ? ' · —' : ` · ${fmtEuro(l.precoLoja)}${descLoja ? ` (−${descLoja}%)` : ''}${comExtra ? ` → ${fmtEuro(l.preco)} com extra` : ''}`}
+            {l.precos.venda ? ` · vende ~${fmtEuro(l.precos.venda.preco)}` : ''}
+            {l.margem !== null ? ` · lucro ${Math.round(l.margem * 100)}%` : ''}
+            {l.comprar > 0 && l.escalao ? ` · ${NOME_ESCALAO[l.escalao]}` : ''}
+            {l.comprar === 0 && l.motivo && !/a partir de|Não compensa com nenhum/.test(l.motivo) ? ` · ${l.motivo}` : ''}
+          </span>
         </small>
+        {sinais.length > 0 && <small className="avaliar-esgotar">⚡ {sinais.join(' · ')}</small>}
       </span>
-      <span className="avaliar-comprar">{l.comprar > 0 ? `comprar ${l.comprar}` : 'não'}</span>
+      <span className="avaliar-comprar">{l.comprar > 0 ? `comprar ${l.comprar}${comprarA ? ` a ${comprarA}%` : ''}` : 'não'}</span>
     </li>
   );
 }

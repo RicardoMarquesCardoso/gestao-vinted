@@ -16,9 +16,10 @@
 import { produtoNovo } from './anuncio';
 import { chaveComparacao, custoUnitario, diasEntre, emInventario, somarDias, unidadesDisponiveis, vendaValida } from './calc';
 import { fmtEuro } from './format';
+import { ultimoResultado } from './memo';
 import { descontoEbayEfetivo, idsPokemon, infoMercado, precoPokemon } from './investimento';
 import type { Mercado } from './investimento';
-import type { Dados, Definicao, Produto } from './types';
+import type { Dados, Definicao, Produto, Venda } from './types';
 
 export const CHAVE_REGRAS = 'regras_plano';
 export const CHAVE_PLANOS = 'planos';
@@ -141,19 +142,32 @@ const mesAno = (d: string) => {
 };
 export { mesAno };
 
+/**
+ * Vendas válidas, com preço e data conhecida, agrupadas por "novo/usado | chaveComparacao" do
+ * produto. referencia() é chamada para cada produto (e para cada set de uma promoção), por isso o
+ * agrupamento faz-se uma só vez por versão dos dados (lib/memo.ts), pela ordem original das vendas.
+ */
+const vendasComparaveis = ultimoResultado((vendas: Venda[], listaProdutos: Produto[]) => {
+  const produtos = new Map(listaProdutos.map((x) => [x.id, x]));
+  const grupos = new Map<string, Venda[]>();
+  for (const v of vendas) {
+    const q = produtos.get(v.produto_id);
+    if (!q || !vendaValida(v) || !(v.preco_venda > 0) || v.notas?.includes('data de venda desconhecida')) continue;
+    const k = `${produtoNovo(q) ? 'n' : 'u'}|${chaveComparacao(q)}`;
+    grupos.set(k, [...(grupos.get(k) ?? []), v]);
+  }
+  return grupos;
+});
+
 /** Preço de referência para vender agora: as nossas vendas → BrickLink → eBay (com desconto) → TCGplayer (Pokémon) → PVP. */
 export function referencia(p: Produto, ctx: Contexto): Referencia | null {
   const r = regrasPlano(ctx.dados.definicoes);
   const chave = chaveComparacao(p);
   const novo = produtoNovo(p);
-  const produtos = new Map(ctx.dados.produtos.map((x) => [x.id, x]));
-  const recentes = ctx.dados.vendas.filter((v) => {
-    const q = produtos.get(v.produto_id);
-    return (
-      q && vendaValida(v) && chaveComparacao(q) === chave && produtoNovo(q) === novo && v.preco_venda > 0 &&
-      !v.notas?.includes('data de venda desconhecida') && diasEntre(v.data_venda, ctx.hoje) <= 730
-    );
-  });
+  // Vendas do mesmo produto (mesmo set ou nome, novo/usado), agrupadas uma vez por versão dos dados
+  const recentes = (vendasComparaveis(ctx.dados.vendas, ctx.dados.produtos).get(`${novo ? 'n' : 'u'}|${chave}`) ?? []).filter(
+    (v) => diasEntre(v.data_venda, ctx.hoje) <= 730,
+  );
   if (recentes.length) {
     // As vendas mais recentes pesam mais
     const peso = (d: string) => (diasEntre(d, ctx.hoje) <= 365 ? 2 : 1);

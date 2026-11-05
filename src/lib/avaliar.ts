@@ -38,9 +38,10 @@ import { produtoNovo } from './anuncio';
 import { custoUnitario, diasEntre, emInventario, unidadesDisponiveis, vendaValida } from './calc';
 import { descontoEbayEfetivo, infoMercado } from './investimento';
 import type { InfoMercado, Mercado } from './investimento';
-import { fmtData } from './format';
+import { fmtData, fmtMesAno } from './format';
+import { ultimoResultado } from './memo';
 import { referencia, regrasPlano } from './plano';
-import type { Dados, Produto } from './types';
+import type { Dados, Produto, Venda } from './types';
 
 /** Lucro mínimo (em euros) para uma compra valer a vaga: cada conta só pode ter 30 vendas por ano. */
 export const LUCRO_MINIMO = 5;
@@ -60,6 +61,8 @@ export interface Estimativa {
   fonte: FonteAvaliacao;
   preco: number;
   texto: string;
+  /** Só no eBay: a mediana do preço PEDIDO (antes da % a que costumamos vender). */
+  pedido?: number;
 }
 
 export interface PedidoAvaliacao {
@@ -132,13 +135,18 @@ export interface CalibracaoPvp {
  * sets numa fase, usa-se o rácio de reserva.
  */
 export function calibrarPvp(ctx: ContextoAvaliacao): CalibracaoPvp {
-  const produtos = new Map(ctx.dados.produtos.map((p) => [p.id, p]));
+  // O mesmo para todos os sets: calcula-se uma vez por versão dos dados (lib/memo.ts)
+  return calibrarPvpMemo(ctx.dados.vendas, ctx.dados.produtos, ctx.mercado, ctx.hoje);
+}
+
+const calibrarPvpMemo = ultimoResultado((vendas: Venda[], listaProdutos: Produto[], mercado: Mercado | null, hoje: string): CalibracaoPvp => {
+  const produtos = new Map(listaProdutos.map((p) => [p.id, p]));
   const fases = { aVenda: new Map<string, number[]>(), retirado: new Map<string, number[]>() };
-  for (const v of ctx.dados.vendas) {
+  for (const v of vendas) {
     const p = produtos.get(v.produto_id);
     if (!p?.set_numero || !ehLego(p) || !produtoNovo(p) || !vendaValida(v) || !(v.preco_venda > 0)) continue;
-    if (!dataConhecida(v.notas) || diasEntre(v.data_venda, ctx.hoje) > 730) continue;
-    const m = infoMercado(ctx.mercado, p.set_numero, ctx.hoje);
+    if (!dataConhecida(v.notas) || diasEntre(v.data_venda, hoje) > 730) continue;
+    const m = infoMercado(mercado, p.set_numero, hoje);
     if (!m?.pvp || !m.retirada) continue; // sem a data de retirada não se sabe a fase
     const fase = v.data_venda >= m.retirada ? fases.retirado : fases.aVenda;
     const set = numeroBase(p.set_numero);
@@ -154,7 +162,7 @@ export function calibrarPvp(ctx: ContextoAvaliacao): CalibracaoPvp {
     setsAVenda: fases.aVenda.size,
     setsRetirado: fases.retirado.size,
   };
-}
+});
 
 // ---------- Tempo até vender ----------
 
@@ -167,21 +175,37 @@ export function calibrarPvp(ctx: ContextoAvaliacao): CalibracaoPvp {
  */
 export const MIN_VENDAS_TEMA = 5;
 
-export function tempoAteVender(ctx: ContextoAvaliacao, set: string, tema?: string | null): TempoVenda | null {
-  const produtos = new Map(ctx.dados.produtos.map((p) => [p.id, p]));
+/** As vendas com tempo conhecido (por set e todas) e o tema dos nossos produtos de cada set. Uma vez por versão dos dados. */
+const linhasTempo = ultimoResultado((vendas: Venda[], listaProdutos: Produto[]) => {
+  const produtos = new Map(listaProdutos.map((p) => [p.id, p]));
   const linhas: { set: string; tema: string; dias: number }[] = [];
-  for (const v of ctx.dados.vendas) {
+  const porSet = new Map<string, number[]>();
+  for (const v of vendas) {
     const p = produtos.get(v.produto_id);
     if (!p?.data_compra || !produtoNovo(p) || !vendaValida(v) || !dataConhecida(v.notas)) continue;
     const dias = diasEntre(p.data_compra, v.data_venda);
     if (dias < 0) continue;
-    linhas.push({ set: numeroBase(p.set_numero ?? ''), tema: normalizar(p.tema), dias });
+    const l = { set: numeroBase(p.set_numero ?? ''), tema: normalizar(p.tema), dias };
+    linhas.push(l);
+    porSet.set(l.set, [...(porSet.get(l.set) ?? []), dias]);
   }
+  // O primeiro produto (pela ordem da lista) com este set e com tema
+  const temaDoSet = new Map<string, string>();
+  for (const p of listaProdutos) {
+    if (!p.set_numero || !p.tema) continue;
+    const n = numeroBase(p.set_numero);
+    if (!temaDoSet.has(n)) temaDoSet.set(n, p.tema);
+  }
+  return { linhas, porSet, temaDoSet };
+});
+
+export function tempoAteVender(ctx: ContextoAvaliacao, set: string, tema?: string | null): TempoVenda | null {
+  const { linhas, porSet, temaDoSet } = linhasTempo(ctx.dados.vendas, ctx.dados.produtos);
   const n = numeroBase(set);
-  const doSet = linhas.filter((l) => l.set === n).map((l) => l.dias);
+  const doSet = porSet.get(n) ?? [];
   if (doSet.length) return { dias: Math.round(mediana(doSet)!), base: 'set', n: doSet.length };
   // O tema dos nossos produtos com este set conta mais do que o do catálogo (os nomes podem diferir)
-  const temaNosso = ctx.dados.produtos.find((p) => p.set_numero && numeroBase(p.set_numero) === n && p.tema)?.tema;
+  const temaNosso = temaDoSet.get(n);
   const t = normalizar(temaNosso ?? tema);
   const doTema = t ? linhas.filter((l) => l.tema && (l.tema === t || l.tema.startsWith(t) || t.startsWith(l.tema))).map((l) => l.dias) : [];
   if (doTema.length >= MIN_VENDAS_TEMA) return { dias: Math.round(mediana(doTema)!), base: 'tema', n: doTema.length };
@@ -223,6 +247,7 @@ export function estimativas(ctx: ContextoAvaliacao, set: string, ebayAoVivo?: [n
     r.push({
       fonte: 'ebay',
       preco: eb[0] * fator,
+      pedido: eb[0],
       texto: `preço típico ~${Math.round(eb[0])} € em ~${eb[1]} anúncios (vendemos a ~${Math.round(fator * 100)}% disso)${quando}`,
     });
   }
@@ -321,25 +346,39 @@ export const UNIDADES_ESCALAO: Record<NomeEscalao, number> = { rara: 3, otimo: 2
  * Preço máximo = venda esperada ÷ (1 + margem), e nunca mais do que venda − 5 € (lucro mínimo
  * para valer uma das 30 vendas por ano da conta).
  */
+/**
+ * O dinheiro em stock (custo das unidades por vender) e, por set novo, o custo e as unidades.
+ * Igual para todos os sets de uma promoção: calcula-se uma vez por versão dos dados.
+ */
+const resumoStock = ultimoResultado((produtos: Produto[], vendas: Venda[]) => {
+  let capital = 0;
+  const porSet = new Map<string, { custo: number; unidades: number }>();
+  for (const p of produtos) {
+    if (!emInventario(p)) continue;
+    const disp = unidadesDisponiveis(p, vendas);
+    if (disp <= 0) continue;
+    capital += custoUnitario(p) * disp;
+    if (p.set_numero && produtoNovo(p)) {
+      const n = numeroBase(p.set_numero);
+      const x = porSet.get(n) ?? { custo: 0, unidades: 0 };
+      x.custo += custoUnitario(p) * disp;
+      x.unidades += disp;
+      porSet.set(n, x);
+    }
+  }
+  return { capital, porSet };
+});
+
 export function precosCompra(ped: Omit<PedidoAvaliacao, 'preco' | 'portes'>, ctx: ContextoAvaliacao): PrecosCompra {
   const r = regrasPlano(ctx.dados.definicoes);
   const set = numeroBase(ped.set);
   const lista = estimativas(ctx, set, ped.ebayAoVivo);
   const venda = lista[0] ?? null;
   // Stock: unidades por vender de todos os produtos, e as deste set (novos)
-  let capitalStock = 0;
-  let custoNoSet = 0;
-  let emStock = 0;
-  for (const p of ctx.dados.produtos) {
-    if (!emInventario(p)) continue;
-    const disp = unidadesDisponiveis(p, ctx.dados.vendas);
-    if (disp <= 0) continue;
-    capitalStock += custoUnitario(p) * disp;
-    if (p.set_numero && numeroBase(p.set_numero) === set && produtoNovo(p)) {
-      custoNoSet += custoUnitario(p) * disp;
-      emStock += disp;
-    }
-  }
+  const stock = resumoStock(ctx.dados.produtos, ctx.dados.vendas);
+  const capitalStock = stock.capital;
+  const custoNoSet = stock.porSet.get(set)?.custo ?? 0;
+  const emStock = stock.porSet.get(set)?.unidades ?? 0;
   const base = { venda, estimativas: lista, tempo: tempoAteVender(ctx, set, ped.tema), emStock, custoNoSet, capitalStock, mercado: infoMercado(ctx.mercado, set, ctx.hoje) };
   if (!venda) return { ...base, escaloes: [] };
 
@@ -554,6 +593,82 @@ export function avaliarPromocao(
   }
   linhas.sort((a, b) => (b.comprar > 0 ? 1 : 0) - (a.comprar > 0 ? 1 : 0) || (b.margemSegura ?? -9) - (a.margemSegura ?? -9));
   return linhas;
+}
+
+// ---------- Simular uma promoção e "pode esgotar" ----------
+
+/**
+ * Pedido do Ricardo (nov/2026): saber de véspera que sets compensam numa promoção anunciada
+ * (ex.: "amanhã Lego de 35% a 50% no Continente") e quais convém comprar logo porque podem esgotar.
+ *
+ * simularPromocao avalia TODOS os sets da lista com o mesmo desconto da loja (ignora os preços e
+ * descontos que a lista traz hoje; mantém o PVP dela) e separa-os em:
+ *   - compensaJa: compensam já com o desconto mais baixo ("de"); avaliados a "de" (quantas comprar);
+ *   - comMais: só compensam com mais desconto, até "a"; avaliados a "a";
+ *   - resto: não compensam nem com "a".
+ * Dentro de cada grupo, ordenados pelo desconto de que precisam (o mais baixo primeiro).
+ */
+export interface Simulacao {
+  de: number;
+  a: number;
+  compensaJa: LinhaPromo[];
+  comMais: LinhaPromo[];
+  resto: LinhaPromo[];
+}
+
+export function simularPromocao(
+  sets: string[],
+  de: number,
+  a: number,
+  ctx: ContextoAvaliacao,
+  opcoes: { tema?: (n: string) => string | null | undefined; pvps?: Record<string, number | null | undefined>; extra?: number } = {},
+): Simulacao {
+  const baixo = Math.min(de, a);
+  const alto = Math.max(de, a);
+  const aDe = avaliarPromocao(sets, baixo, ctx, opcoes);
+  const aA = alto > baixo ? new Map(avaliarPromocao(sets, alto, ctx, opcoes).map((l) => [l.set, l])) : null;
+  const precisa = (l: LinhaPromo) => l.descontoMinimo;
+  const compensaJa = ordenarPorDesconto(aDe.filter((l) => precisa(l) !== null && precisa(l)! <= baixo + 1e-9));
+  const comMais = ordenarPorDesconto(
+    aDe.filter((l) => precisa(l) !== null && precisa(l)! > baixo + 1e-9 && precisa(l)! <= alto + 1e-9).map((l) => aA?.get(l.set) ?? l),
+  );
+  const ja = new Set([...compensaJa, ...comMais].map((l) => l.set));
+  const resto = ordenarPorDesconto(aDe.filter((l) => !ja.has(l.set)));
+  return { de: baixo, a: alto, compensaJa, comMais, resto };
+}
+
+/** Pelo desconto de que precisam para compensar (o mais baixo primeiro; "nunca" no fim), depois pelo lucro seguro. */
+export function ordenarPorDesconto(linhas: LinhaPromo[]): LinhaPromo[] {
+  return [...linhas].sort(
+    (x, y) => (x.descontoMinimo ?? 9) - (y.descontoMinimo ?? 9) || (y.margemSegura ?? -9) - (x.margemSegura ?? -9) || x.set.localeCompare(y.set),
+  );
+}
+
+/** Meses até à retirada a partir dos quais o set conta como "sai de produção em breve". */
+export const MESES_RETIRADA_PERTO = 6;
+/** Vendemos este set em até tantos dias (mediana): procura alta. */
+export const DIAS_VENDA_RAPIDA = 30;
+
+/**
+ * Sinais de que um set pode esgotar na loja (não sabemos o stock dela, por isso é uma estimativa):
+ *   - sai de produção nos próximos MESES_RETIRADA_PERTO meses, ou já saiu (Brickset);
+ *   - no eBay pedem pelo menos o PVP por ele, novo (procura acima do preço de loja);
+ *   - nós vendemo-lo depressa (mediana até DIAS_VENDA_RAPIDA dias, pelas nossas vendas do set).
+ * Devolve frases curtas, para mostrar ao lado do set (lista vazia = nenhum sinal).
+ */
+export function sinaisEsgotar(l: LinhaPromo, hoje: string): string[] {
+  const r: string[] = [];
+  const m = l.precos.mercado;
+  if (m?.retirada) {
+    const limite = new Date(`${hoje}T00:00:00Z`);
+    limite.setUTCMonth(limite.getUTCMonth() + MESES_RETIRADA_PERTO);
+    if (m.retirada <= hoje) r.push('já saiu de produção');
+    else if (m.retirada <= limite.toISOString().slice(0, 10)) r.push(`sai de produção em ${fmtMesAno(m.retirada)}`);
+  } else if (m?.retirado) r.push('já saiu de produção');
+  const pedido = l.precos.estimativas.find((e) => e.fonte === 'ebay')?.pedido;
+  if (pedido && l.pvp && pedido >= l.pvp) r.push(`no eBay pedem ${Math.round((pedido / l.pvp) * 100)}% do PVP`);
+  if (l.precos.tempo?.base === 'set' && l.precos.tempo.dias <= DIAS_VENDA_RAPIDA) r.push(`vendemos em ~${l.precos.tempo.dias} dias`);
+  return r;
 }
 
 // ---------- Links para ver o set noutros sites (abertos por nós, à mão) ----------

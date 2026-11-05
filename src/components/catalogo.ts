@@ -100,7 +100,9 @@ export interface InfoSet {
 let catalogoSets: Promise<Record<string, [string, number | null, string | null, string | null]>> | null = null;
 
 function carregarCatalogoSets() {
-  catalogoSets ??= fetch('catalogo-sets.json', { cache: 'force-cache' })
+  // 'no-cache' = usa a cópia guardada, mas pergunta primeiro ao servidor se mudou (resposta curta
+  // "304" quando não mudou). Com 'force-cache' a atualização mensal nunca chegava aos telemóveis.
+  catalogoSets ??= fetch('catalogo-sets.json', { cache: 'no-cache' })
     .then((r) => (r.ok ? r.json() : { sets: {} }))
     .then((j) => j.sets ?? {})
     .catch(() => {

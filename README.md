@@ -368,7 +368,13 @@ escalão / unidades = os mesmos do modo "Um set" (bom / muito bom / oportunidade
 compensa a partir de = desconto da loja sobre o PVP que, já com o extra, chega ao preço máximo "bom"
 ```
 
-Os que compensam aparecem primeiro, pelo **lucro seguro** (o lucro mesmo que a venda fique abaixo do esperado pelo erro típico da fonte). Numa lista recebida mostram-se só os que compensam e os que têm desconto; os outros ficam em *Mostrar os outros N*. **Diversificar por tema:** no máximo 2 compras do mesmo tema por promoção. Mostra o total a gastar, descarrega para Excel (CSV) A lista não pede o eBay ao abrir: usa as pesquisas guardadas (os sets do Continente vão sendo procurados sozinhos, ver *Rotação do Continente*) e o eBay da tarefa diária. Para pesquisar já um set, toca-se nele e carrega-se em *Procurar no eBay*.
+**Ordem** (pedido do Ricardo, nov/2026): por defeito, *Menos desconto necessário*: cada set mostra "precisa de ≥X%" (o "compensa a partir de") e a lista vai do que precisa de menos desconto para o que precisa de mais (`ordenarPorDesconto`). *Recomendação* volta à ordem antiga, abaixo.
+
+**Simular promoção anunciada** (ex.: "amanhã Lego de 35% a 50% no Continente"): preenche-se *de … a …%* e a app avalia **todos** os sets da lista com esse desconto da loja (ignora os preços de hoje, mantém o PVP e o desconto extra; `simularPromocao`). Mostra três grupos, cada um pelo desconto de que precisa: *Compensam já com 35%* (com quantas comprar a 35%), *Só com mais desconto, até 50%* (quantas comprar a 50%) e, escondidos, os que não compensam nem com 50%. *limpar* volta à lista normal.
+
+**⚡ Pode esgotar** (`sinaisEsgotar`, para comprar logo): sai de produção nos próximos 6 meses ou já saiu (Brickset), no eBay pedem pelo menos o PVP (novo), ou nós vendemos esse set em ~30 dias ou menos (mediana). Não sabemos o stock da loja, por isso é uma estimativa. O botão *⚡ Só os que podem esgotar* filtra a lista.
+
+Na ordem *Recomendação*, os que compensam aparecem primeiro, pelo **lucro seguro** (o lucro mesmo que a venda fique abaixo do esperado pelo erro típico da fonte). Numa lista recebida mostram-se só os que compensam e os que têm desconto; os outros ficam em *Mostrar os outros N*. **Diversificar por tema:** no máximo 2 compras do mesmo tema por promoção. Mostra o total a gastar, descarrega para Excel (CSV) A lista não pede o eBay ao abrir: usa as pesquisas guardadas (os sets do Continente vão sendo procurados sozinhos, ver *Rotação do Continente*) e o eBay da tarefa diária. Para pesquisar já um set, toca-se nele e carrega-se em *Procurar no eBay*.
 
 A app **não abre o link da loja**: o browser não deixa uma página ler outros sites, e fazê-lo num servidor seria recolha automática (termos de uso).
 
