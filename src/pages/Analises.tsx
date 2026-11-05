@@ -89,6 +89,15 @@ export function Analises() {
         </div>
       )}
 
+      <Cartao titulo="Vendas por semana">
+        <BarrasMensais
+          dados={e.porSemana.map((w) => ({ mes: w.semana, valor: w.vendas }))}
+          nome="Vendas por semana"
+          rotulo={(k) => `${k.slice(8, 10)}/${k.slice(5, 7)}`}
+          formatar={(v, k) => `${plural(v, 'venda', 'vendas')} · ${fmtEuro(e.porSemana.find((w) => w.semana === k)?.receita ?? 0)}`}
+        />
+      </Cartao>
+
       <Cartao titulo="Lucro por mês">
         <BarrasMensais dados={e.porMes.map((m) => ({ mes: m.mes, valor: m.lucro }))} nome="Lucro por mês" />
       </Cartao>

@@ -47,10 +47,10 @@ test('juntarLista / juntarDados: o que não mudou continua a ser o mesmo objeto'
   assert.notEqual(juntarLista(a, [a[1], a[0]].map((x) => ({ ...x })), 'id'), a); // ordem mudou
 
   const vazio = (): Dados => ({ pessoas: [], contas: [], compras: [], produtos: [], vendas: [], acertos: [], definicoes: [] });
-  const antigos = { ...vazio(), definicoes: [{ chave: 'planos', valor: { x: 1 } }] } as Dados;
-  const iguais = { ...vazio(), definicoes: [{ chave: 'planos', valor: { x: 1 } }] } as Dados;
+  const antigos = { ...vazio(), definicoes: [{ chave: 'planos', valor: { x: 1 } }] } as unknown as Dados;
+  const iguais = { ...vazio(), definicoes: [{ chave: 'planos', valor: { x: 1 } }] } as unknown as Dados;
   assert.equal(juntarDados(antigos, iguais), antigos);
-  const novos = { ...vazio(), definicoes: [{ chave: 'planos', valor: { x: 2 } }] } as Dados;
+  const novos = { ...vazio(), definicoes: [{ chave: 'planos', valor: { x: 2 } }] } as unknown as Dados;
   const r = juntarDados(antigos, novos);
   assert.notEqual(r, antigos);
   assert.equal(r.vendas, antigos.vendas);

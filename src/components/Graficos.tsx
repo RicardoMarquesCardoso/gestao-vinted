@@ -5,7 +5,16 @@ import { useState } from 'react';
 import { fmtEuro, fmtMes } from '../lib/format';
 
 /** Gráfico de barras verticais (uma série), com valores negativos abaixo da linha de base. */
-export function BarrasMensais(props: { dados: { mes: string; valor: number }[]; nome: string }) {
+export function BarrasMensais(props: {
+  dados: { mes: string; valor: number }[];
+  nome: string;
+  /** Texto de cada barra (por defeito "out 26"); ex.: semanas "26/10". */
+  rotulo?: (k: string) => string;
+  /** Como mostrar o valor (por defeito em euros); ex.: "8 vendas". */
+  formatar?: (v: number, k: string) => string;
+}) {
+  const rotulo = props.rotulo ?? fmtMes;
+  const formatar = props.formatar ?? ((v: number) => fmtEuro(v));
   const [ativo, setAtivo] = useState<number | null>(null);
   if (!props.dados.length) return <p className="mudo">Sem dados no período.</p>;
   const max = Math.max(...props.dados.map((d) => d.valor), 0);
@@ -18,8 +27,8 @@ export function BarrasMensais(props: { dados: { mes: string; valor: number }[]; 
   return (
     <figure className="grafico" aria-label={props.nome}>
       <div className="grafico-leitura">
-        <span className="mudo">{fmtMes(d.mes)}</span>
-        <strong className={d.valor < 0 ? 'negativo' : ''}>{fmtEuro(d.valor)}</strong>
+        <span className="mudo">{rotulo(d.mes)}</span>
+        <strong className={d.valor < 0 ? 'negativo' : ''}>{formatar(d.valor, d.mes)}</strong>
       </div>
       <div className="grafico-area" onMouseLeave={() => setAtivo(null)}>
         <div className="grafico-zero" style={{ top: `${zero}%` }} />
@@ -32,7 +41,7 @@ export function BarrasMensais(props: { dados: { mes: string; valor: number }[]; 
               onMouseEnter={() => setAtivo(i)}
               onFocus={() => setAtivo(i)}
               onClick={() => setAtivo(i)}
-              aria-label={`${fmtMes(x.mes)}: ${fmtEuro(x.valor)}`}
+              aria-label={`${rotulo(x.mes)}: ${formatar(x.valor, x.mes)}`}
             >
               <span
                 className={`grafico-barra ${x.valor < 0 ? 'neg' : ''}`}
@@ -45,7 +54,7 @@ export function BarrasMensais(props: { dados: { mes: string; valor: number }[]; 
       <div className="grafico-eixo">
         {props.dados.map((x, i) => (
           <span key={x.mes} className={i === destaque ? 'ativa' : ''}>
-            {props.dados.length > 8 && i % 2 && i !== destaque ? '' : fmtMes(x.mes)}
+            {props.dados.length > 8 && i % Math.ceil(props.dados.length / 8) && i !== destaque ? '' : rotulo(x.mes)}
           </span>
         ))}
       </div>

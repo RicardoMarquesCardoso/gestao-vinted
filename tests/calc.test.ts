@@ -488,3 +488,21 @@ test('resumo do anúncio: lucro, mínimo a aceitar e quando baixar', () => {
   // Por anunciar: sem resumo
   assert.equal(resumoAnuncio({ ...d, estado: 'por_anunciar' }, ctx([d], '2026-10-21')), null);
 });
+
+test('vendas por semana: de segunda a domingo, com as semanas sem vendas', async () => {
+  const { inicioSemana } = await import('../src/lib/calc.ts');
+  assert.equal(inicioSemana('2026-11-05'), '2026-11-02'); // quinta → segunda
+  assert.equal(inicioSemana('2026-11-02'), '2026-11-02');
+  assert.equal(inicioSemana('2026-11-08'), '2026-11-02'); // domingo → mesma semana
+  const d: Dados = {
+    pessoas: [], contas: [], compras: [], acertos: [], definicoes: [],
+    produtos: [produto({ id: 'p1', quantidade: 3 })],
+    vendas: [
+      venda({ id: 'v1', produto_id: 'p1', data_venda: '2026-10-13', preco_venda: 20 }),
+      venda({ id: 'v2', produto_id: 'p1', data_venda: '2026-10-14', preco_venda: 30 }),
+      venda({ id: 'v3', produto_id: 'p1', data_venda: '2026-10-29', preco_venda: 10 }),
+    ],
+  };
+  const e = estatisticas(d, { intervalo: { inicio: null, fim: null } }, '2026-11-05');
+  assert.deepEqual(e.porSemana.map((w) => [w.semana, w.vendas]), [['2026-10-12', 2], ['2026-10-19', 0], ['2026-10-26', 1], ['2026-11-02', 0]]);
+});

@@ -162,6 +162,12 @@ export function somarDias(d: string, n: number) {
   return dataLocal(x);
 }
 
+/** Segunda-feira da semana de uma data AAAA-MM-DD. */
+export function inicioSemana(d: string) {
+  const x = new Date(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10));
+  return somarDias(d.slice(0, 10), -((x.getDay() + 6) % 7));
+}
+
 /** Intervalo de datas; null = sem limite desse lado. */
 export interface Intervalo {
   inicio: string | null; // inclusivo
@@ -365,6 +371,8 @@ export interface Estatisticas {
   diasMediosVenda: number | null;
   margem: number | null; // lucro / custo das vendas
   porMes: { mes: string; lucro: number; receita: number; gasto: number }[];
+  /** Vendas por semana (de segunda a domingo), as últimas até 26 semanas do período, sem saltar semanas vazias. */
+  porSemana: { semana: string; vendas: number; receita: number }[];
   porConta: LinhaGrupo[];
   porPessoa: LinhaGrupo[];
   porCategoria: LinhaCategoria[];
@@ -483,6 +491,29 @@ export function estatisticas(d: Dados, f: Filtro, hoje: string): Estatisticas {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([k, m]) => ({ mes: k, lucro: arred(m.lucro), receita: arred(m.receita), gasto: arred(m.gasto) }));
 
+  // Por semana (pedido do Ricardo): n.º de vendas e recebido, semana a semana, incluindo as
+  // semanas sem vendas (para se ver a quebra). Vai até ao fim do período (ou hoje) e mostra no
+  // máximo as últimas 26 semanas, para o gráfico se ler no telemóvel.
+  const semanas = new Map<string, { vendas: number; receita: number }>();
+  for (const v of concluidas) {
+    const k = inicioSemana(v.data_venda);
+    const w = semanas.get(k) ?? { vendas: 0, receita: 0 };
+    w.vendas += 1;
+    w.receita += liquidoVenda(v);
+    semanas.set(k, w);
+  }
+  const porSemana: Estatisticas['porSemana'] = [];
+  if (semanas.size) {
+    const fimSemanas = inicioSemana(f.intervalo.fim && f.intervalo.fim < hoje ? f.intervalo.fim : hoje);
+    const primeira = [...semanas.keys()].sort()[0];
+    let k = somarDias(fimSemanas, -7 * 25);
+    if (k < primeira) k = primeira;
+    for (; k <= fimSemanas; k = somarDias(k, 7)) {
+      const w = semanas.get(k);
+      porSemana.push({ semana: k, vendas: w?.vendas ?? 0, receita: arred(w?.receita ?? 0) });
+    }
+  }
+
   // Agrupamentos
   const agrupar = (chaveDe: (v: Venda) => string | null, nomeDe: (k: string) => string): LinhaGrupo[] => {
     const g = new Map<string, LinhaGrupo>();
@@ -585,6 +616,7 @@ export function estatisticas(d: Dados, f: Filtro, hoje: string): Estatisticas {
     diasMediosVenda,
     margem: custoVendido > 0 ? lucro / custoVendido : null,
     porMes,
+    porSemana,
     porConta,
     porPessoa,
     porCategoria,
