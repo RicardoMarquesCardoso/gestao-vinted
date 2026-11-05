@@ -95,6 +95,24 @@ export function estadoAposNovaVenda(p: Produto, vendas: Venda[]): EstadoProduto 
 /** Está em stock (por anunciar ou anunciado). */
 export const emInventario = (p: Produto) => p.estado === 'por_anunciar' || p.estado === 'anunciado';
 
+/**
+ * Quantas unidades deste produto (e dos iguais, mesmo set ou nome) já passaram por esta conta da
+ * Vinted: as vendidas nela mais as que estão lá anunciadas agora. A Vinted reclama quando uma conta
+ * vende muitos artigos iguais, por isso a janela Anunciar avisa a partir de 2 (pedido do Ricardo).
+ * Os anúncios retirados sem venda não contam.
+ */
+export function vezesNaConta(d: Pick<Dados, 'produtos' | 'vendas'>, p: Pick<Produto, 'set_numero' | 'nome'>, contaId: string): number {
+  if (!contaId) return 0;
+  const chave = chaveComparacao(p);
+  let n = 0;
+  for (const x of d.produtos) {
+    if (chaveComparacao(x) !== chave) continue;
+    if (x.estado === 'anunciado' && x.conta_id === contaId) n += 1;
+    for (const v of vendasDoProduto(x.id, d.vendas)) if (vendaValida(v) && v.conta_id === contaId) n += v.quantidade || 1;
+  }
+  return n;
+}
+
 /** Chave para comparar produtos iguais: número do set ou, se não houver, o nome. */
 export function chaveComparacao(p: Pick<Produto, 'set_numero' | 'nome'>) {
   const set = (p.set_numero || '').trim();

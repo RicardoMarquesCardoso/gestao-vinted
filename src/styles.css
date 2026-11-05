@@ -915,3 +915,6 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .ajuda { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; min-height: 0; padding: 0; border-radius: 50%; border: 1px solid var(--borda, var(--texto-3)); background: transparent; color: var(--texto-2); font-size: 0.8rem; font-weight: 600; line-height: 1; cursor: pointer; }
 .ajuda[aria-expanded='true'] { background: var(--primario); color: var(--primario-texto); border-color: transparent; }
 .linha-plano-porque { font-size: 0.85rem; margin: 2px 0 0; }
+
+/* Aviso na janela Anunciar: muitos artigos iguais na mesma conta da Vinted */
+.alerta-repetido { background: var(--aviso-fundo); border-radius: var(--raio); padding: 10px 12px; margin: 12px 0 0; font-size: 0.9rem; }

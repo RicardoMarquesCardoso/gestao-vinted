@@ -281,18 +281,22 @@ function precisaDe(l: LinhaPromo) {
 /**
  * Uma linha (pensada para o telemóvel, pedido do Ricardo): por cima o set e quantas comprar ("Não
  * comprar" se não compensa); por baixo, em destaque, três colunas:
- *   PVP · Preço (desconto): o preço final na promoção, já com o extra, e o desconto total sobre o
- *   PVP · Vende por (desconto necessário): a venda esperada e o desconto sobre o PVP a partir do
+ *   PVP · Preço (desconto): o preço e o desconto DA LOJA (o do folheto; o preço com o extra do cartão
+ *   vai na linha pequena) · Vende por (desconto necessário): a venda esperada e o desconto sobre o PVP a partir do
  *   qual compensa comprar 1 (escalão "bom"; "PVP" se compensa sem desconto).
  * Numa linha pequena e discreta: o lucro. Se houver, os sinais ⚡. O escalão vê-se pela cor da bolinha.
  */
 function LinhaSet({ l, nome, sinais, abrir }: { l: LinhaPromo; nome?: string; sinais: string[]; abrir(): void }) {
   const classe = l.comprar > 0 && l.escalao ? `avaliar-${l.escalao}` : 'avaliar-nao';
   // Desconto total sobre o PVP (já com o extra do cartão, se houver)
-  const desc = l.descontoAplicado !== null ? Math.round(l.descontoAplicado * 100) : null;
+  // Desconto DA LOJA sobre o PVP (o do folheto, sem o extra do cartão): a mesma base do desconto
+  // necessário em "Vende por", para se poderem comparar (pedido do Ricardo)
+  const desc = l.precoLoja !== null && l.pvp ? Math.round((1 - l.precoLoja / l.pvp) * 100) : null;
+  const comExtra = l.precoLoja !== null && l.preco !== null && l.preco < l.precoLoja;
   // Desconto necessário para compensar comprar 1
   const precisa = l.descontoMinimo === null ? null : l.descontoMinimo <= 0 ? 'PVP' : `−${Math.round(l.descontoMinimo * 100)}%`;
   const extras = [
+    comExtra ? `com extra: ${fmtEuro(l.preco)}` : '',
     l.margem !== null ? `lucro ${Math.round(l.margem * 100)}%` : '',
     l.descontoMinimo === null ? precisaDe(l) : '',
     l.comprar === 0 && l.motivo && !/a partir de|Não compensa com nenhum/.test(l.motivo) ? l.motivo : '',
@@ -314,8 +318,8 @@ function LinhaSet({ l, nome, sinais, abrir }: { l: LinhaPromo; nome?: string; si
           </span>
           <span>
             <small>Preço</small>
-            {l.preco !== null ? fmtEuro(l.preco) : '—'}
-            {desc !== null && l.preco !== null && <> <em>({desc > 0 ? `−${desc}%` : 'PVP'})</em></>}
+            {l.precoLoja !== null ? fmtEuro(l.precoLoja) : '—'}
+            {desc !== null && l.precoLoja !== null && <> <em>({desc > 0 ? `−${desc}%` : 'PVP'})</em></>}
           </span>
           <span>
             <small>Vende por</small>

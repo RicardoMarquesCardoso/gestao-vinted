@@ -320,6 +320,8 @@ Todos estes números estão em **Definições → Regras das sugestões** e pode
 
 A lista **"O que fazer"** no Painel junta as tarefas: *Anunciar X a Y €*, *Baixar X para Y €* e *Rever X* (quando acaba um prazo de guardar escolhido por vocês). Cada tarefa pode ser **adiada** 14 dias. Tocar no título "O que fazer" minimiza ou maximiza a lista (fica lembrado em cada dispositivo).
 
+**Aviso na janela Anunciar** (`vezesNaConta`): se a conta escolhida já tem 2 ou mais unidades do mesmo produto (vendidas nessa conta ou lá anunciadas agora), aparece um aviso para considerar outra conta, porque a Vinted reclama de muitos artigos iguais na mesma conta. Os anúncios retirados sem venda não contam. É só um aviso.
+
 **Caixa do produto** (`LinhaPlano`): curta, sem textos a explicar. Anunciado → *Anunciado a X € na conta · há N dias* e *Lucro +Y € (Z%)*. Por anunciar → *Plano: vender · anunciar a X €* (o porquê, ou seja como foi calculado o plano e o preço, aparece ao tocar no "?" do canto superior direito). O "aceitar ofertas até" foi retirado (as ofertas decidem-se pela experiência).
 
 **Sinal dos produtos** (`sinais()` em `src/lib/plano.ts`, desenhado por `SinalProduto` em `planos.tsx`): em vez de várias etiquetas, cada cartão tem uma bolinha de cor e uma linha com a próxima ação. A cor responde a "tenho de fazer alguma coisa?" e usa as mesmas tarefas do "O que fazer":
@@ -386,7 +388,7 @@ escalão / unidades = os mesmos do modo "Um set" (bom / muito bom / oportunidade
 compensa a partir de = desconto da loja sobre o PVP que, já com o extra, chega ao preço máximo "bom"
 ```
 
-**Cada linha** (pedido do Ricardo, nov/2026, pensado para o telemóvel): por cima o set e "Comprar N" ou "Não comprar"; por baixo, em destaque e lado a lado, **PVP · Preço (desconto) · Vende por (desconto necessário)**. O preço é o final, já com o extra, e o desconto é o total sobre o PVP; o desconto necessário é o "compensa a partir de" (comprar 1, escalão bom), ou "PVP" se compensa sem desconto. No telemóvel, os descontos passam para baixo dos valores. Numa linha pequena, o lucro. O escalão vê-se só pela cor da bolinha.
+**Cada linha** (pedido do Ricardo, nov/2026, pensado para o telemóvel): por cima o set e "Comprar N" ou "Não comprar"; por baixo, em destaque e lado a lado, **PVP · Preço (desconto) · Vende por (desconto necessário)**. O preço e o desconto são os **da loja** (os do folheto), a mesma base do desconto necessário, para se poderem comparar; o preço já com o extra do cartão aparece na linha pequena; o desconto necessário é o "compensa a partir de" (comprar 1, escalão bom), ou "PVP" se compensa sem desconto. No telemóvel, os descontos passam para baixo dos valores. Numa linha pequena, o lucro. O escalão vê-se só pela cor da bolinha.
 
 **Ordem** (pedido do Ricardo, nov/2026): por defeito, *Menos desconto necessário*: cada set mostra "precisa de ≥X%" (o "compensa a partir de") e a lista vai do que precisa de menos desconto para o que precisa de mais (`ordenarPorDesconto`). *Recomendação* volta à ordem antiga, abaixo.
 

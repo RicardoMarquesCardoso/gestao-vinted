@@ -506,3 +506,20 @@ test('vendas por semana: de segunda a domingo, com as semanas sem vendas', async
   const e = estatisticas(d, { intervalo: { inicio: null, fim: null } }, '2026-11-05');
   assert.deepEqual(e.porSemana.map((w) => [w.semana, w.vendas]), [['2026-10-12', 2], ['2026-10-19', 0], ['2026-10-26', 1], ['2026-11-02', 0]]);
 });
+
+test('vezesNaConta: vendidos nessa conta + anunciados lá agora, só dos iguais', async () => {
+  const { vezesNaConta } = await import('../src/lib/calc.ts');
+  const produtos = [
+    produto({ id: 'a', set_numero: '10311', quantidade: 3, estado: 'anunciado', conta_id: 'RM1' }),
+    produto({ id: 'b', set_numero: '10311', estado: 'por_anunciar', conta_id: 'RM1' }), // não está anunciado: não conta
+    produto({ id: 'c', set_numero: '99999', estado: 'anunciado', conta_id: 'RM1' }), // outro set
+  ];
+  const vendas = [
+    venda({ id: 'v1', produto_id: 'a', conta_id: 'RM1' }),
+    venda({ id: 'v2', produto_id: 'a', conta_id: 'CASS' }),
+    venda({ id: 'v3', produto_id: 'a', conta_id: 'RM1', estado: 'cancelada' }),
+  ];
+  assert.equal(vezesNaConta({ produtos, vendas }, { set_numero: '10311', nome: '' }, 'RM1'), 2); // 1 vendida + 1 anunciada
+  assert.equal(vezesNaConta({ produtos, vendas }, { set_numero: '10311', nome: '' }, 'CASS'), 1);
+  assert.equal(vezesNaConta({ produtos, vendas }, { set_numero: '10311', nome: '' }, ''), 0);
+});

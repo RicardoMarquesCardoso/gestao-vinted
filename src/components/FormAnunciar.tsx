@@ -2,9 +2,12 @@
 // e mostra o título e a descrição prontos a copiar para a Vinted (ver lib/anuncio.ts) e as
 // fotografias do produto para partilhar ou descarregar (components/fotos.tsx).
 // Ao marcar como anunciado, o registo do tempo anunciado começa sozinho (lib/anuncios.ts).
+// Avisa se a conta escolhida já vendeu ou tem anunciadas 2 ou mais unidades iguais (vezesNaConta):
+// a Vinted reclama de muitos artigos iguais na mesma conta (pedido do Ricardo).
 
 import { useState } from 'react';
 import { fmtEuro, hoje, lerNumero } from '../lib/format';
+import { vezesNaConta } from '../lib/calc';
 import type { Produto } from '../lib/types';
 import { useDados } from '../state';
 import { modeloAnuncio, textoAnuncio } from '../lib/anuncio';
@@ -39,6 +42,8 @@ export function FormAnunciar({ ids, retirar, precoSugerido, unidades, aoFechar }
   const [qtd, setQtd] = useState(String(Math.min(unidades ?? candidatos.length, candidatos.length)));
   const [preco, setPreco] = useState(precoSugerido ? String(precoSugerido).replace('.', ',') : '');
   const [aGuardar, setAGuardar] = useState(false);
+  // Quantos iguais já passaram por esta conta (vendidos + anunciados agora)
+  const vezes = !retirar && candidatos[0] ? vezesNaConta(dados, candidatos[0], conta) : 0;
 
   async function submeter() {
     const n = Math.min(Math.max(Math.round(lerNumero(qtd)) || 1, 1), candidatos.length);
@@ -107,6 +112,12 @@ export function FormAnunciar({ ids, retirar, precoSugerido, unidades, aoFechar }
           </Campo>
         )}
       </div>
+      {/* Aviso: esta conta já vendeu/anunciou 2 ou mais iguais (a Vinted reclama de muitos artigos iguais) */}
+      {!retirar && vezes >= 2 && (
+        <p className="alerta-repetido" role="alert">
+          ⚠ Esta conta já tem {vezes} {vezes === 1 ? 'unidade' : 'unidades'} deste produto (vendidas ou anunciadas). A Vinted reclama de muitos artigos iguais na mesma conta: considera outra conta.
+        </p>
+      )}
       {!retirar && <TextoVinted produto={candidatos[0]} contaId={conta} />}
       {/* As fotografias do produto, para pôr no anúncio (Partilhar → Vinted, ou Descarregar) */}
       {!retirar && candidatos[0].fotos.length > 0 && (
