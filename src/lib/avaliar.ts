@@ -598,47 +598,7 @@ export function avaliarPromocao(
   return linhas;
 }
 
-// ---------- Simular uma promoção e "pode esgotar" ----------
-
-/**
- * Pedido do Ricardo (nov/2026): saber de véspera que sets compensam numa promoção anunciada
- * (ex.: "amanhã Lego de 35% a 50% no Continente") e quais convém comprar logo porque podem esgotar.
- *
- * simularPromocao avalia TODOS os sets da lista com o mesmo desconto da loja (ignora os preços e
- * descontos que a lista traz hoje; mantém o PVP dela) e separa-os em:
- *   - compensaJa: compensam já com o desconto mais baixo ("de"); avaliados a "de" (quantas comprar);
- *   - comMais: só compensam com mais desconto, até "a"; avaliados a "a";
- *   - resto: não compensam nem com "a".
- * Dentro de cada grupo, ordenados pelo desconto de que precisam (o mais baixo primeiro).
- */
-export interface Simulacao {
-  de: number;
-  a: number;
-  compensaJa: LinhaPromo[];
-  comMais: LinhaPromo[];
-  resto: LinhaPromo[];
-}
-
-export function simularPromocao(
-  sets: string[],
-  de: number,
-  a: number,
-  ctx: ContextoAvaliacao,
-  opcoes: { tema?: (n: string) => string | null | undefined; pvps?: Record<string, number | null | undefined>; extra?: number } = {},
-): Simulacao {
-  const baixo = Math.min(de, a);
-  const alto = Math.max(de, a);
-  const aDe = avaliarPromocao(sets, baixo, ctx, opcoes);
-  const aA = alto > baixo ? new Map(avaliarPromocao(sets, alto, ctx, opcoes).map((l) => [l.set, l])) : null;
-  const precisa = (l: LinhaPromo) => l.descontoMinimo;
-  const compensaJa = ordenarPorDesconto(aDe.filter((l) => precisa(l) !== null && precisa(l)! <= baixo + 1e-9));
-  const comMais = ordenarPorDesconto(
-    aDe.filter((l) => precisa(l) !== null && precisa(l)! > baixo + 1e-9 && precisa(l)! <= alto + 1e-9).map((l) => aA?.get(l.set) ?? l),
-  );
-  const ja = new Set([...compensaJa, ...comMais].map((l) => l.set));
-  const resto = ordenarPorDesconto(aDe.filter((l) => !ja.has(l.set)));
-  return { de: baixo, a: alto, compensaJa, comMais, resto };
-}
+// ---------- Ordenar pelo desconto necessário e "pode esgotar" ----------
 
 /** Pelo desconto de que precisam para compensar (o mais baixo primeiro; "nunca" no fim), depois pelo lucro seguro. */
 export function ordenarPorDesconto(linhas: LinhaPromo[]): LinhaPromo[] {

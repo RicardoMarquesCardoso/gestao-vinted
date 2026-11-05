@@ -378,7 +378,7 @@ compensa a partir de = desconto da loja sobre o PVP que, já com o extra, chega 
 
 **Ordem** (pedido do Ricardo, nov/2026): por defeito, *Menos desconto necessário*: cada set mostra "precisa de ≥X%" (o "compensa a partir de") e a lista vai do que precisa de menos desconto para o que precisa de mais (`ordenarPorDesconto`). *Recomendação* volta à ordem antiga, abaixo.
 
-**Simular promoção anunciada** (ex.: "amanhã Lego de 35% a 50% no Continente"): preenche-se *de … a …%* e a app avalia **todos** os sets da lista com esse desconto da loja (ignora os preços de hoje, mantém o PVP e o desconto extra; `simularPromocao`). Mostra três grupos, cada um pelo desconto de que precisa: *Compensam já com 35%* (com quantas comprar a 35%), *Só com mais desconto, até 50%* (quantas comprar a 50%) e, escondidos, os que não compensam nem com 50%. *limpar* volta à lista normal.
+A *Simular promoção anunciada* foi retirada (pedido do Ricardo, nov/2026): o "precisa de ≥X%" de cada set já diz com que desconto passa a compensar.
 
 **⚡ Pode esgotar** (`sinaisEsgotar`, para comprar logo): sai de produção nos próximos 6 meses ou já saiu (Brickset), no eBay pedem pelo menos o PVP (novo), ou nós vendemos esse set em ~30 dias ou menos (mediana). Não sabemos o stock da loja, por isso é uma estimativa. O botão *⚡ Só os que podem esgotar* filtra a lista.
 

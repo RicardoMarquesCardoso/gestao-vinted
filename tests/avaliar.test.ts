@@ -3,7 +3,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { avaliarCompra, avaliarPromocao, calibrarPvp, estimativas, extrairItens, extrairSets, precosCompra, tempoAteVender, urlEbayVendidos, urlVinted, RACIO_PVP_A_VENDA, proximaPesquisa, simularPromocao, sinaisEsgotar } from '../src/lib/avaliar.ts';
+import { avaliarCompra, avaliarPromocao, calibrarPvp, estimativas, extrairItens, extrairSets, precosCompra, tempoAteVender, urlEbayVendidos, urlVinted, RACIO_PVP_A_VENDA, proximaPesquisa, ordenarPorDesconto, sinaisEsgotar } from '../src/lib/avaliar.ts';
 import type { Mercado } from '../src/lib/investimento.ts';
 import type { Produto, Venda } from '../src/lib/types.ts';
 
@@ -306,7 +306,7 @@ test('uma pesquisa com menos de 3 anúncios não conta como preço', () => {
   assert.equal(estimativas({ dados, mercado: mercado({}), hoje: HOJE }, '10280').length, 0);
 });
 
-test('simular promoção de 20% a 30%: compensa já, só com mais desconto, e os outros; pelo desconto de que precisam', () => {
+test('ordenar pelo desconto de que precisam: o mais baixo primeiro', () => {
   // PVP 100 €; vendemos A a 140, B a 110, C a 95, D a 70 → precisam de ~0%, 9%, 21% e 42%
   const brickset: Record<string, unknown> = {};
   const produtos: Produto[] = [];
@@ -319,14 +319,11 @@ test('simular promoção de 20% a 30%: compensa já, só com mais desconto, e os
   });
   produtos.push(produto({ id: 'stock', set_numero: '99999', estado: 'por_anunciar', preco_compra: 5000 }));
   const ctx = { dados: { produtos, vendas, definicoes: [] }, mercado: mercado({ brickset: brickset as never }), hoje: HOJE };
-  const s = simularPromocao(Object.keys(pv), 0.3, 0.2, ctx, { tema: (n) => `T${n}` });
-  assert.equal(s.de, 0.2);
-  assert.equal(s.a, 0.3);
-  // Ordenados pelo desconto de que precisam; 33333 (21%) só com mais de 20%, avaliado a 30%
-  assert.deepEqual(s.compensaJa.map((l) => l.set), ['22222', '11111']);
-  assert.deepEqual(s.comMais.map((l) => [l.set, l.descontoMinimo, l.preco, l.comprar]), [['33333', 0.21, 70, 1]]);
-  assert.deepEqual(s.resto.map((l) => l.set), ['44444']);
-  assert.ok(s.compensaJa.every((l) => l.preco === 80));
+  const linhas = ordenarPorDesconto(avaliarPromocao(Object.keys(pv), 0.2, ctx, { tema: (n) => `T${n}` }));
+  // Ordenados pelo desconto de que precisam (o mais baixo primeiro; "nunca" no fim)
+  assert.deepEqual(linhas.map((l) => l.set), ['22222', '11111', '33333', '44444']);
+  assert.equal(linhas[2].descontoMinimo, 0.21);
+  assert.ok(linhas.every((l) => l.preco === 80));
 });
 
 test('pode esgotar: sai de produção em breve, eBay acima do PVP, vendemos depressa', () => {

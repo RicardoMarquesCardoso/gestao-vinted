@@ -881,9 +881,6 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 
 /* Promoção: campos lado a lado, simulação, filtros e "pode esgotar" (nov/2026) */
 .avaliar-campos { display: flex; gap: 12px 20px; flex-wrap: wrap; align-items: flex-end; }
-.avaliar-sim { max-width: 320px; }
-.avaliar-sim .campo-unidade input { width: 4.2em; text-align: center; }
-.avaliar-sim .link { margin-left: 4px; }
 .avaliar-filtros { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 4px 0 6px; }
 .btn-mini { padding: 5px 10px; font-size: 0.8rem; }
 .btn-mini.ativo { background: var(--primario); color: var(--primario-texto); border-color: transparent; }
