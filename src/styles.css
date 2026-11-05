@@ -895,7 +895,9 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .avaliar-linha-promo .avaliar-bolinha { margin-top: 6px; }
 .avaliar-topo { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
 .avaliar-topo .truncar { flex: 1; min-width: 0; }
-.avaliar-numeros { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 6px 0 4px; font-size: 1.05rem; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.avaliar-numeros { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 6px 0 4px; font-size: 1.05rem; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.avaliar-numeros em { white-space: nowrap; font-style: normal; font-weight: 400; font-size: 0.8em; color: var(--texto-2); }
+.avaliar-numeros > span { white-space: normal; min-width: 0; }
 .avaliar-numeros small { display: block; font-size: 0.72rem; font-weight: 400; color: var(--texto-3); text-transform: uppercase; letter-spacing: 0.03em; }
 .avaliar-linha-promo .linha-principal > small.mudo { font-size: 0.8rem; }
 .avaliar-promo .avaliar-linha-promo.clicavel::after { align-self: center; }
