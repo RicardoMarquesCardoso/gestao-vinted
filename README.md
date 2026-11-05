@@ -357,6 +357,8 @@ Desde nov/2026 (pedido do Ricardo) não há separadores "Um set" / "Promoção d
 
 Em cada escalão, à frente de "até X €", aparece o **desconto sobre o PVP** necessário para lá chegar (`descontoPara`: 1 − X ÷ PVP, arredondado ao 1% acima), ou "(PVP)" se o próprio PVP já serve.
 
+Se já temos o set, o detalhe mostra o cartão **Em stock** (`NossoStock`): uma linha por unidade, com a data de compra, a condição, os dias em stock, o estado (anunciado a quanto e em que conta, ou por anunciar) e o custo; tocar abre o produto. Por baixo, as nossas vendas desse set.
+
 #### Promoção da loja (modo do mesmo ecrã, `components/AvaliarPromocao.tsx`, `avaliarPromocao`)
 
 Tocar num set da lista abre o mesmo detalhe do modo "Um set" (`components/DetalheSet.tsx`, `JanelaSet`), com o preço da promoção no topo e as nossas vendas desse set. É calculado na hora com o que a app já tem carregado (vendas, `mercado-sets.json`, catálogo, pesquisas do eBay guardadas). Só o botão *Procurar no eBay* guarda alguma coisa (ver abaixo).

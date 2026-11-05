@@ -22,7 +22,8 @@ import { useCatalogoSets } from './catalogo';
 import { Cartao, ImagemReferencia, Janela, urlReferencia } from './ui';
 import { descontoPara, pesquisaEbay, precosCompra, proximaPesquisa, urlEbayVendidos, urlVinted } from '../lib/avaliar';
 import type { Escalao, NomeEscalao } from '../lib/avaliar';
-import { diasEntre } from '../lib/calc';
+import { custoUnitario, diasEntre, emInventario, unidadesDisponiveis } from '../lib/calc';
+import { useAbrir } from './acoes';
 import { fmtData, fmtEuro, fmtMesAno, hoje, plural } from '../lib/format';
 import { useMercado } from '../lib/investimento';
 import { regrasPlano } from '../lib/plano';
@@ -169,6 +170,7 @@ export function DetalheSet({ set: n, promo }: { set: string; promo?: PrecoPromo 
         </Cartao>
       )}
 
+      <NossoStock set={base} />
       <NossasVendas set={base} />
 
       {valido && store.modo === 'supabase' && (
@@ -249,6 +251,59 @@ function CartaoPromo({ promo: p }: { promo: PrecoPromo }) {
 }
 
 /** As nossas vendas deste set (as mais recentes): data, preço e dias desde a compra. */
+/**
+ * As unidades deste set que já temos em stock (pedido do Ricardo): uma linha por unidade, com a
+ * data de compra, a condição, há quantos dias está em stock e o estado (anunciado a X € na conta
+ * Y, ou por anunciar); à direita o custo dessa unidade. Tocar abre o produto. Anuncia-se uma
+ * unidade de cada vez, por isso só a 1.ª de um produto anunciado aparece como "anunciado".
+ */
+function NossoStock({ set }: { set: string }) {
+  const { dados, nomeConta } = useDados();
+  const abrir = useAbrir();
+  const h = hoje();
+  const linhas = useMemo(() => {
+    const r: { chave: string; id: string; data: string | null; condicao: string; estado: string; custo: number }[] = [];
+    for (const p of dados.produtos) {
+      if (p.set_numero?.trim().replace(/-\d+$/, '') !== set || !emInventario(p)) continue;
+      const disp = unidadesDisponiveis(p, dados.vendas);
+      for (let u = 0; u < disp; u++) {
+        const anunciada = p.estado === 'anunciado' && u === 0;
+        r.push({
+          chave: `${p.id}-${u}`,
+          id: p.id,
+          data: p.data_compra,
+          condicao: p.condicao ?? 'novo',
+          estado: anunciada
+            ? ['anunciado', p.preco_anuncio ? fmtEuro(p.preco_anuncio) : '', p.conta_id ? nomeConta(p.conta_id) : ''].filter(Boolean).join(' · ')
+            : 'por anunciar',
+          custo: custoUnitario(p),
+        });
+      }
+    }
+    return r.sort((a, b) => (a.data ?? '').localeCompare(b.data ?? ''));
+  }, [dados.produtos, dados.vendas, set, nomeConta]);
+  if (!linhas.length) return null;
+  const total = linhas.reduce((x, l) => x + l.custo, 0);
+  return (
+    <Cartao titulo={`Em stock (${linhas.length}) · ${fmtEuro(total)}`}>
+      <ul className="lista-simples">
+        {linhas.map((l) => (
+          <li key={l.chave} className="clicavel" role="button" tabIndex={0} onClick={() => abrir({ tipo: 'detalhe', id: l.id })} onKeyDown={(e) => e.key === 'Enter' && abrir({ tipo: 'detalhe', id: l.id })}>
+            <span>
+              {l.data ? fmtData(l.data) : 'sem data'}
+              <small className="mudo">
+                {' '}· {l.condicao}
+                {l.data ? ` · ${plural(diasEntre(l.data, h), 'dia', 'dias')}` : ''} · {l.estado}
+              </small>
+            </span>
+            <span>{fmtEuro(l.custo)}</span>
+          </li>
+        ))}
+      </ul>
+    </Cartao>
+  );
+}
+
 function NossasVendas({ set }: { set: string }) {
   const { dados } = useDados();
   const vendas = useMemo(() => {
