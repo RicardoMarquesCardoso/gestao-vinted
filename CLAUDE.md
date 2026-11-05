@@ -90,5 +90,8 @@ Guardar os dados que permitam estas análises desde já, mesmo que ainda não ap
 - React + TypeScript, compilado com esbuild (`node scripts/build.mjs`) para `docs/`, que é a pasta publicada no GitHub Pages.
   - Se `node_modules` não existir: `ln -s /opt/npm-tools/node_modules node_modules`.
 - Testes: `npx tsx --test tests/*.test.ts`.
+- **Sincronização** (`lib/sincronizar.ts`, revisão nov/2026): gravar definições faz fusão a três com o valor atual do servidor (`fundir`, `store.lerDefinicoes`), para não perder alterações do outro telemóvel; carregamentos durante gravações são ignorados (`gravacoes`, `ultimoPedido` em `state.tsx`); `juntarDados` reaproveita listas/linhas iguais (os memos só recalculam quando algo muda). `listar` acrescenta sempre a chave à ordem (páginas estáveis acima de 1000 linhas); o histórico lê só as 300 mais recentes. `unidadesVendidas` usa um índice por lista de vendas (`vendasDoProduto`, WeakMap). **Nunca alterar listas de dados no sítio** (o índice e os memos dependem disso).
+- `lerNumero` aceita separador de milhares ("1.299,99", "1,299.99", "1 234,50") e ignora "€"/"%".
+- Typecheck sem `@types/react` (sem rede): usar um shim local do React só para verificar; não o pôr no repositório.
 - Supabase: no código só vai a chave publishable. **Nunca pedir nem usar a palavra-passe da base de dados nem a chave service_role.**
 - Dados guardados em `definicoes` (chave → jsonb), para não precisar de migrações: `listas`, `nomes_mantidos`, `vendas_externas`, `vendas_fora_limites`, `modelo_anuncio`, `regras_plano`, `planos`, `tarefas_adiadas`, `pokemon_ids`, `token_mercado`, `sets_avaliar`, `ebay_pesquisas`, `token_rotacao_ebay`, `token_promocoes`, `promocoes`, `promocoes_vistas`.

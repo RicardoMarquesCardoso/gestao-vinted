@@ -42,11 +42,20 @@ export function dataLocal(d: Date): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-/** Converte texto escrito pelo utilizador ("12,50" ou "12.5") em número. */
+/**
+ * Converte texto escrito pelo utilizador em número: "12,50", "12.5", "1 234,50", "1.234,50" e
+ * "1,234.50". Com ponto E vírgula, o último é o separador decimal e o outro é dos milhares
+ * (antes, "1.299,99" dava 0 sem aviso). Também ignora "€" e "%".
+ */
 export function lerNumero(s: string | number | null | undefined): number {
   if (typeof s === 'number') return s;
   if (!s) return 0;
-  const n = Number(String(s).trim().replace(/\s/g, '').replace(',', '.'));
+  let t = String(s).replace(/[\s\u00a0€%]/g, '');
+  const virgula = t.lastIndexOf(',');
+  const ponto = t.lastIndexOf('.');
+  if (virgula >= 0 && ponto >= 0) t = virgula > ponto ? t.replace(/\./g, '').replace(',', '.') : t.replace(/,/g, '');
+  else t = t.replace(',', '.');
+  const n = Number(t);
   return Number.isFinite(n) ? n : 0;
 }
 

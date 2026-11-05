@@ -258,7 +258,6 @@ function ResumoInvestimentoCartao() {
   const h = hoje();
   const r = useMemo(() => investimento(dados, mercado, h), [dados, mercado, h]);
   const ganho = r.custoComEstimativa > 0 ? r.valorEstimadoStock / r.custoComEstimativa - 1 : null;
-  const semBrickset = mercado !== null && !Object.keys(mercado.brickset).length;
   return (
     <Cartao titulo="Investimento" acao={<span className="mudo">Desde sempre</span>}>
       <div className="kpis kpis-cartao">

@@ -153,6 +153,14 @@ A app carrega **todos os dados de uma vez**. São poucos milhares de linhas, por
 
 Não há "tempo real". A app volta a carregar os dados **quando se regressa a ela** e **de minuto a minuto**. Há também o botão ↻ para atualizar à mão.
 
+Para isto ser seguro com duas pessoas a usar a app ao mesmo tempo (`src/lib/sincronizar.ts`, revisão de nov/2026):
+
+- **Definições sem perder alterações:** planos, tarefas adiadas, listas, vendas externas… são um bloco JSON cada. Antes de gravar, a app lê o valor atual no servidor e aplica só o que este telemóvel mudou (`fundir`, fusão a três: antes / depois / servidor). Assim, se o Ricardo muda um plano e a Cass adia uma tarefa no mesmo minuto, ficam as duas alterações.
+- **Carregamentos atrasados:** um carregamento que esteve a decorrer enquanto se gravava é ignorado (trazia os dados de antes e a alteração parecia desaparecer durante um minuto). De dois carregamentos ao mesmo tempo, só conta o último.
+- **Sem recalcular à toa:** o que não mudou continua a ser o mesmo objeto (`juntarDados`), por isso os cálculos pesados (`lib/memo.ts`) só se repetem quando há mudanças, e não a cada minuto.
+- **Páginas estáveis:** o Supabase devolve no máximo 1000 linhas por pedido; a ordem leva sempre o `id` no fim, para nenhuma linha saltar ou repetir entre páginas (`listar`).
+- **Histórico limitado:** o ecrã lê só as 300 alterações mais recentes, porque o histórico cresce sempre.
+
 ### Modo demonstração
 
 Em vez do Supabase, os dados ficam no `localStorage` daquele browser. O resto da app não sabe a diferença, porque fala sempre com o mesmo "contrato" (`Store`, em `src/lib/store.ts`).
@@ -532,6 +540,7 @@ src/
     anuncio.ts              texto dos anúncios
     anuncios.ts             registo automático do tempo anunciado
     store.ts                "contrato" de dados: Supabase ou demonstração
+    sincronizar.ts          juntar alterações dos dois telemóveis e reaproveitar o que não mudou
     supabase.ts             ligação ao Supabase (sessão, tabelas, fotografias, função ebay-set)
     format.ts               formatar euros, datas, números
     csv.ts                  exportar para CSV (Excel em português)
@@ -639,7 +648,8 @@ No ecrã de entrada: **Experimentar com dados de exemplo**. Os dados ficam só n
 
 ## 13. Limitações conhecidas e próximos passos
 
-- **Sincronização:** não é instantânea. A app atualiza de minuto a minuto e ao voltar a ela.
+- **Sincronização:** não é instantânea. A app atualiza de minuto a minuto e ao voltar a ela, e descarrega tudo de cada vez (~300 KB em nov/2026). Com dezenas de milhares de linhas valeria a pena ler só o que mudou (coluna `atualizado_em` + filtro), o que pede uma alteração à base de dados.
+- **Edição da mesma linha ao mesmo tempo:** nas tabelas normais (produtos, vendas…) ganha a última gravação, campo a campo; as definições já se juntam (ver Sincronização).
 - **Preços Pokémon:** vêm do TCGplayer, que é o mercado dos EUA. A API do Cardmarket não aceita novos pedidos, e um plano pago da PokemonPriceTracker daria preços do Cardmarket.
 - **Sugestões LEGO:** sem a BrickLink, não há preços de **venda** reais de mercado. A referência são as nossas vendas, os anúncios do eBay (preços pedidos) e o PVP da Brickset (valorizado se o set já foi retirado). Os valores das regras devem ser afinados com os dados reais de tempo anunciado.
 - **Compras:** já existe o **Vale a pena?** (avaliar uma promoção à mão). Próximos passos: lista de desejos com preço-alvo, guardar cada estimativa para repetir o teste com o passado, e decidir se os planos devem usar o PVP medido em vez das taxas de valorização (mostrar primeiro o impacto no stock).

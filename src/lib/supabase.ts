@@ -167,18 +167,37 @@ async function cabecalhos(extra: Record<string, string> = {}) {
 // O PostgREST devolve no máximo 1000 linhas por pedido: pedimos por páginas até acabar.
 const PAGINA = 1000;
 
-/** Ler todas as linhas de uma tabela, ordenadas (ex.: 'data_venda.desc'). */
-export async function listar<T>(tabela: string, ordem = 'id'): Promise<T[]> {
+/**
+ * Ler as linhas de uma tabela, ordenadas (ex.: 'data_venda.desc'); "limite" para ler só as primeiras.
+ * A ordem tem de ser ÚNICA para as páginas não saltarem nem repetirem linhas quando há mais de
+ * 1000 (duas vendas no mesmo dia empatam), por isso acrescenta-se sempre a chave da tabela no fim.
+ */
+export async function listar<T>(tabela: string, ordem = 'id', limite = Infinity, chave = 'id'): Promise<T[]> {
+  const ordemUnica = ordem.split(',').some((c) => c.split('.')[0] === chave) ? ordem : `${ordem},${chave}`;
   const todos: T[] = [];
-  for (let inicio = 0; ; inicio += PAGINA) {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${tabela}?select=*&order=${ordem}`, {
-      headers: await cabecalhos({ Range: `${inicio}-${inicio + PAGINA - 1}`, 'Range-Unit': 'items' }),
+  for (let inicio = 0; inicio < limite; inicio += PAGINA) {
+    const fim = Math.min(inicio + PAGINA, limite) - 1;
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${tabela}?select=*&order=${ordemUnica}`, {
+      headers: await cabecalhos({ Range: `${inicio}-${fim}`, 'Range-Unit': 'items' }),
     });
     if (!res.ok) throw await erroDe(res);
     const lote = (await res.json()) as T[];
     todos.push(...lote);
-    if (lote.length < PAGINA) return todos;
+    if (lote.length < fim - inicio + 1) return todos;
   }
+  return todos;
+}
+
+/** Ler as definições com estas chaves, tal como estão agora na base de dados. */
+export async function lerDefinicoes(chaves: string[]): Promise<Record<string, unknown>> {
+  if (!chaves.length) return {};
+  const lista = chaves.map((c) => `"${c.replace(/"/g, '')}"`).join(',');
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/definicoes?select=chave,valor&chave=in.(${encodeURIComponent(lista)})`, {
+    headers: await cabecalhos(),
+  });
+  if (!res.ok) throw await erroDe(res);
+  const linhas = (await res.json()) as { chave: string; valor: unknown }[];
+  return Object.fromEntries(linhas.map((l) => [l.chave, l.valor]));
 }
 
 /** Acrescentar linhas novas (usado no histórico, que nunca se altera). */

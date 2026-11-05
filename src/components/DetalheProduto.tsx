@@ -9,18 +9,18 @@ import { TabelaProdutos } from './DetalheGrupo';
 import { ehPokemon } from '../lib/plano';
 import { urlEbayVendidos, urlVinted } from '../lib/avaliar';
 import { produtoNovo } from '../lib/anuncio';
-import { chaveComparacao, custoTotalProduto, custoUnitario, diasEntre, emInventario, liquidoVenda, lucroVenda, unidadesDisponiveis } from '../lib/calc';
-import { fmtData, fmtEuro, fmtMesAno, hoje } from '../lib/format';
+import { chaveComparacao, custoTotalProduto, emInventario, unidadesDisponiveis, vendasDoProduto } from '../lib/calc';
+import { fmtEuro, fmtMesAno, hoje } from '../lib/format';
 import { infoMercado, useMercado } from '../lib/investimento';
 import { useDados } from '../state';
 import { useAbrir } from './acoes';
 import { compararNomes, useCatalogoSets } from './catalogo';
 import { CHAVE_MANTIDOS } from '../pages/ReverNomes';
 import { useState } from 'react';
-import { EtiquetaProduto, EtiquetaVenda, Foto, IconeLixo, ImagemReferencia, Janela, Valor, prepararFoto, urlReferencia, useConfirmar, useImagemReferencia } from './ui';
+import { EtiquetaProduto, Foto, IconeLixo, ImagemReferencia, Janela, prepararFoto, urlReferencia, useConfirmar, useImagemReferencia } from './ui';
 
 export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void }) {
-  const { dados, nomeConta, nomePagador, store, guardar, apagar, aviso, lista } = useDados();
+  const { dados, store, guardar, apagar, aviso, lista } = useDados();
   const confirmar = useConfirmar();
   const procurarSet = useCatalogoSets();
   const mercado = useMercado();
@@ -34,11 +34,8 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
   const oficial = p.set_numero && (!p.marca || /lego/i.test(p.marca)) ? procurarSet(p.set_numero) : undefined;
   const talvez =
     oficial && compararNomes(p.nome, oficial.nome) === 'diferente' ? procurarSet.parecidos(p.nome, oficial.tema, oficial.ano, oficial.numero) : [];
-  // Vendas só deste produto (para o "Lucro até agora")
-  const vendas = dados.vendas.filter((v) => v.produto_id === p.id);
   const compra = p.compra_id ? dados.compras.find((c) => c.id === p.compra_id) : undefined;
   const disponiveis = unidadesDisponiveis(p, dados.vendas);
-  const lucro = vendas.reduce((a, v) => a + lucroVenda(v, p), 0);
   // Este produto e os outros iguais (mesmo n.º de set ou, sem set, mesmo nome), do mais antigo
   // para o mais recente, para a tabela
   const produtosDoSet = dados.produtos
@@ -71,7 +68,7 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
    */
   async function apagarProduto() {
     if (!p) return;
-    if (vendas.length) return aviso('Este produto tem vendas registadas. Apaga primeiro as vendas, ou muda o estado para "Cancelado".', 'erro');
+    if (vendasDoProduto(p.id, dados.vendas).length) return aviso('Este produto tem vendas registadas. Apaga primeiro as vendas, ou muda o estado para "Cancelado".', 'erro');
     const ok = await confirmar({
       titulo: 'Apagar produto',
       texto: `Vais apagar "${p.nome}" (custo ${fmtEuro(custoTotalProduto(p))}${p.fotos.length ? ` e ${p.fotos.length === 1 ? 'a fotografia' : `as ${p.fotos.length} fotografias`}` : ''}). Fica registado no histórico de alterações. Continuar?`,

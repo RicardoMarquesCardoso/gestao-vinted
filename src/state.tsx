@@ -12,7 +12,14 @@
 //   4. Atualiza logo a memória (setDados), para o ecrã mudar sem esperar por novo carregamento.
 //
 // SINCRONIZAÇÃO ENTRE OS DOIS: os dados voltam a ser carregados ao regressar à app
-// e de minuto a minuto, para verem o que a outra pessoa registou.
+// e de minuto a minuto, para verem o que a outra pessoa registou. Para isso ser seguro
+// (lib/sincronizar.ts):
+//   - um carregamento que esteve a decorrer enquanto se gravava é ignorado (trazia os dados de
+//     antes da gravação e a alteração "desaparecia" até ao minuto seguinte);
+//   - de dois carregamentos ao mesmo tempo, só conta o último a começar;
+//   - o que não mudou continua a ser o mesmo objeto, para os cálculos pesados não se repetirem;
+//   - as definições (planos, tarefas adiadas, listas…) juntam-se com o que está no servidor antes
+//     de gravar, para uma alteração do Ricardo não apagar uma da Cass feita no mesmo minuto.
 
 import { atualizarPeriodos } from './lib/anuncios';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
@@ -20,6 +27,7 @@ import type { ReactNode } from 'react';
 import { chaveDe, dadosVazios } from './lib/store';
 import type { Store, TabelaDados } from './lib/store';
 import { SessaoExpirada } from './lib/supabase';
+import { fundir, juntarDados } from './lib/sincronizar';
 import type { Dados, Historico, Produto, TipoPagamento } from './lib/types';
 import { LISTAS_PADRAO } from './lib/types';
 
@@ -72,6 +80,9 @@ export function DadosProvider(props: { store: Store; aoExpirar(): void; children
   // sem terem de ser recriadas a cada alteração.
   const dadosRef = useRef(dados);
   dadosRef.current = dados;
+  // Contador de gravações (sobe ao começar e ao acabar cada uma) e n.º do último carregamento
+  const gravacoes = useRef(0);
+  const ultimoPedido = useRef(0);
 
   const aviso = useCallback((texto: string, tipo: 'ok' | 'erro' = 'ok') => {
     const id = Date.now() + Math.random();
@@ -93,14 +104,19 @@ export function DadosProvider(props: { store: Store; aoExpirar(): void; children
 
   // Ir buscar todos os dados à base de dados (ou ao modo demonstração).
   const recarregar = useCallback(async () => {
+    const pedido = ++ultimoPedido.current;
+    const gravacoesAntes = gravacoes.current;
     try {
       const d = await store.carregar();
-      setDados(d);
+      // Houve gravações durante o carregamento, ou começou outro mais recente: estes dados já
+      // estão desatualizados (o próximo carregamento traz tudo)
+      if (pedido !== ultimoPedido.current || gravacoes.current !== gravacoesAntes) return;
+      setDados((atual) => juntarDados(atual, d));
       setErro(null);
       setUltima(new Date());
     } catch (e) {
       if (e instanceof SessaoExpirada) return aoExpirar();
-      setErro(e instanceof Error ? e.message : String(e));
+      if (pedido === ultimoPedido.current) setErro(e instanceof Error ? e.message : String(e));
     } finally {
       setCarregando(false);
     }
@@ -118,9 +134,9 @@ export function DadosProvider(props: { store: Store; aoExpirar(): void; children
     };
   }, [recarregar]);
 
-  const guardar = useCallback(
+  // Gravar de facto (guardar, abaixo, só conta as gravações à volta disto)
+  const guardarAgora = useCallback(
     async (tabela: TabelaDados, linhas: object[]) => {
-      if (!linhas.length) return;
       const chave = chaveDe(tabela);
       const atuais = dadosRef.current[tabela] as unknown as Record<string, unknown>[];
       const agora = new Date().toISOString();
@@ -149,6 +165,14 @@ export function DadosProvider(props: { store: Store; aoExpirar(): void; children
         });
       }
       try {
+        // Definições: juntar com o que está agora no servidor (ver lib/sincronizar.ts, fundir)
+        if (tabela === 'definicoes') {
+          const servidor = await store.lerDefinicoes(linhas.map((l) => String((l as Record<string, unknown>).chave)));
+          linhas = (linhas as { chave: string; valor: unknown }[]).map((l) => {
+            const antes = (atuais as unknown as { chave: string; valor: unknown }[]).find((x) => x.chave === l.chave)?.valor;
+            return { ...l, valor: fundir(antes, l.valor, servidor[l.chave]) };
+          });
+        }
         await store.guardar(tabela, linhas);
         await store.registar(historico).catch(() => undefined);
       } catch (e) {
@@ -169,11 +193,25 @@ export function DadosProvider(props: { store: Store; aoExpirar(): void; children
     [store, tratarErro],
   );
 
+  const guardar = useCallback(
+    async (tabela: TabelaDados, linhas: object[]) => {
+      if (!linhas.length) return;
+      gravacoes.current++;
+      try {
+        await guardarAgora(tabela, linhas);
+      } finally {
+        gravacoes.current++;
+      }
+    },
+    [guardarAgora],
+  );
+
   // Apagar um registo. O histórico guarda o registo completo, para se poder recuperar.
   const apagar = useCallback(
     async (tabela: TabelaDados, id: string) => {
       const chave = chaveDe(tabela);
       const antes = (dadosRef.current[tabela] as unknown as Record<string, unknown>[]).find((x) => x[chave] === id);
+      gravacoes.current++;
       try {
         await store.apagar(tabela, id);
         await store
@@ -184,6 +222,8 @@ export function DadosProvider(props: { store: Store; aoExpirar(): void; children
       } catch (e) {
         tratarErro(e);
         return;
+      } finally {
+        gravacoes.current++;
       }
       setDados((d) => ({
         ...d,

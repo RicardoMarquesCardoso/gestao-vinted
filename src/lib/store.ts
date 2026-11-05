@@ -8,7 +8,8 @@
 // O resto da app (state.tsx e os ecrãs) só conhece o contrato, por isso funciona igual nos dois.
 //
 // A app carrega TODOS os dados de uma vez (são poucos milhares de linhas no máximo) e faz as
-// contas no próprio browser (lib/calc.ts). É simples e rápido para este volume.
+// contas no próprio browser (lib/calc.ts). É simples e rápido para este volume. O histórico é a
+// exceção: cresce sempre, por isso só se leem as alterações mais recentes.
 
 import * as sb from './supabase';
 import { FOTO_MINIATURA, eMiniatura, miniaturaDe, originalDe, reduzirFoto } from './fotos';
@@ -23,7 +24,10 @@ export interface Store {
   carregar(): Promise<Dados>;
   guardar(tabela: TabelaDados, linhas: object[]): Promise<void>;
   apagar(tabela: TabelaDados, id: string): Promise<void>;
-  historico(): Promise<Historico[]>;
+  /** As alterações mais recentes (no máximo "limite"). */
+  historico(limite?: number): Promise<Historico[]>;
+  /** Valores das definições como estão agora no servidor (para juntar alterações dos dois). */
+  lerDefinicoes(chaves: string[]): Promise<Record<string, unknown>>;
   registar(h: Historico[]): Promise<void>;
   /** Envia a original e a miniatura; devolve o caminho a guardar no produto (o da original). */
   enviarFoto(produtoId: string, original: Blob, miniatura?: Blob): Promise<string>;
@@ -67,7 +71,7 @@ export function storeSupabase(email: string): Store {
         sb.listar<Dados['produtos'][number]>('produtos', 'criado_em.desc'),
         sb.listar<Dados['vendas'][number]>('vendas', 'data_venda.desc'),
         sb.listar<Dados['acertos'][number]>('acertos', 'data.desc'),
-        sb.listar<Dados['definicoes'][number]>('definicoes', 'chave'),
+        sb.listar<Dados['definicoes'][number]>('definicoes', 'chave', Infinity, 'chave'),
       ]);
       return { pessoas, contas, compras: numeros(compras), produtos: numeros(produtos), vendas: numeros(vendas), acertos: numeros(acertos), definicoes };
     },
@@ -85,10 +89,9 @@ export function storeSupabase(email: string): Store {
     async apagar(tabela, id) {
       await sb.apagar(tabela, chaveDe(tabela), id);
     },
-    async historico() {
-      const h = await sb.listar<Historico>('historico', 'quando.desc');
-      return h;
-    },
+    // Só as mais recentes: o histórico cresce sempre e o ecrã mostra as últimas
+    historico: (limite = 300) => sb.listar<Historico>('historico', 'quando.desc', limite),
+    lerDefinicoes: (chaves) => sb.lerDefinicoes(chaves),
     async registar(h) {
       if (h.length) await sb.inserir('historico', h);
     },
@@ -199,8 +202,11 @@ export function storeDemo(): Store {
       ).filter((x) => x[chave] !== id);
       gravarDemo(g);
     },
-    async historico() {
-      return [...g.historico].sort((a, b) => b.quando.localeCompare(a.quando));
+    async historico(limite = 300) {
+      return [...g.historico].sort((a, b) => b.quando.localeCompare(a.quando)).slice(0, limite);
+    },
+    async lerDefinicoes(chaves) {
+      return Object.fromEntries(lerDemo().dados.definicoes.filter((d) => chaves.includes(d.chave)).map((d) => [d.chave, d.valor]));
     },
     async registar(h) {
       g.historico.push(...h);

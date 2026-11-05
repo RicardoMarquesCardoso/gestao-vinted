@@ -39,10 +39,31 @@ export const custoVenda = (v: Venda, p: Produto | undefined) =>
 export const lucroVenda = (v: Venda, p: Produto | undefined) =>
   vendaValida(v) ? arred(liquidoVenda(v) - custoVenda(v, p)) : 0;
 
+// Índice "produto → vendas", feito uma vez por lista de vendas. Muitos ecrãs perguntam as unidades
+// vendidas de cada produto; percorrer todas as vendas para cada produto ficava lento com milhares
+// de vendas (produtos × vendas). As listas de dados nunca se alteram no sítio (a app cria listas
+// novas, ver lib/memo.ts), por isso o índice de uma lista serve enquanto ela existir.
+const indiceVendas = new WeakMap<Venda[], Map<string, Venda[]>>();
+
+/** As vendas de um produto (todas, de qualquer estado), pelo índice. */
+export function vendasDoProduto(produtoId: string, vendas: Venda[]): Venda[] {
+  let idx = indiceVendas.get(vendas);
+  if (!idx) {
+    idx = new Map();
+    for (const v of vendas) {
+      const l = idx.get(v.produto_id);
+      if (l) l.push(v);
+      else idx.set(v.produto_id, [v]);
+    }
+    indiceVendas.set(vendas, idx);
+  }
+  return idx.get(produtoId) ?? [];
+}
+
 /** Quantas unidades de um produto já foram vendidas (opcionalmente sem contar uma venda, ao editá-la). */
 export function unidadesVendidas(produtoId: string, vendas: Venda[], ignorarVendaId?: string) {
-  return vendas
-    .filter((v) => v.produto_id === produtoId && vendaValida(v) && v.id !== ignorarVendaId)
+  return vendasDoProduto(produtoId, vendas)
+    .filter((v) => vendaValida(v) && v.id !== ignorarVendaId)
     .reduce((a, v) => a + (v.quantidade || 1), 0);
 }
 
