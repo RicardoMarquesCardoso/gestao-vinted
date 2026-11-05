@@ -39,7 +39,7 @@
 // servidor, seria recolha automática (termos de uso).
 
 import { useMemo, useState } from 'react';
-import { avaliarPromocao, ordenarPorDesconto, sinaisEsgotar } from '../lib/avaliar';
+import { avaliarPromocao, ordenarPorDesconto, retiradoHaMeses, sinaisEsgotar } from '../lib/avaliar';
 import type { LinhaPromo, NomeEscalao } from '../lib/avaliar';
 import { descarregar, paraCsv } from '../lib/csv';
 import { fmtDataHora, fmtEuro, hoje, lerNumero, plural } from '../lib/format';
@@ -74,6 +74,8 @@ export function AvaliarPromocao({ idInicial }: { idInicial?: string }) {
   const [verTodos, setVerTodos] = useState(false);
   const [ordem, setOrdem] = useState<Ordem>('desconto');
   const [soEsgotar, setSoEsgotar] = useState(false);
+  // Filtro "Retirado há mais de 6 meses" (pedido do Ricardo); junta-se ao ⚡ se os dois estiverem ligados
+  const [soRetirados, setSoRetirados] = useState(false);
   const h = hoje();
   const e = Math.min(Math.max(lerNumero(extra), 0), 90) / 100;
 
@@ -108,7 +110,9 @@ export function AvaliarPromocao({ idInicial }: { idInicial?: string }) {
   // Procurar: por n.º (começa por…) ou pelo nome do set
   const q = procura.trim().toLowerCase();
   const corresponde = (n: string) => !q || (/^\d/.test(q) ? n.startsWith(q) : (catalogo(n)?.nome ?? '').toLowerCase().includes(q));
-  const filtrar = (ls: LinhaPromo[]) => ls.filter((l) => corresponde(l.set) && (!soEsgotar || sinais(l).length > 0));
+  const retirado = (l: LinhaPromo) => retiradoHaMeses(l, h, 6);
+  const filtrar = (ls: LinhaPromo[]) =>
+    ls.filter((l) => corresponde(l.set) && (!soEsgotar || sinais(l).length > 0) && (!soRetirados || retirado(l)));
   // Set procurado que não está na lista: mostra-se o detalhe dele (o antigo "Um set")
   const setSozinho = SET_VALIDO.test(q) && !sets.includes(q) ? q : null;
 
@@ -120,6 +124,7 @@ export function AvaliarPromocao({ idInicial }: { idInicial?: string }) {
   const total = aComprar.reduce((x, l) => x + l.comprar * (l.preco ?? 0), 0);
 
   const nEsgotar = linhas.filter((l) => (l.comprar > 0 || comDesconto(l.set)) && sinais(l).length > 0).length;
+  const nRetirados = linhas.filter((l) => (verTodos || !promo || l.comprar > 0 || comDesconto(l.set)) && retirado(l)).length;
 
   const abrirSet = (l: LinhaPromo) =>
     abrir({
@@ -235,6 +240,11 @@ export function AvaliarPromocao({ idInicial }: { idInicial?: string }) {
             {nEsgotar > 0 && (
               <button className={`btn btn-mini${soEsgotar ? ' ativo' : ''}`} aria-pressed={soEsgotar} onClick={() => setSoEsgotar((x) => !x)}>
                 ⚡ {soEsgotar ? 'Mostrar todos' : `Só os que podem esgotar (${nEsgotar})`}
+              </button>
+            )}
+            {nRetirados > 0 && (
+              <button className={`btn btn-mini${soRetirados ? ' ativo' : ''}`} aria-pressed={soRetirados} onClick={() => setSoRetirados((x) => !x)}>
+                Retirado há +6 meses ({nRetirados})
               </button>
             )}
           </div>

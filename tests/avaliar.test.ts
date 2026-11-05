@@ -351,3 +351,12 @@ test('urlBrickEconomy: pesquisa do site pelo n.º do set', async () => {
   const { urlBrickEconomy } = await import('../src/lib/avaliar');
   assert.equal(urlBrickEconomy('40524-1'), 'https://www.brickeconomy.com/search?query=40524');
 });
+
+test('retiradoHaMeses: só sets que saíram de produção há pelo menos 6 meses', async () => {
+  const { retiradoHaMeses } = await import('../src/lib/avaliar');
+  const l = (retirada: string | null) => ({ precos: { mercado: retirada ? { retirada } : null } }) as never;
+  assert.equal(retiradoHaMeses(l('2026-05-05'), '2026-11-05'), true);
+  assert.equal(retiradoHaMeses(l('2026-05-06'), '2026-11-05'), false);
+  assert.equal(retiradoHaMeses(l('2027-01-01'), '2026-11-05'), false); // ainda vai sair
+  assert.equal(retiradoHaMeses(l(null), '2026-11-05'), false);
+});

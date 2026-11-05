@@ -392,7 +392,7 @@ compensa a partir de = desconto da loja sobre o PVP que, já com o extra, chega 
 
 A *Simular promoção anunciada* foi retirada (pedido do Ricardo, nov/2026): o "precisa de ≥X%" de cada set já diz com que desconto passa a compensar.
 
-**⚡ Pode esgotar** (`sinaisEsgotar`, para comprar logo): sai de produção nos próximos 6 meses ou já saiu (Brickset), no eBay pedem pelo menos o PVP (novo), ou nós vendemos esse set em ~30 dias ou menos (mediana). Não sabemos o stock da loja, por isso é uma estimativa. O botão *⚡ Só os que podem esgotar* filtra a lista.
+**⚡ Pode esgotar** (`sinaisEsgotar`, para comprar logo): sai de produção nos próximos 6 meses ou já saiu (Brickset), no eBay pedem pelo menos o PVP (novo), ou nós vendemos esse set em ~30 dias ou menos (mediana). Não sabemos o stock da loja, por isso é uma estimativa. O botão *⚡ Só os que podem esgotar* filtra a lista. O botão *Retirado há +6 meses* mostra só os sets que saíram de produção há pelo menos 6 meses (data de retirada da Brickset; sets sem data não entram, `retiradoHaMeses`); os dois filtros podem usar-se juntos.
 
 Na ordem *Recomendação*, os que compensam aparecem primeiro, pelo **lucro seguro** (o lucro mesmo que a venda fique abaixo do esperado pelo erro típico da fonte). Numa lista recebida mostram-se só os que compensam e os que têm desconto; os outros ficam em *Mostrar os outros N*. **Diversificar por tema:** no máximo 2 compras do mesmo tema por promoção. Mostra o total a gastar, descarrega para Excel (CSV) A lista não pede o eBay ao abrir: usa as pesquisas guardadas (os sets do Continente vão sendo procurados sozinhos, ver *Rotação do Continente*) e o eBay da tarefa diária. Para pesquisar já um set, toca-se nele e carrega-se em *Procurar no eBay*.
 

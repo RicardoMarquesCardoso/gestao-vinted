@@ -607,6 +607,18 @@ export function ordenarPorDesconto(linhas: LinhaPromo[]): LinhaPromo[] {
   );
 }
 
+/**
+ * O set saiu de produção há pelo menos "meses" meses (Brickset)? Filtro "Retirado há mais de 6
+ * meses" da promoção (pedido do Ricardo). Sem data de retirada conhecida, não conta.
+ */
+export function retiradoHaMeses(l: LinhaPromo, hoje: string, meses = 6): boolean {
+  const r = l.precos.mercado?.retirada;
+  if (!r || r > hoje) return false;
+  const limite = new Date(`${hoje}T00:00:00Z`);
+  limite.setUTCMonth(limite.getUTCMonth() - meses);
+  return r <= limite.toISOString().slice(0, 10);
+}
+
 /** Meses até à retirada a partir dos quais o set conta como "sai de produção em breve". */
 export const MESES_RETIRADA_PERTO = 6;
 /** Vendemos este set em até tantos dias (mediana): procura alta. */
