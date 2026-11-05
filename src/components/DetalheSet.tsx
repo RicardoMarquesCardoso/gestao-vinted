@@ -20,7 +20,7 @@
 import { useMemo, useState } from 'react';
 import { useCatalogoSets } from './catalogo';
 import { Cartao, ImagemReferencia, Janela, urlReferencia } from './ui';
-import { descontoPara, pesquisaEbay, precosCompra, proximaPesquisa, urlEbayVendidos, urlVinted } from '../lib/avaliar';
+import { descontoPara, pesquisaEbay, urlBrickEconomy, precosCompra, proximaPesquisa, urlEbayVendidos, urlVinted } from '../lib/avaliar';
 import type { Escalao, NomeEscalao } from '../lib/avaliar';
 import { custoUnitario, diasEntre, emInventario, unidadesDisponiveis } from '../lib/calc';
 import { useAbrir } from './acoes';
@@ -113,11 +113,12 @@ export function DetalheSet({ set: n, promo }: { set: string; promo?: PrecoPromo 
           <ImagemReferencia url={urlReferencia({ marca: 'LEGO', set_numero: base })} className="avaliar-img" />
           <div>
             <strong>{oficial?.nome ?? (procurarSet.carregado ? 'Set não encontrado no catálogo' : '…')}</strong>
-            <small className="mudo">{[oficial?.tema, oficial?.ano, ciclo].filter(Boolean).join(' · ')}</small>
+            <small className="mudo">{[oficial?.tema, m?.lancamento ? null : oficial?.ano, ciclo].filter(Boolean).join(' · ')}</small>
             <small className="avaliar-links">
               <a href={urlVinted(base)} target="_blank" rel="noreferrer">Ver na Vinted</a>
               <a href={urlEbayVendidos(base)} target="_blank" rel="noreferrer">Vendidos no eBay</a>
               <a href={`https://brickset.com/sets/${base}-1`} target="_blank" rel="noreferrer">Brickset</a>
+              <a href={urlBrickEconomy(base)} target="_blank" rel="noreferrer">BrickEconomy</a>
             </small>
           </div>
         </div>

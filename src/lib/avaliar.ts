@@ -652,6 +652,15 @@ export function urlVinted(set: string, novo = true): string {
  * LH_ItemCondition=1000 (novo), porque estamos a avaliar compras de sets novos (novo = false: todos,
  * para produtos usados).
  */
+/**
+ * O set no BrickEconomy (pedido do Ricardo). As páginas do site têm um nome no endereço
+ * (ex.: /set/40524-1/lego-creator-botanical-collection-sunflowers) que não se consegue gerar a
+ * partir do n.º, por isso abre-se a pesquisa do site pelo n.º do set. Só um link: a app não lê o site.
+ */
+export function urlBrickEconomy(set: string): string {
+  return `https://www.brickeconomy.com/search?query=${encodeURIComponent(numeroBase(set))}`;
+}
+
 export function urlEbayVendidos(set: string, novo = true): string {
   const q = encodeURIComponent(`lego ${numeroBase(set)}`).replace(/%20/g, '+');
   return `https://www.ebay.com/sch/i.html?_nkw=${q}&_sacat=0&LH_Sold=1&LH_Complete=1&LH_PrefLoc=5${novo ? '&LH_ItemCondition=1000' : ''}&rt=nc`;

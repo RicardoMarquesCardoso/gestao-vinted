@@ -346,3 +346,8 @@ test('descontoPara: desconto sobre o PVP para chegar ao preço máximo', async (
   assert.equal(descontoPara(39.99, 45), 0); // acima do PVP: o PVP já serve
   assert.equal(descontoPara(null, 25), null);
 });
+
+test('urlBrickEconomy: pesquisa do site pelo n.º do set', async () => {
+  const { urlBrickEconomy } = await import('../src/lib/avaliar');
+  assert.equal(urlBrickEconomy('40524-1'), 'https://www.brickeconomy.com/search?query=40524');
+});

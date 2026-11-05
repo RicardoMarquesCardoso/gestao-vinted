@@ -10,7 +10,7 @@
 import { LinhaPlano } from './planos';
 import { useAbrir } from './acoes';
 import { ImagemReferencia, Foto, Janela, Valor, urlReferencia, useImagemReferencia } from './ui';
-import { urlEbayVendidos, urlVinted } from '../lib/avaliar';
+import { urlBrickEconomy, urlEbayVendidos, urlVinted } from '../lib/avaliar';
 import { produtoNovo } from '../lib/anuncio';
 import { chaveComparacao, custoUnitario, emInventario, liquidoVenda, lucroVenda, unidadesDisponiveis, vendaValida } from '../lib/calc';
 import { fmtEuro, plural } from '../lib/format';
@@ -76,7 +76,8 @@ export function DetalheGrupo({ ids, aoFechar }: { ids: string[]; aoFechar(): voi
         <p className="links-set mudo">
           <a href={urlVinted(p.set_numero, produtoNovo(p))} target="_blank" rel="noreferrer">Vinted</a> ·{' '}
           <a href={urlEbayVendidos(p.set_numero, produtoNovo(p))} target="_blank" rel="noreferrer">Vendidos no eBay</a> ·{' '}
-          <a href={`https://brickset.com/sets/${encodeURIComponent(p.set_numero)}-1`} target="_blank" rel="noreferrer">Brickset</a>
+          <a href={`https://brickset.com/sets/${encodeURIComponent(p.set_numero)}-1`} target="_blank" rel="noreferrer">Brickset</a> ·{' '}
+          <a href={urlBrickEconomy(p.set_numero)} target="_blank" rel="noreferrer">BrickEconomy</a>
         </p>
       )}
 

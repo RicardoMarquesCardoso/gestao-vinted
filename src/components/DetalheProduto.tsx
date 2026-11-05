@@ -7,7 +7,7 @@ import { LinhaPlano, LinhaPokemon } from './planos';
 import { AdicionarFotos, PartilharFotos } from './fotos';
 import { TabelaProdutos } from './DetalheGrupo';
 import { ehPokemon } from '../lib/plano';
-import { urlEbayVendidos, urlVinted } from '../lib/avaliar';
+import { urlBrickEconomy, urlEbayVendidos, urlVinted } from '../lib/avaliar';
 import { produtoNovo } from '../lib/anuncio';
 import { chaveComparacao, custoTotalProduto, emInventario, unidadesDisponiveis, vendasDoProduto } from '../lib/calc';
 import { fmtEuro, fmtMesAno, hoje } from '../lib/format';
@@ -143,6 +143,7 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
           <a href={urlVinted(p.set_numero, produtoNovo(p))} target="_blank" rel="noreferrer">Vinted</a> ·{' '}
           <a href={urlEbayVendidos(p.set_numero, produtoNovo(p))} target="_blank" rel="noreferrer">Vendidos no eBay</a> ·{' '}
           <a href={`https://brickset.com/sets/${encodeURIComponent(p.set_numero)}-1`} target="_blank" rel="noreferrer">Brickset</a> ·{' '}
+          <a href={urlBrickEconomy(p.set_numero)} target="_blank" rel="noreferrer">BrickEconomy</a> ·{' '}
           <a href={`https://www.lego.com/pt-pt/search?q=${encodeURIComponent(p.set_numero)}`} target="_blank" rel="noreferrer">LEGO</a>
         </p>
       )}
