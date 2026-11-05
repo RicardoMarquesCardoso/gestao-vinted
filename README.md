@@ -38,7 +38,7 @@ Este README explica **o que a app faz, como está construída e porquê**, para 
 | **Acertos** | Tipo Splitwise: quem deve quanto a quem, com as transferências mínimas. |
 | **Contas** | As contas da Vinted com as barras dos limites (30 vendas / 2000 € por ano). Botão ✏️ para editar cada conta. |
 | **Compras** | Lista das compras. É a única forma de entrar produtos novos. Tem o atalho **Vale a pena?**. |
-| **Vale a pena?** | Antes de comprar: escreve-se só o n.º do set e a app mostra por quanto se vende, em quantos dias, e **até que preço compensa comprar e quantas unidades** (bom / muito bom / oportunidade rara), a diversificar. Tem links para ver o set na Vinted e nos vendidos do eBay. Está na barra de baixo do telemóvel, no lugar onde estavam as Contas (que passaram para *Mais*). |
+| **Vale a pena?** | Antes de comprar. Um só ecrã (sem separadores), com uma linha no topo: **loja · procurar set · desconto**. Procurar filtra a lista da loja; um set que não esteja na lista mostra o detalhe dele: a app mostra por quanto se vende, em quantos dias, e **até que preço compensa comprar e quantas unidades** (bom / muito bom / oportunidade rara), a diversificar. Tem links para ver o set na Vinted e nos vendidos do eBay. Está na barra de baixo do telemóvel, no lugar onde estavam as Contas (que passaram para *Mais*). |
 | **Análises** | Números do período (lucro, recebido, vendas, margem) com **▲▼ face ao período anterior** (períodos de 6 meses ou mais comparam-se com as mesmas datas do ano passado; os curtos com o período logo antes). **Destaques** (`lib/insights.ts`): melhor e pior tema por rentabilidade por ano (≥ 3 vendas), preço final vs. anunciado (mediana), dias anunciado até vender, stock com mais de 90 dias, vendas que ainda cabem este ano (e contas que no ritmo atual chegam ao limite), maior aposta em stock. Lucro por mês; **rentabilidade vs. tempo por tema** (gráfico de pontos: ROI × dias até vender, tamanho = vendas); **investimento** (rentabilidade por ano, dinheiro parado, valor do stock); por categoria e conta; tabela por set; lotes de compra; idade do stock; tempo até vender. |
 | **Definições** | Texto dos anúncios, regras das sugestões, pessoas, listas, exportação, dados de exemplo e histórico de alterações. |
 
@@ -353,11 +353,13 @@ Mostra ainda, de forma simples, de onde vem o preço de venda: uma linha por fon
 
 (`avaliarCompra` continua disponível para avaliar um preço concreto: lucro, margem, rentabilidade e veredicto.)
 
+Desde nov/2026 (pedido do Ricardo) não há separadores "Um set" / "Promoção da loja": é tudo o mesmo ecrã. No topo, numa só linha: o seletor da loja (as lojas que enviaram listas + *Outra lista*), a caixa para procurar um set (n.º, "começa por", ou parte do nome) e o desconto (%). Se o set procurado não está na lista da loja, ou não há lista, aparece o detalhe dele (o que antes era "Um set").
+
 #### Promoção da loja (modo do mesmo ecrã, `components/AvaliarPromocao.tsx`, `avaliarPromocao`)
 
 Tocar num set da lista abre o mesmo detalhe do modo "Um set" (`components/DetalheSet.tsx`, `JanelaSet`), com o preço da promoção no topo e as nossas vendas desse set. É calculado na hora com o que a app já tem carregado (vendas, `mercado-sets.json`, catálogo, pesquisas do eBay guardadas). Só o botão *Procurar no eBay* guarda alguma coisa (ver abaixo).
 
-- **Escolhe-se a loja** (botões com as lojas que já enviaram listas, ex.: *Continente*) e a app mostra a **lista mais recente dessa loja** (`lojasRecebidas`). *Outra lista* deixa colar uma lista à mão: os números, ou o texto copiado da página da loja; `extrairItens` encontra os sets, os preços e as percentagens (ignora códigos de barras e números que não são sets).
+- **Escolhe-se a loja** (seletor com as lojas que já enviaram listas, ex.: *Continente*) e a app mostra a **lista mais recente dessa loja** (`lojasRecebidas`). *Outra lista* deixa colar uma lista à mão: os números, ou o texto copiado da página da loja; `extrairItens` encontra os sets, os preços e as percentagens (ignora códigos de barras e números que não são sets).
 - **Desconto extra** (pedido do Ricardo): promoções que a lista não mostra e valem para tudo, ex.: **10% em cartão no Continente**. Aplica-se sobre o preço de cada set: 100 € a −30% = 70 €, e com os 10% do cartão fica **63 €**. Vem preenchido com o valor da loja (`EXTRA_POR_LOJA` em `lib/promocoes.ts`: Continente 10%) e pode mudar-se quando houver uma promoção melhor. Numa lista colada sem preços, é o desconto da loja sobre o PVP.
 
 ```

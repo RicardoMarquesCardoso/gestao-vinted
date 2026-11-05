@@ -1,9 +1,16 @@
-// "Promoção da loja" (dentro do ecrã Vale a pena?): que sets compensa comprar numa loja?
+// Ecrã "Vale a pena?" (pages/Avaliar.tsx): que sets compensa comprar numa loja, ou um set em concreto?
+//
+// UMA SÓ LINHA NO TOPO (pedido do Ricardo, nov/2026; antes havia dois separadores, "Um set" e
+// "Promoção da loja"): loja · procurar set · desconto, lado a lado.
 //
 // ESCOLHER A LOJA: as lojas com listas recebidas de outra app (lib/promocoes.ts, ex.: Continente)
-// aparecem como botões; escolher uma mostra a lista MAIS RECENTE dessa loja (cada set com o seu
+// aparecem no seletor; escolher uma mostra a lista MAIS RECENTE dessa loja (cada set com o seu
 // PVP, preço e/ou desconto). "Outra lista" deixa colar uma lista à mão: os números, ou o texto
 // copiado da página da loja (a app encontra os n.º de set, os preços e as percentagens sozinha).
+//
+// PROCURAR UM SET: filtra a lista pelo n.º (começa por…) ou pelo nome. Se o n.º não estiver na
+// lista (ou não houver lista), mostra o detalhe do set (components/DetalheSet.tsx): até que preço
+// compensa comprá-lo e quantas unidades — o que antes era o separador "Um set".
 //
 // DESCONTO EXTRA: promoções que a lista não mostra e valem para tudo, ex.: 10% em cartão no
 // Continente. Aplica-se sobre o preço de cada set (100 € a −30% = 70 €; com 10% em cartão = 63 €).
@@ -44,11 +51,13 @@ import { descontoDe, extraPadrao, lojasRecebidas, promocoesRecebidas, setsDaProm
 import { useDados } from '../state';
 import { useCatalogoSets } from './catalogo';
 import { Cartao } from './ui';
+import { DetalheSet } from './DetalheSet';
 import { useAbrir } from './acoes';
 
 const NOME_ESCALAO: Record<NomeEscalao, string> = { rara: 'oportunidade rara', otimo: 'muito bom', bom: 'bom' };
 /** Valor do seletor para escrever/colar uma lista à mão. */
 const MANUAL = '';
+const SET_VALIDO = /^\d{3,7}(-\d+)?$/;
 const pct = (x: number) => String(Math.round(x * 1000) / 10).replace('.', ',');
 
 type Ordem = 'desconto' | 'lucro';
@@ -64,6 +73,7 @@ export function AvaliarPromocao({ idInicial }: { idInicial?: string }) {
   const [loja, setLoja] = useState(inicial);
   const [extra, setExtra] = useState(() => (inicial ? pct(extraPadrao(inicial)) : ''));
   const [texto, setTexto] = useState('');
+  const [procura, setProcura] = useState('');
   const [verTodos, setVerTodos] = useState(false);
   const [ordem, setOrdem] = useState<Ordem>('desconto');
   const [simDe, setSimDe] = useState('');
@@ -110,11 +120,16 @@ export function AvaliarPromocao({ idInicial }: { idInicial?: string }) {
   );
 
   const sinais = (l: LinhaPromo) => sinaisEsgotar(l, h);
-  const filtrar = (ls: LinhaPromo[]) => (soEsgotar ? ls.filter((l) => sinais(l).length > 0) : ls);
+  // Procurar: por n.º (começa por…) ou pelo nome do set
+  const q = procura.trim().toLowerCase();
+  const corresponde = (n: string) => !q || (/^\d/.test(q) ? n.startsWith(q) : (catalogo(n)?.nome ?? '').toLowerCase().includes(q));
+  const filtrar = (ls: LinhaPromo[]) => ls.filter((l) => corresponde(l.set) && (!soEsgotar || sinais(l).length > 0));
+  // Set procurado que não está na lista: mostra-se o detalhe dele (o antigo "Um set")
+  const setSozinho = SET_VALIDO.test(q) && !sets.includes(q) ? q : null;
 
   // Modo normal: visíveis = os que compensam e os que têm desconto na lista (numa lista colada, todos)
   const ordenadas = ordem === 'desconto' ? ordenarPorDesconto(linhas) : linhas;
-  const visiveis = filtrar(verTodos || !promo ? ordenadas : ordenadas.filter((l) => l.comprar > 0 || comDesconto(l.set)));
+  const visiveis = filtrar(verTodos || !promo || q ? ordenadas : ordenadas.filter((l) => l.comprar > 0 || comDesconto(l.set)));
   const escondidos = filtrar(ordenadas).length - visiveis.length;
   const aComprar = linhas.filter((l) => l.comprar > 0);
   const total = aComprar.reduce((x, l) => x + l.comprar * (l.preco ?? 0), 0);
@@ -182,16 +197,21 @@ export function AvaliarPromocao({ idInicial }: { idInicial?: string }) {
 
   return (
     <>
-      {/* Loja: as que já enviaram listas, ou uma lista escrita/colada à mão */}
-      <div className="segmentos segmentos-lojas" role="radiogroup" aria-label="Loja">
-        {lojas.map((x) => (
-          <button key={x.loja} role="radio" aria-checked={loja === x.loja} className={loja === x.loja ? 'ativo' : ''} onClick={() => escolher(x.loja)}>
-            {x.loja}
-          </button>
-        ))}
-        <button role="radio" aria-checked={loja === MANUAL} className={loja === MANUAL ? 'ativo' : ''} onClick={() => escolher(MANUAL)}>
-          Outra lista
-        </button>
+      {/* Uma linha: loja · procurar set · desconto (pedido do Ricardo) */}
+      <div className="avaliar-barra">
+        <select aria-label="Loja" value={loja} onChange={(ev) => escolher(ev.target.value)}>
+          {lojas.map((x) => (
+            <option key={x.loja} value={x.loja}>
+              {x.loja}
+            </option>
+          ))}
+          <option value={MANUAL}>Outra lista</option>
+        </select>
+        <input type="search" aria-label="Procurar set" value={procura} onChange={(ev) => setProcura(ev.target.value)} placeholder="N.º ou nome" />
+        <span className="avaliar-barra-desc" title={promo ? 'Desconto extra sobre o preço (ex.: cartão)' : 'Desconto da loja sobre o preço (ou o PVP)'}>
+          <input inputMode="decimal" aria-label={promo ? 'Desconto extra' : 'Desconto da loja'} value={extra} onChange={(ev) => setExtra(ev.target.value.replace(/[^\d.,]/g, ''))} placeholder="0" />
+          <span className="mudo">%</span>
+        </span>
       </div>
 
       {promo ? (
@@ -200,25 +220,22 @@ export function AvaliarPromocao({ idInicial }: { idInicial?: string }) {
           {promo.valida_ate ? ` · válida até ${promo.valida_ate.split('-').reverse().join('/')}` : ''}.
         </p>
       ) : (
-        <>
-          <p className="nota">
-            Cola a lista de sets: os números, ou o texto copiado da página da loja (selecionar tudo → copiar → colar). A app encontra os números, os preços e as percentagens sozinha.
-          </p>
+        !setSozinho && (
           <label className="campo">
             <span className="campo-rotulo">Sets</span>
-            <textarea rows={5} value={texto} onChange={(ev) => setTexto(ev.target.value)} placeholder={'75375 63,74 €\n42151 -30%\n10280\n… ou o texto da página da loja'} />
+            <textarea rows={4} value={texto} onChange={(ev) => setTexto(ev.target.value)} placeholder={'75375 63,74 €\n42151 -30%\n10280\n… ou o texto da página da loja'} />
           </label>
-        </>
+        )
       )}
 
+      {setSozinho ? (
+        <>
+          {sets.length > 0 && <p className="nota">O {setSozinho} não está na lista{promo ? ` do ${loja}` : ''}.</p>}
+          <DetalheSet set={setSozinho} />
+        </>
+      ) : (
+        <>
       <div className="avaliar-campos">
-        <label className="campo avaliar-campo">
-          <span className="campo-rotulo">{promo ? 'Desconto extra (ex.: cartão)' : 'Desconto da loja'}</span>
-          <span className="campo-unidade">
-            <input inputMode="decimal" value={extra} onChange={(ev) => setExtra(ev.target.value.replace(/[^\d.,]/g, ''))} placeholder="0" />
-            <span className="mudo">% {promo ? 'sobre o preço' : 'sobre o preço (ou o PVP)'}</span>
-          </span>
-        </label>
         <div className="campo avaliar-campo avaliar-sim">
           <span className="campo-rotulo">Simular promoção anunciada</span>
           <span className="campo-unidade">
@@ -314,6 +331,7 @@ export function AvaliarPromocao({ idInicial }: { idInicial?: string }) {
           ) : (
             <>
               <ul className="lista-simples avaliar-promo">{visiveis.map((l) => linha(l))}</ul>
+              {q && visiveis.length === 0 && <p className="nota">Nenhum set encontrado.</p>}
               {escondidos > 0 && (
                 <button className="link" onClick={() => setVerTodos(true)}>
                   Mostrar os outros {escondidos} (sem desconto na lista)
@@ -330,6 +348,8 @@ export function AvaliarPromocao({ idInicial }: { idInicial?: string }) {
             LEGO Alemanha (Brickset). Os sets sem eBay nem vendas nossas usam o PVP × a % a que costumamos vender, que é conservador.
           </p>
         </Cartao>
+      )}
+        </>
       )}
     </>
   );

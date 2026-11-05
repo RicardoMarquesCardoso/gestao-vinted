@@ -902,3 +902,11 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .avaliar-numeros small { display: block; font-size: 0.72rem; font-weight: 400; color: var(--texto-3); text-transform: uppercase; letter-spacing: 0.03em; }
 .avaliar-linha-promo .linha-principal > small.mudo { font-size: 0.8rem; }
 .avaliar-promo .avaliar-linha-promo.clicavel::after { align-self: center; }
+
+/* Vale a pena?: uma só linha no topo com loja · procurar set · desconto (pedido do Ricardo, nov/2026) */
+.avaliar-barra { display: grid; grid-template-columns: auto minmax(0, 1fr) 4.6em; gap: 8px; align-items: center; margin-bottom: 10px; }
+.avaliar-barra select, .avaliar-barra input { width: 100%; min-width: 0; }
+.avaliar-barra select { max-width: 9.5em; padding-left: 10px; padding-right: 6px; }
+.avaliar-barra-desc input { padding-left: 4px; padding-right: 4px; }
+.avaliar-barra-desc { display: flex; align-items: center; gap: 4px; }
+.avaliar-barra-desc input { text-align: center; }
