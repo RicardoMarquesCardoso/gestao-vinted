@@ -61,7 +61,7 @@ const Lucro = ({ v }: { v: number }) => <strong className={v >= 0 ? 'positivo' :
 /**
  * Caixa no detalhe do produto, curta (pedido do Ricardo: só números, sem textos a explicar).
  * Anunciado: preço, conta, há quantos dias e o lucro a esse preço. Senão: o plano e o preço
- * sugerido (o porquê fica no title, ao passar o rato/carregar sem soltar).
+ * sugerido; o porquê aparece ao tocar no "?" do canto (pedido do Ricardo: no telemóvel não há tooltip).
  */
 export function LinhaPlano({ p }: { p: Produto }) {
   const ctx = useContextoPlano();
@@ -69,6 +69,8 @@ export function LinhaPlano({ p }: { p: Produto }) {
   const pl = sugerirPlano(p, ctx);
   const a = resumoAnuncio(p, ctx);
   const mudar = <button className="link" onClick={() => abrir({ tipo: 'plano', ids: [p.id] })}>Mudar plano</button>;
+  // "?" no canto: mostra como foi calculado o plano e o preço (no telemóvel não há tooltip)
+  const [verPorque, setVerPorque] = useState(false);
   if (a) {
     return (
       <div className="linha-plano linha-anuncio">
@@ -87,12 +89,18 @@ export function LinhaPlano({ p }: { p: Produto }) {
     );
   }
   return (
-    <div className="linha-plano" title={pl.motivo}>
+    <div className="linha-plano com-ajuda">
+      {pl.motivo && (
+        <button className="ajuda" aria-label="Como foi calculado" aria-expanded={verPorque} onClick={() => setVerPorque((x) => !x)}>
+          ?
+        </button>
+      )}
       <div>
         <strong>Plano: {textoPlano(pl)}</strong>
         {pl.precoSugerido !== null && <span> · {pl.acao === 'guardar' ? 'preço alvo' : 'anunciar a'} {fmtEuro(pl.precoSugerido)}</span>}
         {pl.manual && <span className="chip">decidido por vocês</span>}
       </div>
+      {verPorque && pl.motivo && <p className="mudo linha-plano-porque">{pl.motivo}</p>}
       {mudar}
     </div>
   );

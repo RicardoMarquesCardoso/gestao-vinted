@@ -316,7 +316,7 @@ Todos estes números estão em **Definições → Regras das sugestões** e pode
 
 A lista **"O que fazer"** no Painel junta as tarefas: *Anunciar X a Y €*, *Baixar X para Y €* e *Rever X* (quando acaba um prazo de guardar escolhido por vocês). Cada tarefa pode ser **adiada** 14 dias. Tocar no título "O que fazer" minimiza ou maximiza a lista (fica lembrado em cada dispositivo).
 
-**Caixa do produto** (`LinhaPlano`): curta, sem textos a explicar. Anunciado → *Anunciado a X € na conta · há N dias* e *Lucro +Y € (Z%)*. Por anunciar → *Plano: vender · anunciar a X €* (o porquê aparece só ao passar o rato). O "aceitar ofertas até" foi retirado (as ofertas decidem-se pela experiência).
+**Caixa do produto** (`LinhaPlano`): curta, sem textos a explicar. Anunciado → *Anunciado a X € na conta · há N dias* e *Lucro +Y € (Z%)*. Por anunciar → *Plano: vender · anunciar a X €* (o porquê, ou seja como foi calculado o plano e o preço, aparece ao tocar no "?" do canto superior direito). O "aceitar ofertas até" foi retirado (as ofertas decidem-se pela experiência).
 
 **Sinal dos produtos** (`sinais()` em `src/lib/plano.ts`, desenhado por `SinalProduto` em `planos.tsx`): em vez de várias etiquetas, cada cartão tem uma bolinha de cor e uma linha com a próxima ação. A cor responde a "tenho de fazer alguma coisa?" e usa as mesmas tarefas do "O que fazer":
 

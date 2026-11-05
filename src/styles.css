@@ -909,3 +909,9 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .avaliar-barra-desc input { padding-left: 4px; padding-right: 4px; }
 .avaliar-barra-desc { display: flex; align-items: center; gap: 4px; }
 .avaliar-barra-desc input { text-align: center; }
+
+/* Caixa do plano: "?" no canto superior direito mostra como foi calculado (pedido do Ricardo) */
+.linha-plano.com-ajuda { position: relative; padding-right: 40px; }
+.ajuda { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; min-height: 0; padding: 0; border-radius: 50%; border: 1px solid var(--borda, var(--texto-3)); background: transparent; color: var(--texto-2); font-size: 0.8rem; font-weight: 600; line-height: 1; cursor: pointer; }
+.ajuda[aria-expanded='true'] { background: var(--primario); color: var(--primario-texto); border-color: transparent; }
+.linha-plano-porque { font-size: 0.85rem; margin: 2px 0 0; }
