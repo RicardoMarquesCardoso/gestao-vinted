@@ -273,10 +273,10 @@ Pedido do Ricardo (nov/2026). No topo do ecrã:
 |---|---|---|
 | **Dinheiro investido** | Custo das unidades em stock (dinheiro parado) | Não, é o stock de agora |
 | **Lucro concretizado** | Lucro das vendas concluídas | Sim (▲▼ vs. período anterior) |
-| **Lucro potencial** | Se se vendesse cada unidade em stock ao preço de referência (`referencia` do plano: nossas vendas → BrickLink → eBay → TCGplayer → PVP), menos o custo (`lucroPotencial`). As unidades sem preço de referência não entram e aparecem como "N sem preço" | Não |
+| **Lucro potencial** | Lucro concretizado + o que o stock daria se se vendesse cada unidade ao preço de referência (`referencia` do plano: nossas vendas → BrickLink → eBay → TCGplayer → PVP), menos o custo (`lucroPotencial`); por baixo, "stock +X €" (só a parte do stock). As unidades sem preço de referência não entram | Em parte (o concretizado) |
 | **Valorização média** | Lucro ÷ custo das vendas do período | Sim (▲▼ em pontos percentuais) |
 
-Os filtros de conta e de produto aplicam-se aos quatro.
+Os filtros de conta e de produto aplicam-se aos quatro. Por baixo de cada número, no máximo 2-3 palavras (ex.: "11 unidades", "▲ 12%").
 
 Logo a seguir, **Vendas por semana** (segunda a domingo, últimas 26 semanas do período, semanas vazias incluídas): em cada semana, uma barra com o **recebido** e, por baixo noutra cor, a parte que é **lucro**; ao lado, uma barra **vermelha** com os **gastos** em compras dessa semana. Tocar numa semana mostra o n.º de vendas, o recebido, o lucro e os gastos (`estatisticas` → `porSemana`, `BarrasSemanas`).
 

@@ -1,6 +1,6 @@
 // Ecrã "Análises". No topo, os 4 números principais (pedido do Ricardo): dinheiro investido (custo
-// do stock), lucro concretizado (no período), lucro potencial (stock ao preço de referência,
-// lib/plano.ts → lucroPotencial) e valorização média das vendas (lucro ÷ custo, no período); logo a
+// do stock), lucro concretizado (no período), lucro potencial (concretizado + stock ao preço de
+// referência, lib/plano.ts → lucroPotencial) e valorização média das vendas (lucro ÷ custo, no período); logo a
 // seguir as vendas por semana (recebido com o lucro noutra cor + gastos a vermelho). Depois: destaques
 // (lib/insights.ts: melhor/pior tema, preço final vs. anunciado, tempo anunciado, stock parado,
 // vagas nas contas, maior aposta), lucro por mês, rentabilidade vs. tempo por tema (dispersão),
@@ -87,17 +87,18 @@ export function Analises() {
         <input type="search" className="filtro-procura" placeholder="Produto ou n.º de set" value={texto} onChange={(ev) => setTexto(ev.target.value)} />
       </div>
 
-      {/* Os 4 números principais (pedido do Ricardo). Dinheiro investido e lucro potencial são o
-          estado de agora (não dependem do período); lucro e valorização são das vendas do período. */}
+      {/* Os 4 números principais (pedido do Ricardo), com uma linha de 2-3 palavras no máximo.
+          Lucro potencial = lucro já concretizado (período) + lucro do stock se se vendesse tudo ao
+          preço avaliado (lucroPotencial). Dinheiro investido é o stock de agora. */}
       <div className="kpis kpis-4">
-        <Kpi nome="Dinheiro investido" valor={fmtEuro(e.inventarioCusto)} agora={0} detalhe={`parado em stock · ${plural(e.inventarioUnidades, 'unidade', 'unidades')}`} />
+        <Kpi nome="Dinheiro investido" valor={fmtEuro(e.inventarioCusto)} agora={0} detalhe={plural(e.inventarioUnidades, 'unidade', 'unidades')} />
         <Kpi destaque nome="Lucro concretizado" valor={fmtEuro(e.lucro)} negativo={e.lucro < 0} agora={e.lucro} antes={ant?.lucro} />
         <Kpi
           nome="Lucro potencial"
-          valor={fmtEuro(potencial.lucro)}
-          negativo={potencial.lucro < 0}
+          valor={fmtEuro(e.lucro + potencial.lucro)}
+          negativo={e.lucro + potencial.lucro < 0}
           agora={0}
-          detalhe={`se vendesse o stock a ${fmtEuro(potencial.valor)}${potencial.semPreco ? ` · ${potencial.semPreco} sem preço` : ''}`}
+          detalhe={`stock ${potencial.lucro >= 0 ? '+' : ''}${fmtEuro(potencial.lucro)}`}
         />
         <Kpi nome="Valorização média" valor={e.margem !== null ? pct(e.margem) : '—'} negativo={(e.margem ?? 0) < 0} agora={e.margem ?? 0} antes={ant?.margem ?? undefined} pontos />
       </div>
@@ -420,7 +421,7 @@ function Kpi(props: { nome: string; valor: string; agora: number; antes?: number
         <small className="mudo">{props.detalhe}</small>
       ) : (
       <small className={v === null || Math.abs(v) < 0.005 ? 'mudo' : v > 0 ? 'positivo' : 'negativo'}>
-        {v === null ? '\u00a0' : `${v > 0 ? '▲' : v < 0 ? '▼' : ''} ${props.pontos ? `${Math.round(Math.abs(v) * 100)} p.p.` : `${Math.round(Math.abs(v) * 100)}%`} vs. anterior`}
+        {v === null ? '\u00a0' : `${v > 0 ? '▲' : v < 0 ? '▼' : ''} ${props.pontos ? `${Math.round(Math.abs(v) * 100)} p.p.` : `${Math.round(Math.abs(v) * 100)}%`}`}
       </small>
       )}
     </div>
