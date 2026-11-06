@@ -21,11 +21,12 @@ import { fmtEuro, fmtMes, fmtNum, hoje, plural } from '../lib/format';
 import { investimento, useMercado } from '../lib/investimento';
 import type { LinhaInvestimento } from '../lib/investimento';
 import { useDados } from '../state';
+import type { Dados } from '../lib/types';
 
 export function Analises() {
   const { dados, nomeConta } = useDados();
   const abrir = useAbrir();
-  const [periodo, setPeriodo] = useState<Predefinicao | 'datas'>('ano');
+  const [periodo, setPeriodo] = useState<Predefinicao | 'datas'>('tudo'); // por defeito "Sempre" (pedido do Ricardo)
   const [de, setDe] = useState('');
   const [ate, setAte] = useState('');
   const [conta, setConta] = useState('');
@@ -60,10 +61,16 @@ export function Analises() {
     () => desempenhoTemas(dados, intervalo).filter((t) => t.vendas >= 2 && t.dias !== null && t.roi !== null).slice(0, 12),
     [dados, intervalo.inicio, intervalo.fim],
   );
-  const tempos = rapidos ? [...e.tempos].sort((a, b) => a.dias - b.dias).slice(0, 8) : e.tempos.slice(0, 8);
+  // Cada tabela tem o seu próprio período (pedido do Ricardo), com os mesmos filtros de conta e produto
+  const filtroBase = { contaId: conta || undefined, texto: texto.trim() || undefined };
+  const pCat = usePeriodoTabela(dados, filtroBase, h);
+  const pConta = usePeriodoTabela(dados, filtroBase, h);
+  const pSub = usePeriodoTabela(dados, filtroBase, h);
+  const pTempo = usePeriodoTabela(dados, filtroBase, h);
+  const tempos = rapidos ? [...pTempo.e.tempos].sort((a, b) => a.dias - b.dias).slice(0, 8) : pTempo.e.tempos.slice(0, 8);
   const listaLotes = useMemo(() => lotes(dados), [dados]);
   const idade = useMemo(() => idadeStock(dados, h), [dados, h]);
-  const subcats = verSub ? e.porSubcategoria : e.porSubcategoria.slice(0, 8);
+  const subcats = verSub ? pSub.e.porSubcategoria : pSub.e.porSubcategoria.slice(0, 8);
   const pct = (x: number | null) => (x === null ? '—' : `${Math.round(x * 100)}%`);
 
   return (
@@ -130,16 +137,16 @@ export function Analises() {
       <ResumoInvestimentoCartao />
 
       <div className="duas-colunas">
-        <Cartao titulo="Lucro por categoria">
-          <BarrasHorizontais linhas={e.porCategoria.map((l) => ({ nome: l.nome, valor: l.lucro, detalhe: `ROI ${pct(l.roi)} · ${plural(l.vendas, 'venda', 'vendas')}` }))} />
+        <Cartao titulo="Lucro por categoria" acao={pCat.seletor}>
+          <BarrasHorizontais linhas={pCat.e.porCategoria.map((l) => ({ nome: l.nome, valor: l.lucro, detalhe: `ROI ${pct(l.roi)} · ${plural(l.vendas, 'venda', 'vendas')}` }))} />
         </Cartao>
-        <Cartao titulo="Lucro por conta">
-          <BarrasHorizontais linhas={e.porConta.map((l) => ({ nome: l.nome, valor: l.lucro, detalhe: plural(l.vendas, 'venda', 'vendas') }))} />
+        <Cartao titulo="Lucro por conta" acao={pConta.seletor}>
+          <BarrasHorizontais linhas={pConta.e.porConta.map((l) => ({ nome: l.nome, valor: l.lucro, detalhe: plural(l.vendas, 'venda', 'vendas') }))} />
         </Cartao>
       </div>
 
-      <Cartao titulo="Subcategorias">
-        {e.porSubcategoria.length === 0 ? (
+      <Cartao titulo="Subcategorias" acao={pSub.seletor}>
+        {pSub.e.porSubcategoria.length === 0 ? (
           <p className="mudo">Sem vendas no período.</p>
         ) : (
           <div className="tabela-scroll">
@@ -165,9 +172,9 @@ export function Analises() {
             </table>
           </div>
         )}
-        {e.porSubcategoria.length > 8 && (
+        {pSub.e.porSubcategoria.length > 8 && (
           <button className="link" onClick={() => setVerSub((x) => !x)}>
-            {verSub ? 'Mostrar menos' : `Mostrar todas (${e.porSubcategoria.length})`}
+            {verSub ? 'Mostrar menos' : `Mostrar todas (${pSub.e.porSubcategoria.length})`}
           </button>
         )}
       </Cartao>
@@ -244,9 +251,12 @@ export function Analises() {
       <Cartao
         titulo="Tempo até vender"
         acao={
-          <div className="segmentos segmentos-mini" role="group">
-            <button className={rapidos ? 'ativo' : ''} onClick={() => setRapidos(true)}>Mais rápidos</button>
-            <button className={!rapidos ? 'ativo' : ''} onClick={() => setRapidos(false)}>Mais lentos</button>
+          <div className="acoes-tabela">
+            {pTempo.seletor}
+            <div className="segmentos segmentos-mini" role="group">
+              <button className={rapidos ? 'ativo' : ''} onClick={() => setRapidos(true)}>Mais rápidos</button>
+              <button className={!rapidos ? 'ativo' : ''} onClick={() => setRapidos(false)}>Mais lentos</button>
+            </div>
           </div>
         }
       >
@@ -254,6 +264,26 @@ export function Analises() {
       </Cartao>
     </div>
   );
+}
+
+/**
+ * Período próprio de uma tabela (pedido do Ricardo): um seletor pequeno no canto do cartão, por
+ * defeito "Sempre", e as estatísticas calculadas com esse período (e a conta/produto do topo).
+ */
+function usePeriodoTabela(dados: Dados, filtro: { contaId?: string; texto?: string }, h: string) {
+  const [p, setP] = useState<Predefinicao>('tudo');
+  const intervalo = intervaloDe(p, h);
+  const e = useMemo(
+    () => estatisticas(dados, { intervalo, ...filtro }, h),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dados, intervalo.inicio, intervalo.fim, filtro.contaId, filtro.texto, h],
+  );
+  const seletor = (
+    <select className="seletor-mini" value={p} onChange={(ev) => setP(ev.target.value as Predefinicao)} aria-label="Período da tabela">
+      {PREDEFINICOES.map((x) => <option key={x.valor} value={x.valor}>{x.nome}</option>)}
+    </select>
+  );
+  return { e, seletor };
 }
 
 /** Lista de produtos com os dias que demoraram a vender. */
