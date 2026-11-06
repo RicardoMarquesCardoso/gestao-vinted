@@ -265,18 +265,22 @@ A ideia central: **um lucro de 20% em 1 mês vale muito mais do que 20% em 2 ano
 
 Sempre que um produto muda para *anunciado*, abre-se um período, e quando deixa de estar fecha-se, com o motivo (vendido ou retirado; vender a unidade anunciada de um produto com mais unidades conta como vendido, `fecharPeriodoVendido`). As mudanças de preço ficam registadas dentro do período. Tudo fica no campo `produtos.anuncios`. Assim, com o tempo, vai dar para saber quanto demora cada tipo de produto a vender **depois de anunciado** e se baixar o preço ajuda.
 
-### Topo das Análises: 4 números e vendas por semana
+### Topo das Análises: Balanço e vendas por semana
 
-Pedido do Ricardo (nov/2026). No topo do ecrã:
+Pedido do Ricardo (nov/2026): perceber de relance quanto já se lucrou, quanto está parado e quanto se pode vir a ter. O cartão **Balanço** (`Balanco` em `pages/Analises.tsx`) é sempre **desde o início** (um balanço de um só período não faria sentido) e respeita os filtros de conta e produto:
 
-| Número | O que é | Depende do período? |
-|---|---|---|
-| **Dinheiro investido** | Custo das unidades em stock (dinheiro parado) | Não, é o stock de agora |
-| **Lucro concretizado** | Lucro das vendas concluídas | Sim (▲▼ vs. período anterior) |
-| **Lucro potencial** | Lucro concretizado + o que o stock daria se se vendesse cada unidade ao preço de referência (`referencia` do plano: nossas vendas → BrickLink → eBay → TCGplayer → PVP), menos o custo (`lucroPotencial`); por baixo, "stock +X €" (só a parte do stock). As unidades sem preço de referência não entram | Em parte (o concretizado) |
-| **Valorização média** | Lucro ÷ custo das vendas do período | Sim (▲▼ em pontos percentuais) |
+| Parte | Linha | Fórmula | Exemplo (gastei 100 € em 2 produtos, vendi um por 90 €) |
+|---|---|---|---|
+| Hoje | **Caixa** | recebido (líquido) − gasto em compras | 90 − 100 = **−10 €** |
+| Hoje | **Lucro feito** | recebido − custo do que se vendeu | 90 − 50 = **+40 €** |
+| Hoje | **Parado em stock** | custo do que está em stock | **50 €** |
+| Hoje | barra | o gasto dividido em vendido / parado (a custo) | 50 / 50 |
+| Se vender tudo | **Lucro total** | lucro feito + lucro do stock ao preço de referência (`lucroPotencial`; sem preço conta pelo custo) | 40 + 40 = **+80 €** |
+| Se vender tudo | **Investimento recuperado** | recebido ÷ gasto | 90% |
 
-O período do topo começa em **Sempre**. As tabelas mais abaixo (lucro por categoria, por conta, subcategorias e tempo até vender) têm o **seu próprio período**, num seletor pequeno no canto de cada uma (por defeito Sempre); a conta e o produto do topo aplicam-se a todas. Os filtros de conta e de produto aplicam-se aos quatro. Por baixo de cada número, no máximo 2-3 palavras (ex.: "11 unidades", "▲ 12%").
+Com os registos coerentes, caixa + valor do stock = lucro total (−10 + 90 = 80).
+
+O período do topo começa em **Sempre** e aplica-se às vendas por semana e ao resto do ecrã. As tabelas mais abaixo (lucro por categoria, por conta, subcategorias e tempo até vender) têm o **seu próprio período**, num seletor pequeno no canto de cada uma (por defeito Sempre); a conta e o produto do topo aplicam-se a todas.
 
 Logo a seguir, **Vendas por semana** (segunda a domingo, últimas 26 semanas do período, semanas vazias incluídas): em cada semana, uma barra com o **recebido** e, por baixo noutra cor, a parte que é **lucro**; ao lado, uma barra **vermelha** com os **gastos** em compras dessa semana. Tocar numa semana mostra o n.º de vendas, o recebido, o lucro e os gastos (`estatisticas` → `porSemana`, `BarrasSemanas`).
 

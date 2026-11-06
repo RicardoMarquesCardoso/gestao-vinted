@@ -1,6 +1,5 @@
-// Ecrã "Análises". No topo, os 4 números principais (pedido do Ricardo): dinheiro investido (custo
-// do stock), lucro concretizado (no período), lucro potencial (concretizado + stock ao preço de
-// referência, lib/plano.ts → lucroPotencial) e valorização média das vendas (lucro ÷ custo, no período); logo a
+// Ecrã "Análises". No topo, o Balanço (pedido do Ricardo): hoje (caixa, lucro feito, parado, com a
+// barra vendido/parado) e se vender tudo (lucro total, investimento recuperado), desde sempre; logo a
 // seguir as vendas por semana (recebido com o lucro noutra cor + gastos a vermelho). Depois: destaques
 // (lib/insights.ts: melhor/pior tema, preço final vs. anunciado, tempo anunciado, stock parado,
 // vagas nas contas, maior aposta), lucro por mês, rentabilidade vs. tempo por tema (dispersão),
@@ -12,7 +11,7 @@ import { useAbrir } from '../components/acoes';
 import { BarrasHorizontais, BarrasMensais, BarrasSemanas, Dispersao } from '../components/Graficos';
 import { useContextoPlano } from '../components/planos';
 import { lucroPotencial } from '../lib/plano';
-import { desempenhoTemas, destaques, periodoAnterior, variacao } from '../lib/insights';
+import { desempenhoTemas, destaques } from '../lib/insights';
 import type { Destaque } from '../lib/insights';
 import { Cartao } from '../components/ui';
 import { PREDEFINICOES, correspondeTexto, estatisticas, idadeStock, intervaloDe, lotes } from '../lib/calc';
@@ -41,13 +40,6 @@ export function Analises() {
     () => estatisticas(dados, { intervalo, contaId: conta || undefined, texto: texto.trim() || undefined }, h),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [dados, intervalo.inicio, intervalo.fim, conta, texto, h],
-  );
-  // Mesmo filtro no período anterior, para as setas ▲▼
-  const anterior = periodoAnterior(intervalo, h);
-  const ant = useMemo(
-    () => (anterior ? estatisticas(dados, { intervalo: anterior, contaId: conta || undefined, texto: texto.trim() || undefined }, h) : null),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dados, anterior?.inicio, anterior?.fim, conta, texto, h],
   );
   const lista = useMemo(() => destaques(dados, intervalo, h), [dados, intervalo.inicio, intervalo.fim, h]);
   // Lucro potencial do stock ao preço de referência (lib/plano.ts), com o mesmo filtro de conta/texto
@@ -94,21 +86,8 @@ export function Analises() {
         <input type="search" className="filtro-procura" placeholder="Produto ou n.º de set" value={texto} onChange={(ev) => setTexto(ev.target.value)} />
       </div>
 
-      {/* Os 4 números principais (pedido do Ricardo), com uma linha de 2-3 palavras no máximo.
-          Lucro potencial = lucro já concretizado (período) + lucro do stock se se vendesse tudo ao
-          preço avaliado (lucroPotencial). Dinheiro investido é o stock de agora. */}
-      <div className="kpis kpis-4">
-        <Kpi nome="Dinheiro investido" valor={fmtEuro(e.inventarioCusto)} agora={0} detalhe={plural(e.inventarioUnidades, 'unidade', 'unidades')} />
-        <Kpi destaque nome="Lucro concretizado" valor={fmtEuro(e.lucro)} negativo={e.lucro < 0} agora={e.lucro} antes={ant?.lucro} />
-        <Kpi
-          nome="Lucro potencial"
-          valor={fmtEuro(e.lucro + potencial.lucro)}
-          negativo={e.lucro + potencial.lucro < 0}
-          agora={0}
-          detalhe={`stock ${potencial.lucro >= 0 ? '+' : ''}${fmtEuro(potencial.lucro)}`}
-        />
-        <Kpi nome="Valorização média" valor={e.margem !== null ? pct(e.margem) : '—'} negativo={(e.margem ?? 0) < 0} agora={e.margem ?? 0} antes={ant?.margem ?? undefined} pontos />
-      </div>
+      {/* Balanço (pedido do Ricardo): hoje vs. se vender tudo, desde sempre, com a conta/produto do topo */}
+      <Balanco dados={dados} filtro={{ contaId: conta || undefined, texto: texto.trim() || undefined }} potencial={potencial} h={h} />
 
       <Cartao titulo="Vendas por semana">
         <BarrasSemanas dados={e.porSemana} />
@@ -263,6 +242,78 @@ export function Analises() {
         <ListaTempos itens={tempos} abrir={(id) => abrir({ tipo: 'detalhe', id })} />
       </Cartao>
     </div>
+  );
+}
+
+/**
+ * Balanço geral (pedido do Ricardo, nov/2026): "quanto já lucrei, quanto tenho parado e quanto
+ * posso vir a ter". Sempre desde o início (um balanço não faz sentido só num período), com os
+ * filtros de conta e produto do topo.
+ *   HOJE
+ *     Caixa = recebido (líquido das vendas) − gasto (compras)       ex.: gastei 100, vendi por 90 → −10 €
+ *     Lucro feito = recebido − custo do que se vendeu               ex.: 90 − 50 = +40 €
+ *     Parado = custo do stock                                       ex.: 50 €
+ *     Barra: o gasto dividido em vendido (custo) e parado (custo).
+ *   SE VENDER TUDO
+ *     Lucro total = lucro feito + lucro do stock ao preço avaliado (lucroPotencial; as unidades sem
+ *     preço contam pelo custo, sem lucro)                            ex.: 40 + 40 = +80 €
+ *     Investimento recuperado = recebido ÷ gasto (a barra verde).
+ * Quando os registos batem certo, a caixa + o valor do stock dá o lucro total.
+ */
+function Balanco(props: { dados: Dados; filtro: { contaId?: string; texto?: string }; potencial: { lucro: number; custo: number; valor: number }; h: string }) {
+  const g = useMemo(
+    () => estatisticas(props.dados, { intervalo: { inicio: null, fim: null }, ...props.filtro }, props.h),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [props.dados, props.filtro.contaId, props.filtro.texto, props.h],
+  );
+  const caixa = g.recebido - g.gasto;
+  const custoVendido = g.recebido - g.lucro;
+  const total = g.lucro + props.potencial.lucro;
+  const recuperado = g.gasto > 0 ? g.recebido / g.gasto : null;
+  const sinal = (v: number) => `${v > 0 ? '+' : ''}${fmtEuro(v)}`;
+  const partes = custoVendido + g.inventarioCusto;
+  return (
+    <section className="cartao balanco" aria-label="Balanço">
+      <div className="balanco-titulo">Hoje</div>
+      <div className="balanco-linha">
+        <span>Caixa</span>
+        <strong className={caixa < 0 ? 'negativo' : 'positivo'}>{sinal(caixa)}</strong>
+      </div>
+      <div className="balanco-linha">
+        <span>Lucro feito</span>
+        <strong className={g.lucro < 0 ? 'negativo' : 'positivo'}>{sinal(g.lucro)}</strong>
+      </div>
+      <div className="balanco-linha">
+        <span>Parado em stock</span>
+        <strong>{fmtEuro(g.inventarioCusto)}</strong>
+      </div>
+      {partes > 0 && (
+        <>
+          <div className="balanco-barra" role="img" aria-label={`Gasto: vendido ${fmtEuro(custoVendido)}, parado ${fmtEuro(g.inventarioCusto)}`}>
+            <span className="balanco-vendido" style={{ flex: Math.max(custoVendido, 0) }} />
+            <span className="balanco-parado" style={{ flex: g.inventarioCusto }} />
+          </div>
+          <div className="balanco-legenda">
+            <span><i className="balanco-vendido" /> vendido {fmtEuro(custoVendido)}</span>
+            <span><i className="balanco-parado" /> parado {fmtEuro(g.inventarioCusto)}</span>
+          </div>
+        </>
+      )}
+      <hr />
+      <div className="balanco-titulo">Se vender tudo</div>
+      <div className="balanco-linha balanco-total">
+        <span>Lucro total</span>
+        <strong className={total < 0 ? 'negativo' : 'positivo'}>{sinal(total)}</strong>
+      </div>
+      {recuperado !== null && (
+        <>
+          <div className="balanco-recuperado mudo">Investimento recuperado {Math.round(recuperado * 100)}%</div>
+          <div className="balanco-progresso">
+            <span style={{ width: `${Math.min(recuperado, 1) * 100}%` }} />
+          </div>
+        </>
+      )}
+    </section>
   );
 }
 
@@ -440,24 +491,6 @@ function EstadoSet({ l }: { l: LinhaInvestimento }) {
 }
 
 /** Número do topo com a variação face ao período anterior (▲ verde / ▼ vermelho). pontos: variação em pontos percentuais. */
-/** Um número principal: com "antes" mostra ▲▼ vs. o período anterior; com "detalhe", essa linha em vez disso. */
-function Kpi(props: { nome: string; valor: string; agora: number; antes?: number; destaque?: boolean; negativo?: boolean; pontos?: boolean; detalhe?: string }) {
-  const v = props.antes === undefined ? null : props.pontos ? props.agora - props.antes : variacao(props.agora, props.antes);
-  return (
-    <div className={`kpi ${props.destaque ? 'kpi-destaque' : ''}`}>
-      <span>{props.nome}</span>
-      <strong className={props.negativo ? 'negativo' : ''}>{props.valor}</strong>
-      {props.detalhe ? (
-        <small className="mudo">{props.detalhe}</small>
-      ) : (
-      <small className={v === null || Math.abs(v) < 0.005 ? 'mudo' : v > 0 ? 'positivo' : 'negativo'}>
-        {v === null ? '\u00a0' : `${v > 0 ? '▲' : v < 0 ? '▼' : ''} ${props.pontos ? `${Math.round(Math.abs(v) * 100)} p.p.` : `${Math.round(Math.abs(v) * 100)}%`}`}
-      </small>
-      )}
-    </div>
-  );
-}
-
 /** Um cartão de destaque: título curto, número grande e uma linha de pormenor. */
 function CartaoDestaque({ d }: { d: Destaque }) {
   return (

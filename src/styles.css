@@ -937,3 +937,19 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 /* Análises: período próprio de cada tabela (pedido do Ricardo) */
 select.seletor-mini, .cartao select.seletor-mini { width: auto; max-width: 11.5em; min-height: 0; padding: 4px 26px 4px 10px; font-size: 0.8rem; border-radius: 999px; }
 .acoes-tabela { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; align-items: center; }
+
+/* Análises: Balanço "Hoje / Se vender tudo" (pedido do Ricardo, nov/2026) */
+.balanco { padding: 16px; }
+.balanco-titulo { font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--texto-3); margin-bottom: 4px; }
+.balanco-linha { display: flex; justify-content: space-between; align-items: baseline; padding: 5px 0; font-variant-numeric: tabular-nums; }
+.balanco-linha strong { font-size: 1.1rem; }
+.balanco-total strong { font-size: 1.6rem; }
+.balanco-barra { display: flex; height: 10px; border-radius: 5px; overflow: hidden; margin: 10px 0 6px; background: var(--superficie-2); }
+.balanco-legenda { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.78rem; color: var(--texto-2); font-variant-numeric: tabular-nums; }
+.balanco-legenda i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 3px; }
+.balanco-vendido { background: var(--barra); }
+.balanco-parado { background: #c9a227; }
+.balanco hr { border: 0; border-top: 1px solid var(--borda, var(--superficie-2)); margin: 14px 0 10px; }
+.balanco-recuperado { font-size: 0.8rem; margin-top: 6px; }
+.balanco-progresso { height: 8px; border-radius: 4px; background: var(--superficie-2); overflow: hidden; margin-top: 6px; }
+.balanco-progresso span { display: block; height: 100%; background: var(--positivo); }
