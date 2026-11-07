@@ -494,7 +494,7 @@ function PorSet({ filtro }: { filtro: FiltroTopo }) {
                   <td className="num">{l.diasMedioVenda ?? '—'}</td>
                   <td className="num">{l.emStock ? `${l.emStock} · ${fmtEuro(l.custoStock)}` : '—'}</td>
                   <td className="num">{l.emStock ? l.diasMedioStock ?? '—' : '—'}</td>
-                  <td className="num" title={l.fonteValor === 'bricklink' ? 'BrickLink, sem IVA' : l.fonteValor === 'ebay' ? 'eBay Europa: mediana dos preços pedidos, com desconto' : l.fonteValor === 'tcgplayer' ? 'TCGplayer (EUA), convertido para euros' : l.fonteValor === 'vendas' ? 'Pela vossa venda média' : ''}>
+                  <td className="num" title={l.fonteValor === 'bricklink' ? 'BrickLink, sem IVA' : l.fonteValor === 'ebay' ? 'eBay Europa e Wallapop: mediana dos preços pedidos, com desconto' : l.fonteValor === 'tcgplayer' ? 'TCGplayer (EUA), convertido para euros' : l.fonteValor === 'vendas' ? 'Pela vossa venda média' : ''}>
                     {l.valorEstimadoStock !== null ? fmtEuro(l.valorEstimadoStock) : '—'}
                     {l.fonteValor === 'vendas' && <small className="mudo"> *</small>}
                   </td>

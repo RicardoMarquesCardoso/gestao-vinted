@@ -215,7 +215,8 @@ Para não ter de mudar a estrutura da base de dados a cada nova ideia, as config
 | `promocoes_vistas` | Promoções dispensadas do Painel |
 | `sets_avaliar` | Sets que acompanhávamos sem os ter (antigo botão *Acompanhar*, substituído pelo *Procurar no eBay*): a tarefa diária continua a ir buscar o eBay deles |
 | `ebay_pesquisas` | Pesquisas do eBay por set: `{ data, mediana, anuncios, auto? }`, do botão *Procurar no eBay* ou da rotação automática do Continente (`auto: true`). No máximo uma por set a cada 7 dias. Escreve-se só pela função SQL `registar_pesquisa_ebay` |
-| `token_rotacao_ebay` | Código que o pg_cron envia à função `ebay-rotacao` |
+| `token_rotacao_ebay` | Código que o pg_cron envia às funções `ebay-rotacao` e `wallapop-rotacao` |
+| `wallapop_pesquisas` | Pesquisas da Wallapop por set em stock: `{ data, mediana, anuncios, hist: [[data, mediana, anuncios], …] }` (últimas 30). Escreve-se só pela função SQL `registar_pesquisa_wallapop` (rotação semanal) |
 
 ---
 
@@ -289,7 +290,7 @@ Logo a seguir, **Vendas por semana** ou **por mês**: o eixo do tempo segue o pe
 ```
 rentabilidade por ano = lucro ÷ (custo × dias com o dinheiro preso ÷ 365)
 dinheiro parado       = custo do stock, e há quantos dias está parado (média pesada pelo custo)
-valor estimado        = unidades em stock × preço de mercado (BrickLink, eBay com desconto, TCGplayer ou a nossa venda média)
+valor estimado        = unidades em stock × preço de mercado (BrickLink, eBay/Wallapop com desconto, TCGplayer ou a nossa venda média)
 ```
 
 Conta **o que já foi vendido**, que dá a rentabilidade real, **e o que está em stock**, que dá o dinheiro parado e o valor estimado.
@@ -315,7 +316,7 @@ flowchart TD
   P -- não --> V4[VENDER<br/>para libertar o dinheiro]
 ```
 
-- **Preço de referência**, por esta ordem: as nossas vendas do mesmo produto nos últimos 2 anos (as do último ano pesam mais) → BrickLink → **eBay** (mediana dos anúncios de novos na Europa, com o **desconto real medido nas nossas vendas**, ver abaixo) → TCGplayer (Pokémon) → PVP da Brickset: com 20% de desconto se ainda estiver à venda na LEGO, ou, se já foi retirado, o PVP valorizado desde a retirada com as mesmas taxas das regras (no máximo o dobro do PVP).
+- **Preço de referência**, por esta ordem: as nossas vendas do mesmo produto nos últimos 2 anos (as do último ano pesam mais) → BrickLink → **mercado: eBay e Wallapop** (eBay: mediana dos anúncios de novos na Europa, com o **desconto real medido nas nossas vendas**, ver abaixo; Wallapop: mediana dos anúncios de novos em PT/ES × a percentagem a que vendemos, ver *Wallapop*; com os dois, a média pesada pelo n.º de anúncios de cada um, no máximo 20) → TCGplayer (Pokémon) → PVP da Brickset: com 20% de desconto se ainda estiver à venda na LEGO, ou, se já foi retirado, o PVP valorizado desde a retirada com as mesmas taxas das regras (no máximo o dobro do PVP).
 - **Subida da retirada ("pop"), só nos exclusivos LEGO:** um set **vendido só pela LEGO** (Brickset: "LEGO exclusive") perto da retirada (sai nos próximos 6 meses ou saiu há menos de 12, pela data real do Brickset) guarda-se até ~12 meses depois da retirada, mesmo que já dê lucro. Os sets vendidos nas lojas normais **não** se guardam por esta regra: vendem-se quando o lucro compensa. O plano mostra uma estimativa do valor nessa data, só como informação. Os 2 números de meses editam-se em Definições. Sets especiais que não são exclusivos (ex.: minifigura muito procurada) decidem-se à mão.
   - **Porquê (out/2026):** analisaram-se 10 sets no BrickEconomy, comparando com o **PVP europeu** (o BrickEconomy usa o mercado dos EUA e o preço de lá, mais baixo). Os sets das lojas quase não subiram depois da retirada, mesmo os grandes: Lamborghini Countach 0%, Triwizard −10%, Dobby e Batmobile +15–25% e depois parados, Disney Duos +25%. Na Vinted recebe-se ~0,85 do valor do BrickEconomy (variando entre 0,6 e 1,3). Nos exclusivos LEGO não há promoções nas lojas a encher o mercado, e a subida demora 12–18 meses a construir-se. Nessa altura passaram de 18 para 4 os produtos guardados (828 € → 443 €).
 - **Valorização esperada** (taxas fixas iguais para todos os sets, editáveis em Definições; não é uma previsão por set):
@@ -365,6 +366,8 @@ Escreve-se só o n.º do set. A app calcula (`precosCompra`):
 preço de venda esperado = a primeira que existir de:
     1. as nossas vendas deste set (as mesmas dos planos)
     2. eBay: mediana pedida (botão Procurar no eBay, ou a da tarefa diária se for mais recente) × a % a que costumamos vender (calibrarEbay)
+       + Wallapop: mediana pedida (rotação semanal) × a % a que costumamos vender (calibrarWallapop, reserva 85%)
+       → com os dois, uma linha "Mercado" com a média pesada pelo n.º de anúncios
     3. PVP × a % do PVP a que costumamos vender (calibrarPvp), à parte para sets à venda e retirados
 dias até vender        = mediana (compra → venda) das nossas vendas deste set; senão do tema (≥ 5 vendas); senão de todas
 preço máximo (escalão) = venda esperada ÷ (1 + margem do escalão), e nunca mais do que venda − 5 €
@@ -443,6 +446,17 @@ O ecrã **Vale a pena?** precisa do eBay de sets que talvez nunca tivemos, e a t
 **Corre quando se carrega no botão** *Procurar no eBay* do detalhe do set (pedido do Ricardo, nov/2026); abrir o detalhe ou uma promoção não pesquisa nada. A própria função guarda o resultado em `definicoes.ebay_pesquisas` (função SQL `registar_pesquisa_ebay`, partilhado pelos dois) e conta logo nas avaliações, aqui e nas promoções. **O mesmo set só se volta a procurar passados 7 dias**: até lá o botão mostra a data da pesquisa e a partir de quando se pode repetir. Se a tarefa diária tiver um eBay mais recente desse set, usa-se o dela.
 
 Se as chaves ainda não estiverem no Supabase, a função responde `sem_chaves` e o botão avisa que faltam; nada fica guardado.
+
+### Wallapop (função `wallapop-rotacao`)
+
+O "preço da concorrência" (pedido do Ricardo, nov/2026). A Wallapop não tem API pública: usa-se a mesma pesquisa que o site pt.wallapop.com faz, sem login e com muito pouco volume.
+
+- O **pg_cron** chama a função `wallapop-rotacao` **a cada 10 minutos** (com o `token_rotacao_ebay`). Cada chamada faz **1 pesquisa** ("lego <set>") de 1 set: os LEGO **em stock** (por anunciar ou anunciados) não procurados há menos de 7 dias (`sets_rotacao_wallapop`, máx. 100 por dia). Com ~75 sets, são ~11 pesquisas por dia.
+- **Filtros** (`supabase/functions/_shared/wallapop.ts`, testados em `tests/wallapop.test.ts`): só anúncios com o n.º do set no título; fora caixas vazias, suportes/molduras expositoras, instruções, luzes, peças/mods, minifiguras, lotes e títulos com outro n.º de set; fora os que dizem usado/montado/sem caixa/incompleto; fora preços abaixo de 40% ou acima de 250% da mediana. Com menos de 3 anúncios válidos não há mediana. No teste de nov/2026 (8 sets) o ruído ia de 0% a 70% dos anúncios; quase todos são de Espanha.
+- Guarda em `definicoes.wallapop_pesquisas` (`registar_pesquisa_wallapop`), com o histórico das últimas 30 pesquisas de cada set.
+- **Na app** (`src/lib/wallapop.ts`): conta a última pesquisa com mediana e até 30 dias. É preço **pedido**, por isso × a percentagem a que vendemos: medida nas nossas vendas face à Wallapop da mesma altura (±30 dias, `calibrarWallapop`, a partir de 10 sets) ou, até lá, **85%** (`RACIO_WALLAPOP`: em nov/2026 os nossos anúncios estavam ao nível da mediana da Wallapop e vendemos a ~83% do último preço anunciado). Junta-se ao eBay (`juntarMercado`): média pesada pelos anúncios (máx. 20 cada).
+- Não há vendidos: os anúncios vendidos desaparecem da pesquisa.
+- Para parar: `select cron.unschedule('wallapop-rotacao');` no SQL Editor do Supabase.
 
 ### Rotação do Continente (função `ebay-rotacao`)
 
@@ -562,6 +576,7 @@ src/
     promocoes.ts            promoções recebidas de outra app (lista, novas, sets e preços)
     fotos.ts                fotografias: original + miniatura, caminhos, regras da limpeza
     avaliar.ts              "Vale a pena?": avaliar uma compra, PVP medido, tempo até vender, links Vinted/eBay
+    wallapop.ts             Wallapop: pesquisas guardadas, % a que vendemos, média com o eBay
     anuncio.ts              texto dos anúncios
     anuncios.ts             registo automático do tempo anunciado
     store.ts                "contrato" de dados: Supabase ou demonstração
@@ -604,6 +619,8 @@ supabase/schema.sql         tabelas, regras de segurança e funções da base de
 supabase/functions/ebay-set Edge Function: eBay de um set, pedido no botão (só para membros)
 supabase/functions/ebay-rotacao Edge Function: rotação automática dos sets do Continente (pg_cron)
 supabase/functions/_shared/ebay.ts pesquisa do eBay partilhada pelas duas
+supabase/functions/wallapop-rotacao Edge Function: Wallapop dos sets em stock, 1 por chamada (pg_cron)
+supabase/functions/_shared/wallapop.ts pesquisa e filtros da Wallapop (também usados nos testes)
 tests/                      testes automáticos dos cálculos
 CLAUDE.md                   notas e regras para o Claude quando altera a app
 ```
@@ -676,6 +693,6 @@ No ecrã de entrada: **Experimentar com dados de exemplo**. Os dados ficam só n
 - **Sincronização:** não é instantânea. A app atualiza de minuto a minuto e ao voltar a ela, e descarrega tudo de cada vez (~300 KB em nov/2026). Com dezenas de milhares de linhas valeria a pena ler só o que mudou (coluna `atualizado_em` + filtro), o que pede uma alteração à base de dados.
 - **Edição da mesma linha ao mesmo tempo:** nas tabelas normais (produtos, vendas…) ganha a última gravação, campo a campo; as definições já se juntam (ver Sincronização).
 - **Preços Pokémon:** vêm do TCGplayer, que é o mercado dos EUA. A API do Cardmarket não aceita novos pedidos, e um plano pago da PokemonPriceTracker daria preços do Cardmarket.
-- **Sugestões LEGO:** sem a BrickLink, não há preços de **venda** reais de mercado. A referência são as nossas vendas, os anúncios do eBay (preços pedidos) e o PVP da Brickset (valorizado se o set já foi retirado). Os valores das regras devem ser afinados com os dados reais de tempo anunciado.
+- **Sugestões LEGO:** sem a BrickLink, não há preços de **venda** reais de mercado. A referência são as nossas vendas, os anúncios do eBay e da Wallapop (preços pedidos) e o PVP da Brickset (valorizado se o set já foi retirado). Os valores das regras devem ser afinados com os dados reais de tempo anunciado.
 - **Compras:** já existe o **Vale a pena?** (avaliar uma promoção à mão). Próximos passos: lista de desejos com preço-alvo, guardar cada estimativa para repetir o teste com o passado, e decidir se os planos devem usar o PVP medido em vez das taxas de valorização (mostrar primeiro o impacto no stock).
 - **Vinted e eBay vendidos:** não há acesso automático (termos de uso). Podem enviar-se capturas de ecrã ao Claude para registar preços observados.

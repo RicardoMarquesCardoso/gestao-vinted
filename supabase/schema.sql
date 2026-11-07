@@ -402,3 +402,78 @@ create extension if not exists pg_cron;
 --     body := jsonb_build_object('token', (select valor #>> '{}' from public.definicoes where chave = 'token_rotacao_ebay')),
 --     timeout_milliseconds := 60000)
 -- $c$);
+
+-- ---------------------------------------------------------------------
+-- 9) Wallapop: pesquisas guardadas (definicoes.wallapop_pesquisas) e rotação automática dos
+--    sets em stock (pedido do Ricardo, nov/2026). Mesmo esquema do eBay (secção 8).
+--    - registar_pesquisa_wallapop: junta UMA pesquisa ao objeto
+--      { set: { data, mediana, anuncios, hist: [[data, mediana, anuncios], …] } } sem apagar as
+--      outras. "hist" guarda as últimas 30 pesquisas do set, para comparar cada venda com a
+--      Wallapop da mesma altura (calibrarWallapop). Só a função wallapop-rotacao chama, com o
+--      token_rotacao_ebay (o mesmo código da rotação do eBay).
+--    - sets_rotacao_wallapop: o próximo set a procurar: os LEGO em stock (por anunciar ou
+--      anunciados) não procurados há menos de 7 dias; primeiro os nunca procurados. Máx. 100/dia.
+--    - O pg_cron chama a função wallapop-rotacao a cada 10 minutos, 1 set (1 pedido) de cada vez.
+-- ---------------------------------------------------------------------
+create or replace function public.registar_pesquisa_wallapop(p_set text, p_mediana numeric, p_anuncios int, p_token text)
+returns void
+language plpgsql security definer set search_path to 'public' as $$
+declare
+  s text := regexp_replace(trim(coalesce(p_set, '')), '-\d+$', '');
+  hoje text := to_char(now() at time zone 'Europe/Lisbon', 'YYYY-MM-DD');
+  atual jsonb;
+  hist jsonb;
+begin
+  if not exists (select 1 from definicoes d where d.chave = 'token_rotacao_ebay' and d.valor #>> '{}' = p_token) then
+    raise exception 'Código inválido' using errcode = '28000';
+  end if;
+  if s !~ '^\d{3,7}$' then raise exception 'Set inválido'; end if;
+  -- Bloqueia a linha para duas chamadas ao mesmo tempo não se apagarem uma à outra
+  select valor into atual from definicoes where chave = 'wallapop_pesquisas' for update;
+  if atual is null or jsonb_typeof(atual) <> 'object' then atual := '{}'::jsonb; end if;
+  hist := case when jsonb_typeof(atual -> s -> 'hist') = 'array' then atual -> s -> 'hist' else '[]'::jsonb end;
+  hist := hist || jsonb_build_array(jsonb_build_array(hoje, p_mediana, greatest(coalesce(p_anuncios, 0), 0)));
+  -- Só as últimas 30
+  if jsonb_array_length(hist) > 30 then
+    hist := (select jsonb_agg(x order by o) from jsonb_array_elements(hist) with ordinality as t(x, o) where o > jsonb_array_length(hist) - 30);
+  end if;
+  atual := atual || jsonb_build_object(s, jsonb_strip_nulls(jsonb_build_object(
+    'data', hoje, 'mediana', p_mediana, 'anuncios', greatest(coalesce(p_anuncios, 0), 0), 'hist', hist)));
+  insert into definicoes (chave, valor) values ('wallapop_pesquisas', atual)
+  on conflict (chave) do update set valor = excluded.valor;
+end;
+$$;
+revoke all on function public.registar_pesquisa_wallapop(text, numeric, int, text) from public;
+grant execute on function public.registar_pesquisa_wallapop(text, numeric, int, text) to anon, authenticated;
+
+create or replace function public.sets_rotacao_wallapop(token text, limite int default 1)
+returns setof text
+language sql stable security definer set search_path to 'public' as $$
+  with hoje as (select (now() at time zone 'Europe/Lisbon')::date as d),
+  pesq as (
+    select e.k, e.v from definicoes, jsonb_each(case when jsonb_typeof(valor) = 'object' then valor else '{}'::jsonb end) as e(k, v)
+    where chave = 'wallapop_pesquisas'
+  ),
+  feitos_hoje as (select count(*) as n from pesq, hoje where pesq.v ->> 'data' = to_char(hoje.d, 'YYYY-MM-DD')),
+  stock as (
+    select distinct regexp_replace(trim(p.set_numero), '-\d+$', '') as s from produtos p
+    where p.estado in ('por_anunciar', 'anunciado') and trim(coalesce(p.set_numero, '')) ~ '^\d{3,7}(-\d+)?$'
+      and coalesce(p.marca, 'LEGO') ilike 'lego'
+  )
+  select stock.s from stock cross join hoje left join pesq on pesq.k = stock.s
+  where exists (select 1 from definicoes d where d.chave = 'token_rotacao_ebay' and d.valor #>> '{}' = token)
+    and (pesq.v is null or (pesq.v ->> 'data')::date <= hoje.d - 7)
+  order by (pesq.v is not null), (pesq.v ->> 'data') nulls first, stock.s
+  limit greatest(0, least(coalesce(limite, 1), 100 - (select n from feitos_hoje)));
+$$;
+revoke all on function public.sets_rotacao_wallapop(text, int) from public;
+grant execute on function public.sets_rotacao_wallapop(text, int) to anon, authenticated;
+
+-- Agendamento (corre-se uma vez; para parar: select cron.unschedule('wallapop-rotacao');)
+-- select cron.schedule('wallapop-rotacao', '*/10 * * * *', $c$
+--   select net.http_post(
+--     url := 'https://<projeto>.supabase.co/functions/v1/wallapop-rotacao',
+--     headers := '{"Content-Type":"application/json"}'::jsonb,
+--     body := jsonb_build_object('token', (select valor #>> '{}' from public.definicoes where chave = 'token_rotacao_ebay')),
+--     timeout_milliseconds := 60000)
+-- $c$);

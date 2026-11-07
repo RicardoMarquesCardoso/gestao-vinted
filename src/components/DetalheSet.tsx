@@ -30,7 +30,7 @@ import { regrasPlano } from '../lib/plano';
 import { ebayAoVivo } from '../lib/supabase';
 import { useDados } from '../state';
 
-const NOME_FONTE = { vendas: 'As nossas vendas', ebay: 'eBay', pvp: 'PVP' } as const;
+const NOME_FONTE = { vendas: 'As nossas vendas', ebay: 'eBay', wallapop: 'Wallapop', mercado: 'Mercado', pvp: 'PVP' } as const;
 const NOME_ESCALAO: Record<NomeEscalao, string> = { rara: 'Oportunidade rara', otimo: 'Muito bom', bom: 'Bom' };
 
 /** O preço de um set numa promoção, para mostrar no topo do detalhe (vem da linha da lista). */

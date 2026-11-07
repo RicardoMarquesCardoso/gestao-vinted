@@ -20,6 +20,8 @@ import { ultimoResultado } from './memo';
 import { descontoEbayEfetivo, idsPokemon, infoMercado, precoPokemon } from './investimento';
 import type { Mercado } from './investimento';
 import type { Dados, Definicao, Produto, Venda } from './types';
+import { juntarMercado, racioWallapop, textoMercado, wallapopAtual } from './wallapop';
+import type { FonteMercado } from './wallapop';
 
 export const CHAVE_REGRAS = 'regras_plano';
 export const CHAVE_PLANOS = 'planos';
@@ -118,7 +120,7 @@ export interface Contexto {
 
 export interface Referencia {
   preco: number; // preço por que se espera vender uma unidade agora
-  fonte: 'vendas' | 'bricklink' | 'ebay' | 'pvp' | 'tcgplayer';
+  fonte: 'vendas' | 'bricklink' | 'ebay' | 'wallapop' | 'mercado' | 'pvp' | 'tcgplayer';
   texto: string;
 }
 
@@ -175,7 +177,7 @@ export function pvpDoProduto(p: Produto, ctx: Contexto): { valor: number; manual
   return typeof v === 'number' && v > 0 ? { valor: v, manual: true } : null;
 }
 
-/** Preço de referência para vender agora: as nossas vendas → BrickLink → eBay (com desconto) → TCGplayer (Pokémon) → PVP. */
+/** Preço de referência para vender agora: as nossas vendas → BrickLink → mercado (eBay e Wallapop, com desconto) → TCGplayer (Pokémon) → PVP. */
 export function referencia(p: Produto, ctx: Contexto): Referencia | null {
   const r = regrasPlano(ctx.dados.definicoes);
   const chave = chaveComparacao(p);
@@ -194,17 +196,11 @@ export function referencia(p: Produto, ctx: Contexto): Referencia | null {
   const m = infoMercado(ctx.mercado, p.set_numero, ctx.hoje);
   const bl = novo ? m?.blNovo : m?.blUsado ?? null;
   if (bl && bl[1] >= 2) return { preco: bl[0], fonte: 'bricklink', texto: `BrickLink: ${Math.round(bl[0])} € (${bl[1]} vendidos em 6 meses)` };
-  // eBay: preços pedidos (não de venda), por isso com desconto. Só para novos.
-  // O desconto é o real, medido nas nossas vendas (calibrarEbay); sem dados suficientes, o das regras.
-  if (novo && m?.ebay && m.ebay[1] >= 3) {
-    const desconto = descontoEbayEfetivo(ctx.dados, ctx.mercado, ctx.hoje);
-    const preco = m.ebay[0] * (1 - desconto);
-    return {
-      preco,
-      fonte: 'ebay',
-      texto: `eBay: anúncios a ~${Math.round(m.ebay[0])} € (${m.ebay[1]} na Europa); como vendemos a ~${Math.round((1 - desconto) * 100)}% do eBay, conta-se ~${Math.round(preco)} €`,
-    };
-  }
+  // Mercado: eBay e Wallapop, preços PEDIDOS (não de venda), por isso cada um × a percentagem a que
+  // costumamos vender (medida nas nossas vendas; sem dados suficientes, a de reserva). Só para novos.
+  // Com as duas, a média pesada pelo n.º de anúncios (juntarMercado, lib/wallapop.ts).
+  const mercado = novo ? precoMercado(p.set_numero, ctx) : null;
+  if (mercado) return mercado;
   // Pokémon: preço do TCGplayer (EUA), convertido para euros. É uma referência fraca (outro mercado).
   const pk = ehPokemon(p) ? precoPokemon(ctx.mercado, p.nome, idsPokemon(ctx.dados.definicoes), custoUnitario(p)) : null;
   if (pk?.eur) return { preco: pk.eur, fonte: 'tcgplayer', texto: `TCGplayer (EUA): ~${Math.round(pk.eur)} €` };
@@ -222,6 +218,25 @@ export function referencia(p: Produto, ctx: Contexto): Referencia | null {
     };
   }
   return null;
+}
+
+/**
+ * Preço de venda esperado de um set novo pelo mercado (eBay e/ou Wallapop), ou null sem nenhum.
+ * eBay: o da tarefa diária (mercado-sets.json). Wallapop: a última pesquisa da rotação (≤ 30 dias).
+ */
+export function precoMercado(set: string | null, ctx: Contexto): Referencia | null {
+  const m = infoMercado(ctx.mercado, set, ctx.hoje);
+  let ebay: FonteMercado | null = null;
+  if (m?.ebay && m.ebay[1] >= 3) {
+    const fator = 1 - descontoEbayEfetivo(ctx.dados, ctx.mercado, ctx.hoje);
+    ebay = { preco: m.ebay[0] * fator, pedido: m.ebay[0], anuncios: m.ebay[1] };
+  }
+  const w = wallapopAtual(ctx.dados.definicoes, set, ctx.hoje);
+  const wallapop: FonteMercado | null = w ? { preco: w[0] * racioWallapop(ctx.dados, ctx.hoje), pedido: w[0], anuncios: w[1] } : null;
+  const preco = juntarMercado(ebay, wallapop);
+  if (preco === null) return null;
+  const fonte = ebay && wallapop ? 'mercado' : ebay ? 'ebay' : 'wallapop';
+  return { preco, fonte, texto: `anúncios: ${textoMercado(ebay, wallapop)}; como vendemos abaixo do pedido, conta-se ~${Math.round(preco)} €` };
 }
 
 /**

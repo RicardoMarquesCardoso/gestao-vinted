@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { produtoNovo } from './anuncio';
 import { chaveComparacao, custoUnitario, custoVenda, diasEntre, emInventario, liquidoVenda, unidadesDisponiveis, vendaValida } from './calc';
 import type { Dados, Produto } from './types';
+import { juntarMercado, racioWallapop, wallapopAtual } from './wallapop';
 
 // ---------- Dados de mercado (gerados todos os dias pela GitHub Action "mercado") ----------
 
@@ -398,16 +399,25 @@ export function investimento(d: Pick<Dados, 'produtos' | 'vendas'> & Partial<Pic
   }
 
   const linhas: LinhaInvestimento[] = [];
+  // Wallapop: as pesquisas guardadas e a % a que vendemos face a ela (calculada uma vez)
+  const defs = d.definicoes ?? [];
+  const racioW = racioWallapop({ produtos: d.produtos, vendas: d.vendas, definicoes: defs }, hoje);
   for (const [chave, g] of grupos) {
     const mercado = infoMercado(m, g.setNumero, hoje);
-    // Valor estimado do stock: BrickLink → eBay (com desconto) → TCGplayer (Pokémon) → a nossa venda média líquida
+    // Valor estimado do stock: BrickLink → mercado (eBay/Wallapop, com desconto) → TCGplayer (Pokémon) → a nossa venda média líquida
     const vendaMedia = g.vendidas ? g.liquido / g.vendidas : null;
     for (const p of g.stock) {
       const u = unidadesDisponiveis(p, d.vendas);
       const bl = produtoNovo(p) ? mercado?.blNovo ?? null : mercado?.blUsado ?? mercado?.blNovo ?? null;
       const pk = precoPokemon(m, p.nome, idsPokemon(d.definicoes), custoUnitario(p));
       // eBay só para novos (procuramos anúncios de novos), com desconto por serem preços pedidos
-      const eb = produtoNovo(p) && mercado?.ebay && mercado.ebay[1] >= 3 ? mercado.ebay[0] * (1 - descontoEbayEfetivo(d, m, hoje)) : null;
+      // e Wallapop (lib/wallapop.ts), também só para novos; com os dois, a média pesada pelos anúncios
+      const ebN = produtoNovo(p) && mercado?.ebay && mercado.ebay[1] >= 3 ? mercado.ebay : null;
+      const wpN = produtoNovo(p) ? wallapopAtual(defs, g.setNumero, hoje) : null;
+      const eb = juntarMercado(
+        ebN ? { preco: ebN[0] * (1 - descontoEbayEfetivo(d, m, hoje)), pedido: ebN[0], anuncios: ebN[1] } : null,
+        wpN ? { preco: wpN[0] * racioW, pedido: wpN[0], anuncios: wpN[1] } : null,
+      );
       const unit = bl ? bl[0] : eb ?? (pk ? pk.eur : vendaMedia);
       if (unit === null) continue;
       g.valorStock += unit * u;

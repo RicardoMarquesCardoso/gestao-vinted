@@ -23,6 +23,9 @@
 //      (calibrarEbay). Vem da pesquisa feita no botão "Procurar no eBay" (função ebay-set do
 //      Supabase, guardada em definicoes.ebay_pesquisas; no máximo uma por set a cada 7 dias) ou,
 //      se a tarefa diária tiver um valor mais recente, dos dados do dia (mercado-sets.json).
+//   2b. A Wallapop (rotação semanal dos sets em stock, lib/wallapop.ts) × a percentagem a que
+//      costumamos vender. Com eBay e Wallapop, uma só estimativa "mercado": a média dos dois,
+//      pesada pelo n.º de anúncios (pedido do Ricardo, nov/2026: "mais uma variável").
 //   3. O PVP da Brickset × a percentagem do PVP a que costumamos vender, medida nas nossas
 //      vendas (calibrarPvp), separada para sets ainda à venda e já retirados.
 //
@@ -41,6 +44,8 @@ import type { InfoMercado, Mercado } from './investimento';
 import { fmtData, fmtMesAno } from './format';
 import { ultimoResultado } from './memo';
 import { referencia, regrasPlano } from './plano';
+import { juntarMercado, racioWallapop, textoMercado, wallapopAtual } from './wallapop';
+import type { FonteMercado } from './wallapop';
 import type { Dados, Produto, Venda } from './types';
 
 /** Lucro mínimo (em euros) para uma compra valer a vaga: cada conta só pode ter 30 vendas por ano. */
@@ -53,7 +58,9 @@ export const RACIO_PVP_RETIRADO = 0.8;
 const MIN_SETS_PVP = 5;
 
 /** Erro típico de cada fonte, medido no teste com o passado (out/2026). Só para informar. */
-export const ERRO_TIPICO = { vendas: 0.11, ebay: 0.12, pvp: 0.2 } as const;
+export const ERRO_TIPICO = { vendas: 0.11, ebay: 0.12, wallapop: 0.12, mercado: 0.12, pvp: 0.2 } as const;
+// A Wallapop (nov/2026) ainda não tem teste com o passado: assume-se o mesmo erro do eBay, e o
+// mesmo para a média dos dois ("mercado"). Rever quando houver vendas comparáveis.
 
 export type FonteAvaliacao = keyof typeof ERRO_TIPICO;
 
@@ -61,7 +68,7 @@ export interface Estimativa {
   fonte: FonteAvaliacao;
   preco: number;
   texto: string;
-  /** Só no eBay: a mediana do preço PEDIDO (antes da % a que costumamos vender). */
+  /** Com eBay (fonte "ebay" ou "mercado"): a mediana do preço PEDIDO no eBay (antes da % a que costumamos vender). */
   pedido?: number;
 }
 
@@ -242,13 +249,27 @@ export function estimativas(ctx: ContextoAvaliacao, set: string, ebayAoVivo?: [n
     eb = [pesquisa.mediana, pesquisa.anuncios];
     quando = ` · procurado a ${fmtData(pesquisa.data).slice(0, 5)}`;
   } else eb = diario;
-  if (eb) {
-    const fator = 1 - descontoEbayEfetivo(ctx.dados, ctx.mercado, ctx.hoje);
+  const ebay: FonteMercado | null = eb ? { preco: eb[0] * (1 - descontoEbayEfetivo(ctx.dados, ctx.mercado, ctx.hoje)), pedido: eb[0], anuncios: eb[1] } : null;
+  // 2b. Wallapop (rotação semanal dos sets em stock, lib/wallapop.ts) × a % a que costumamos vender
+  const w = wallapopAtual(ctx.dados.definicoes, set, ctx.hoje);
+  const racioW = racioWallapop(ctx.dados, ctx.hoje);
+  const wallapop: FonteMercado | null = w ? { preco: w[0] * racioW, pedido: w[0], anuncios: w[1] } : null;
+  // Com os dois, uma só linha "Mercado" com a média pesada pelo n.º de anúncios (juntarMercado)
+  if (ebay && wallapop) {
+    r.push({ fonte: 'mercado', preco: juntarMercado(ebay, wallapop)!, pedido: ebay.pedido, texto: `${textoMercado(ebay, wallapop)}${quando}` });
+  } else if (ebay) {
+    const fator = ebay.preco / ebay.pedido;
     r.push({
       fonte: 'ebay',
-      preco: eb[0] * fator,
-      pedido: eb[0],
-      texto: `preço típico ~${Math.round(eb[0])} € em ~${eb[1]} anúncios (vendemos a ~${Math.round(fator * 100)}% disso)${quando}`,
+      preco: ebay.preco,
+      pedido: ebay.pedido,
+      texto: `preço típico ~${Math.round(ebay.pedido)} € em ~${ebay.anuncios} anúncios (vendemos a ~${Math.round(fator * 100)}% disso)${quando}`,
+    });
+  } else if (wallapop) {
+    r.push({
+      fonte: 'wallapop',
+      preco: wallapop.preco,
+      texto: `preço típico ~${Math.round(wallapop.pedido)} € em ${wallapop.anuncios} anúncios (vendemos a ~${Math.round(racioW * 100)}% disso)`,
     });
   }
   // 3. PVP × o rácio a que costumamos vender (fase atual do set)
@@ -640,7 +661,7 @@ export function sinaisEsgotar(l: LinhaPromo, hoje: string): string[] {
     if (m.retirada <= hoje) r.push('já saiu de produção');
     else if (m.retirada <= limite.toISOString().slice(0, 10)) r.push(`sai de produção em ${fmtMesAno(m.retirada)}`);
   } else if (m?.retirado) r.push('já saiu de produção');
-  const pedido = l.precos.estimativas.find((e) => e.fonte === 'ebay')?.pedido;
+  const pedido = l.precos.estimativas.find((e) => e.fonte === 'ebay' || e.fonte === 'mercado')?.pedido;
   if (pedido && l.pvp && pedido >= l.pvp) r.push(`no eBay pedem ${Math.round((pedido / l.pvp) * 100)}% do PVP`);
   if (l.precos.tempo?.base === 'set' && l.precos.tempo.dias <= DIAS_VENDA_RAPIDA) r.push(`vendemos em ~${l.precos.tempo.dias} dias`);
   return r;
