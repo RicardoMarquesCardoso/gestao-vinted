@@ -111,8 +111,9 @@ export function Analises() {
 
       {/* Pedido do Ricardo: o eixo do tempo segue o período; "Sempre" (ou mais de um ano) por mês, o resto por semana */}
       {porMes ? (
-        <Cartao titulo="Vendas por mês">
-          <BarrasSemanas dados={e.porMes.map((m) => ({ ...m, semana: m.mes }))} rotulo={fmtMes} nome="Vendas por mês" />
+        <Cartao titulo="Vendas por mês (últimos 12)">
+          {/* No máximo os últimos 12 meses (pedido do Ricardo: mais meses não cabem no telemóvel) */}
+          <BarrasSemanas dados={e.porMes.slice(-12).map((m) => ({ ...m, semana: m.mes }))} rotulo={fmtMes} nome="Vendas por mês" />
         </Cartao>
       ) : (
         <Cartao titulo="Vendas por semana">
