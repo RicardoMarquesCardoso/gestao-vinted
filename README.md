@@ -275,10 +275,12 @@ Pedido do Ricardo (nov/2026): perceber de relance quanto já se lucrou, quanto e
 | Hoje | **Lucro feito** | recebido − custo do que se vendeu | 90 − 50 = **+40 €** |
 | Hoje | **Parado em stock** | custo do que está em stock | **50 €** |
 | Hoje | barra | o gasto dividido em vendido / parado (a custo) | 50 / 50 |
+| Hoje | **Investimento recuperado** | recebido ÷ gasto (a caixa em percentagem: abaixo de 100% a caixa é negativa) | 90 ÷ 100 = **90%** |
 | Se vender tudo | **Lucro total** | lucro feito + lucro do stock ao preço de referência (`lucroPotencial`; sem preço conta pelo custo) | 40 + 40 = **+80 €** |
-| Se vender tudo | **Investimento recuperado** | recebido ÷ gasto | 90% |
 
 Com os registos coerentes, caixa + valor do stock = lucro total (−10 + 90 = 80).
+
+O **gasto** é o total das compras (artigos + portes + outros custos) mais o custo dos produtos registados sem compra. Se o total de uma compra não bater com a soma dos custos dos seus produtos, o gasto (e por isso a caixa e o investimento recuperado) segue o total da compra, enquanto o lucro feito e o parado seguem os produtos.
 
 O período do topo começa em **Sempre** e aplica-se às vendas por semana e ao resto do ecrã. As tabelas mais abaixo (lucro por categoria, por conta, subcategorias e tempo até vender) têm o **seu próprio período**, num seletor pequeno no canto de cada uma (por defeito Sempre); a conta e o produto do topo aplicam-se a todas.
 

@@ -1,5 +1,5 @@
 // Ecrã "Análises". No topo, o Balanço (pedido do Ricardo): hoje (caixa, lucro feito, parado, com a
-// barra vendido/parado) e se vender tudo (lucro total, investimento recuperado), desde sempre; logo a
+// barra vendido/parado, investimento recuperado) e se vender tudo (lucro total), desde sempre; logo a
 // seguir as vendas por semana (recebido com o lucro noutra cor + gastos a vermelho). Depois: destaques
 // (lib/insights.ts: melhor/pior tema, preço final vs. anunciado, tempo anunciado, stock parado,
 // vagas nas contas, maior aposta), lucro por mês, rentabilidade vs. tempo por tema (dispersão),
@@ -254,10 +254,11 @@ export function Analises() {
  *     Lucro feito = recebido − custo do que se vendeu               ex.: 90 − 50 = +40 €
  *     Parado = custo do stock                                       ex.: 50 €
  *     Barra: o gasto dividido em vendido (custo) e parado (custo).
+ *     Investimento recuperado = recebido ÷ gasto (a barra verde)    ex.: 90 ÷ 100 = 90%
+ *       (o mesmo que a caixa, em percentagem: abaixo de 100% a caixa é negativa)
  *   SE VENDER TUDO
  *     Lucro total = lucro feito + lucro do stock ao preço avaliado (lucroPotencial; as unidades sem
  *     preço contam pelo custo, sem lucro)                            ex.: 40 + 40 = +80 €
- *     Investimento recuperado = recebido ÷ gasto (a barra verde).
  * Quando os registos batem certo, a caixa + o valor do stock dá o lucro total.
  */
 function Balanco(props: { dados: Dados; filtro: { contaId?: string; texto?: string }; potencial: { lucro: number; custo: number; valor: number }; h: string }) {
@@ -299,12 +300,6 @@ function Balanco(props: { dados: Dados; filtro: { contaId?: string; texto?: stri
           </div>
         </>
       )}
-      <hr />
-      <div className="balanco-titulo">Se vender tudo</div>
-      <div className="balanco-linha balanco-total">
-        <span>Lucro total</span>
-        <strong className={total < 0 ? 'negativo' : 'positivo'}>{sinal(total)}</strong>
-      </div>
       {recuperado !== null && (
         <>
           <div className="balanco-recuperado mudo">Investimento recuperado {Math.round(recuperado * 100)}%</div>
@@ -313,6 +308,12 @@ function Balanco(props: { dados: Dados; filtro: { contaId?: string; texto?: stri
           </div>
         </>
       )}
+      <hr />
+      <div className="balanco-titulo">Se vender tudo</div>
+      <div className="balanco-linha balanco-total">
+        <span>Lucro total</span>
+        <strong className={total < 0 ? 'negativo' : 'positivo'}>{sinal(total)}</strong>
+      </div>
     </section>
   );
 }

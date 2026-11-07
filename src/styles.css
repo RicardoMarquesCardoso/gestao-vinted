@@ -950,6 +950,6 @@ select.seletor-mini, .cartao select.seletor-mini { width: auto; max-width: 11.5e
 .balanco-vendido { background: var(--barra); }
 .balanco-parado { background: #c9a227; }
 .balanco hr { border: 0; border-top: 1px solid var(--borda, var(--superficie-2)); margin: 14px 0 10px; }
-.balanco-recuperado { font-size: 0.8rem; margin-top: 6px; }
+.balanco-recuperado { font-size: 0.8rem; margin-top: 12px; }
 .balanco-progresso { height: 8px; border-radius: 4px; background: var(--superficie-2); overflow: hidden; margin-top: 6px; }
 .balanco-progresso span { display: block; height: 100%; background: var(--positivo); }
