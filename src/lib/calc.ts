@@ -10,6 +10,8 @@
 //   lucro da venda  = líquido − custo unitário × unidades vendidas
 //   Só contam vendas "concluídas" (as canceladas/devolvidas valem 0).
 
+import { naCategoria, normalizar } from './categorias';
+import type { FiltroCategoria } from './categorias';
 import { dataLocal } from './format';
 import type { Compra, Conta, Dados, EstadoProduto, Produto, Venda } from './types';
 
@@ -353,6 +355,8 @@ export interface Filtro {
   pessoaId?: string;
   contaId?: string;
   texto?: string;
+  /** Categoria/subcategoria escolhida na pesquisa (como nos Produtos). */
+  categoria?: FiltroCategoria | null;
 }
 
 export interface LinhaGrupo {
@@ -408,12 +412,19 @@ export interface Estatisticas {
   parados: { produto: Produto; dias: number; desde: string }[];
 }
 
-/** O produto corresponde ao texto de pesquisa? (nome, set, tema, marca, descrição) */
+/** O produto corresponde ao texto de pesquisa? (nome, set, tema, marca, descrição; sem ligar a maiúsculas nem acentos) */
 export function correspondeTexto(p: Produto | undefined, texto?: string) {
-  if (!texto) return true;
+  const t = normalizar(texto);
+  if (!t) return true;
   if (!p) return false;
-  const t = texto.toLowerCase();
-  return [p.nome, p.set_numero, p.tema, p.marca, p.descricao].some((x) => (x || '').toLowerCase().includes(t));
+  return [p.nome, p.set_numero, p.tema, p.marca, p.descricao].some((x) => normalizar(x).includes(t));
+}
+
+/** O produto passa o filtro de pesquisa: o texto e a categoria/subcategoria escolhida. */
+export function correspondeFiltro(p: Produto | undefined, f: Pick<Filtro, 'texto' | 'categoria'>) {
+  if (!correspondeTexto(p, f.texto)) return false;
+  if (!f.categoria) return true;
+  return !!p && naCategoria(p, f.categoria);
 }
 
 /**
@@ -436,7 +447,7 @@ export function estatisticas(d: Dados, f: Filtro, hoje: string): Estatisticas {
         ? compraFiltrada.has(p.compra_id)
         : dentro(p.data_compra, f.intervalo) && (!f.pessoaId || p.pessoa_id === f.pessoaId)) &&
       (!f.contaId || p.conta_id === f.contaId) &&
-      correspondeTexto(p, f.texto),
+      correspondeFiltro(p, f),
   );
   // A data do gasto de cada produto: a da compra (ou a data de compra do produto, sem compra).
   const dataGasto = (p: Produto) => (p.compra_id ? compraPorId.get(p.compra_id)?.data ?? null : p.data_compra);
@@ -449,7 +460,7 @@ export function estatisticas(d: Dados, f: Filtro, hoje: string): Estatisticas {
       dentro(v.data_venda, f.intervalo) &&
       (!f.pessoaId || v.pessoa_id === f.pessoaId) &&
       (!f.contaId || v.conta_id === f.contaId) &&
-      correspondeTexto(produtoPorId.get(v.produto_id), f.texto),
+      correspondeFiltro(produtoPorId.get(v.produto_id), f),
   );
   const concluidas = vendasFiltradas.filter((v) => v.estado === 'concluida');
   const recebido = soma(concluidas.map(liquidoVenda));
@@ -462,7 +473,7 @@ export function estatisticas(d: Dados, f: Filtro, hoje: string): Estatisticas {
       emInventario(p) &&
       (!f.pessoaId || p.pessoa_id === f.pessoaId) &&
       (!f.contaId || p.conta_id === f.contaId) &&
-      correspondeTexto(p, f.texto),
+      correspondeFiltro(p, f),
   );
   let inventarioUnidades = 0;
   let inventarioCusto = 0;
@@ -583,7 +594,7 @@ export function estatisticas(d: Dados, f: Filtro, hoje: string): Estatisticas {
     { nome: string; setNumero: string | null; compradas: number; custo: number; vendidas: number; precoVenda: number; lucro: number; dias: number[] }
   >();
   for (const p of d.produtos) {
-    if (!correspondeTexto(p, f.texto)) continue;
+    if (!correspondeFiltro(p, f)) continue;
     if (f.pessoaId && p.pessoa_id !== f.pessoaId) continue;
     if (p.estado === 'cancelado') continue;
     const k = chaveComparacao(p);
@@ -623,7 +634,7 @@ export function estatisticas(d: Dados, f: Filtro, hoje: string): Estatisticas {
         p.estado === 'anunciado' &&
         (!f.pessoaId || p.pessoa_id === f.pessoaId) &&
         (!f.contaId || p.conta_id === f.contaId) &&
-        correspondeTexto(p, f.texto),
+        correspondeFiltro(p, f),
     )
     .map((p) => {
       const desde = p.data_anuncio || p.data_compra || (p.criado_em || hoje).slice(0, 10);

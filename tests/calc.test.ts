@@ -562,3 +562,23 @@ test('vezesNaConta: vendidos nessa conta + anunciados lá agora, só dos iguais'
   assert.equal(vezesNaConta({ produtos, vendas }, { set_numero: '10311', nome: '' }, 'CASS'), 1);
   assert.equal(vezesNaConta({ produtos, vendas }, { set_numero: '10311', nome: '' }, ''), 0);
 });
+
+test('pesquisa das Análises: categoria/subcategoria e texto sem acentos', async () => {
+  const { correspondeFiltro } = await import('../src/lib/calc.ts');
+  const sc = produto({ id: 'a', marca: 'LEGO', tema: 'Speed Champions', nome: 'Ferrari SF-24' });
+  const pk = produto({ id: 'b', marca: 'Pokémon', tema: 'Booster', nome: '30th Celebration Booster Bundle' });
+  assert.equal(correspondeFiltro(sc, { categoria: { marca: 'LEGO' } }), true);
+  assert.equal(correspondeFiltro(pk, { categoria: { marca: 'LEGO' } }), false);
+  assert.equal(correspondeFiltro(sc, { categoria: { marca: 'lego', tema: 'speed champions' } }), true);
+  assert.equal(correspondeFiltro(pk, { texto: 'pokemon' }), true); // sem acentos
+  assert.equal(correspondeFiltro(sc, { texto: 'ferrari', categoria: { marca: 'LEGO', tema: 'City' } }), false);
+  // Vendas e gastos filtrados pela categoria
+  const d: Dados = {
+    pessoas: [], contas: [], compras: [], acertos: [], definicoes: [],
+    produtos: [{ ...sc, data_compra: '2026-10-01', preco_compra: 20, custos_adicionais: 0 }, { ...pk, data_compra: '2026-10-01', preco_compra: 35, custos_adicionais: 0 }],
+    vendas: [venda({ produto_id: 'a', preco_venda: 30, data_venda: '2026-10-10' })],
+  };
+  const e = estatisticas(d, { intervalo: { inicio: null, fim: null }, categoria: { marca: 'LEGO' } }, '2026-11-07');
+  assert.equal(e.gasto, 20);
+  assert.equal(e.recebido, 30);
+});

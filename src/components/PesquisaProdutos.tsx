@@ -1,4 +1,4 @@
-// Caixa de pesquisa do ecrã Produtos, com sugestões enquanto se escreve.
+// Caixa de pesquisa dos ecrãs Produtos e Análises, com sugestões enquanto se escreve.
 //
 // Como funciona:
 // - À medida que se escreve, aparece uma lista por baixo com até 4 categorias/subcategorias
@@ -12,29 +12,12 @@
 import { useMemo, useState } from 'react';
 import { chaveComparacao } from '../lib/calc';
 import type { Produto } from '../lib/types';
+import { naCategoria, normalizar, temaDe } from '../lib/categorias';
+import type { FiltroCategoria } from '../lib/categorias';
 
-/** Filtro de categoria: só a marca (categoria) ou marca + tema (subcategoria). */
-export interface FiltroCategoria {
-  marca: string;
-  tema?: string;
-}
-
-/** Texto sem acentos e em minúsculas, para comparar. */
-export function normalizar(s: string | null | undefined): string {
-  return (s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
-}
-
-/** O tema só conta como subcategoria se for diferente da marca. */
-export function temaDe(p: Produto): string | null {
-  return p.tema && normalizar(p.tema) !== normalizar(p.marca) ? p.tema.trim() : null;
-}
-
-/** Verdadeiro se o produto pertence à categoria/subcategoria escolhida. */
-export function naCategoria(p: Produto, f: FiltroCategoria | null): boolean {
-  if (!f) return true;
-  if (normalizar(p.marca) !== normalizar(f.marca)) return false;
-  return !f.tema || normalizar(temaDe(p)) === normalizar(f.tema);
-}
+// As funções de comparação vivem em lib/categorias.ts (usadas também nos cálculos das Análises).
+export { naCategoria, normalizar, temaDe } from '../lib/categorias';
+export type { FiltroCategoria } from '../lib/categorias';
 
 export function PesquisaProdutos(props: {
   texto: string;
@@ -43,6 +26,8 @@ export function PesquisaProdutos(props: {
   mudarCategoria(f: FiltroCategoria | null): void;
   /** Produtos que os filtros de estado deixam ver (base das sugestões). */
   produtos: Produto[];
+  /** Texto da caixa vazia (por defeito "Procurar…"). */
+  placeholder?: string;
 }) {
   const [aberta, setAberta] = useState(false);
   const t = normalizar(props.texto);
@@ -100,7 +85,7 @@ export function PesquisaProdutos(props: {
       <input
         type="search"
         className="filtro-procura"
-        placeholder={props.categoria ? `Procurar em ${props.categoria.tema ?? props.categoria.marca}…` : 'Procurar…'}
+        placeholder={props.categoria ? `Procurar em ${props.categoria.tema ?? props.categoria.marca}…` : props.placeholder ?? 'Procurar…'}
         title="Nome, set, categoria, conta ou quem pagou"
         value={props.texto}
         onChange={(e) => {

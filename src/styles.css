@@ -282,10 +282,10 @@ input[type='checkbox'] { width: 18px; height: 18px; min-height: 0; accent-color:
 /* ---------- Listas ---------- */
 .filtros { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
 .filtros select, .filtros input { width: auto; flex: 0 1 auto; }
-.filtros .filtro-procura { flex: 1 1 220px; }
+.filtros .filtro-procura, .filtros .pesquisa { flex: 1 1 220px; }
 @media (max-width: 640px) {
   .filtros { display: grid; grid-template-columns: 1fr 1fr; }
-  .filtros .filtro-procura { grid-column: 1 / -1; }
+  .filtros .filtro-procura, .filtros .pesquisa { grid-column: 1 / -1; }
   .filtros select, .filtros input { width: 100%; }
 }
 .resumo-lista { color: var(--texto-2); font-size: 0.88rem; margin: 0 0 12px; }
@@ -940,10 +940,14 @@ select.seletor-mini, .cartao select.seletor-mini { width: auto; max-width: 11.5e
 
 /* Análises: Balanço "Hoje / Se vender tudo" (pedido do Ricardo, nov/2026) */
 .balanco { padding: 16px; }
-.balanco-titulo { font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--texto-3); margin-bottom: 4px; }
+/* 4 cartões lado a lado (2 × 2 no telemóvel) e a barra por baixo (pedido do Ricardo) */
+.balanco-cartoes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.balanco-cartao { background: var(--superficie-2); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.balanco-cartao span { font-size: 0.78rem; color: var(--texto-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.balanco-cartao strong { font-size: 1.15rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+@media (max-width: 560px) { .balanco-cartoes { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .balanco-linha { display: flex; justify-content: space-between; align-items: baseline; padding: 5px 0; font-variant-numeric: tabular-nums; }
 .balanco-linha strong { font-size: 1.1rem; }
-.balanco-total strong { font-size: 1.6rem; }
 .balanco-barra { display: flex; height: 10px; border-radius: 5px; overflow: hidden; margin: 10px 0 6px; background: var(--superficie-2); }
 .balanco-legenda { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.78rem; color: var(--texto-2); font-variant-numeric: tabular-nums; }
 .balanco-legenda i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 3px; }
@@ -951,7 +955,6 @@ select.seletor-mini, .cartao select.seletor-mini { width: auto; max-width: 11.5e
 .balanco-falta { background: var(--superficie-2); box-shadow: inset 0 0 0 1px var(--texto-3); }
 .balanco-barra .balanco-falta { box-shadow: none; }
 .balanco-amais { background: var(--barra); }
-.balanco hr { border: 0; border-top: 1px solid var(--borda, var(--superficie-2)); margin: 14px 0 10px; }
-.balanco-recuperado { margin-top: 6px; }
+.balanco-recuperado { margin-top: 10px; }
 .balanco-recuperado span { font-size: 0.9rem; color: var(--texto-2); }
 .balanco-recuperado strong { font-size: 1rem; }

@@ -268,22 +268,19 @@ Sempre que um produto muda para *anunciado*, abre-se um período, e quando deixa
 
 ### Topo das Análises: Balanço e vendas por semana/mês
 
-Pedido do Ricardo (nov/2026): perceber de relance quanto já se lucrou, quanto está parado e quanto se pode vir a ter. O cartão **Balanço** (`Balanco` em `pages/Analises.tsx`) é sempre **desde o início** (um balanço de um só período não faria sentido) e respeita os filtros de conta e produto:
+Pedido do Ricardo (nov/2026): perceber de relance quanto já se lucrou, quanto está parado e quanto se pode vir a ter. O cartão **Balanço** (`Balanco` em `pages/Analises.tsx`) é sempre **desde o início** (um balanço de um só período não faria sentido) e respeita os filtros de conta e pesquisa. São **4 cartões lado a lado** (2 × 2 no telemóvel) e, por baixo, a barra do investimento recuperado:
 
-| Parte | Linha | Fórmula | Exemplo (gastei 100 € em 2 produtos, vendi um por 90 €) |
-|---|---|---|---|
-| Hoje | **Caixa** | recebido (líquido) − gasto em compras | 90 − 100 = **−10 €** |
-| Hoje | **Lucro feito** | recebido − custo do que se vendeu | 90 − 50 = **+40 €** |
-| Hoje | **Parado em stock** | custo do que está em stock | **50 €** |
-| Hoje | **Investimento recuperado** (barra) | recebido ÷ gasto; verde = recebido, cinzento = por recuperar (ou azul = a mais, acima de 100%) | 90 ÷ 100 = **90%** |
-| Se vender tudo | **Lucro total** | lucro feito + lucro do stock ao preço de referência (`lucroPotencial`; sem preço conta pelo custo) | 40 + 40 = **+80 €** |
-| Se vender tudo | **Investimento recuperado** (barra) | (recebido + valor do stock ao preço de referência) ÷ gasto | (90 + 90) ÷ 100 = **180%** |
-
-Com os registos coerentes, caixa + valor do stock = lucro total (−10 + 90 = 80).
+| Cartão | Fórmula | Exemplo (gastei 100 € em 2 produtos, vendi um por 90 €) |
+|---|---|---|
+| **Caixa** | recebido (líquido) − gasto | 90 − 100 = **−10 €** |
+| **Lucro feito** | recebido − custo do que se vendeu | 90 − 50 = **+40 €** |
+| **Em stock** | custo do que está em stock | **50 €** |
+| **Se vender tudo** | lucro feito + lucro do stock ao preço de referência (`lucroPotencial`; sem preço conta pelo custo) | 40 + 40 = **+80 €** |
+| **Investimento recuperado** (barra) | recebido ÷ gasto; verde = recebido, cinzento = por recuperar (ou azul = a mais, acima de 100%) | 90 ÷ 100 = **90%** |
 
 O **gasto** é a soma do custo de todos os produtos (na data da compra a que pertencem, ou na sua data de compra se foram registados sem compra). Como tudo vem dos produtos, a caixa + o parado em stock dá sempre o lucro feito.
 
-O período do topo começa em **Sempre** (as opções são Últimos 30 dias, Últimos 90 dias, Este ano, Sempre e Escolher datas; sem "Este mês" nem "Mês passado", a pedido do Ricardo) e aplica-se às vendas por semana/mês e ao resto do ecrã. As tabelas mais abaixo (lucro por categoria, por conta, subcategorias e tempo até vender) têm o **seu próprio período**, num seletor pequeno no canto de cada uma (por defeito Sempre); a conta e o produto do topo aplicam-se a todas.
+O período do topo começa em **Sempre** (as opções são Últimos 30 dias, Últimos 90 dias, Este ano, Sempre e Escolher datas; sem "Este mês" nem "Mês passado", a pedido do Ricardo) e aplica-se às vendas por semana/mês e ao resto do ecrã. A **pesquisa** é a mesma dos Produtos (`PesquisaProdutos`): ao escrever sugere categorias/subcategorias (ex.: "LEGO › Speed Champions") e produtos; escolher uma categoria liga-a como filtro (chip com ×) em todo o ecrã, incluindo o Balanço e a tabela por set (`correspondeFiltro` em `lib/calc.ts`, `lib/categorias.ts`). O texto compara sem maiúsculas nem acentos. As tabelas mais abaixo (lucro por categoria, por conta, subcategorias e tempo até vender) têm o **seu próprio período**, num seletor pequeno no canto de cada uma (por defeito Sempre); a conta e a pesquisa do topo aplicam-se a todas.
 
 Logo a seguir, **Vendas por semana** ou **por mês**: o eixo do tempo segue o período do topo. Com **Sempre** (ou datas com mais de um ano) as barras são **meses** (`porMes`, do 1.º mês com dados até hoje, meses vazios incluídos); nos outros períodos são **semanas** de segunda a domingo (`porSemana`, da semana do início do período à do fim, semanas vazias incluídas). Em cada barra, uma barra com o **recebido** e, por baixo noutra cor, a parte que é **lucro**; ao lado, uma barra **vermelha** com os **gastos** em compras dessa semana. Tocar numa barra mostra o n.º de vendas, o recebido, o lucro e os gastos (`estatisticas` → `porSemana`/`porMes`, `BarrasSemanas`).
 

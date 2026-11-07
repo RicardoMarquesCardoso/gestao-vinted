@@ -1,5 +1,5 @@
-// Ecrã "Análises". No topo, o Balanço (pedido do Ricardo): hoje (caixa, lucro feito, parado e a barra
-// do investimento recuperado) e se vender tudo (lucro total e a mesma barra), desde sempre; logo a
+// Ecrã "Análises". No topo, o Balanço (pedido do Ricardo): 4 cartões (caixa, lucro feito, em stock,
+// se vender tudo) e a barra do investimento recuperado, desde sempre; logo a
 // seguir as vendas por semana ou por mês, conforme o período (recebido com o lucro noutra cor + gastos
 // a vermelho; "Sempre" por mês). Períodos sem "Este mês" e "Mês passado". Depois: destaques
 // (lib/insights.ts: melhor/pior tema, preço final vs. anunciado, tempo anunciado, stock parado,
@@ -15,13 +15,18 @@ import { lucroPotencial } from '../lib/plano';
 import { desempenhoTemas, destaques } from '../lib/insights';
 import type { Destaque } from '../lib/insights';
 import { Cartao } from '../components/ui';
-import { PREDEFINICOES, correspondeTexto, diasEntre, estatisticas, idadeStock, intervaloDe, lotes } from '../lib/calc';
+import { PREDEFINICOES, chaveComparacao, correspondeFiltro, diasEntre, estatisticas, idadeStock, intervaloDe, lotes } from '../lib/calc';
 import type { Intervalo, Predefinicao } from '../lib/calc';
 import { fmtEuro, fmtMes, fmtNum, hoje, plural } from '../lib/format';
 import { investimento, useMercado } from '../lib/investimento';
 import type { LinhaInvestimento } from '../lib/investimento';
 import { useDados } from '../state';
 import type { Dados } from '../lib/types';
+import { PesquisaProdutos } from '../components/PesquisaProdutos';
+import type { FiltroCategoria } from '../lib/categorias';
+
+/** Filtros do topo das Análises: conta, texto e categoria/subcategoria. */
+type FiltroTopo = { contaId?: string; texto?: string; categoria: FiltroCategoria | null };
 
 // Períodos do ecrã: sem "Este mês" e "Mês passado" (pedido do Ricardo).
 const PERIODOS = PREDEFINICOES.filter((p) => p.valor !== 'mes' && p.valor !== 'mes_anterior');
@@ -34,6 +39,7 @@ export function Analises() {
   const [ate, setAte] = useState('');
   const [conta, setConta] = useState('');
   const [texto, setTexto] = useState('');
+  const [categoria, setCategoria] = useState<FiltroCategoria | null>(null); // escolhida nas sugestões, como nos Produtos
   const [verSub, setVerSub] = useState(false);
   const [verLotes, setVerLotes] = useState(false);
   const [rapidos, setRapidos] = useState(true);
@@ -42,17 +48,22 @@ export function Analises() {
   const intervalo: Intervalo = periodo === 'datas' ? { inicio: de || null, fim: ate || null } : intervaloDe(periodo, h);
   // Sem início ("Sempre") ou mais de um ano: as vendas aparecem por mês; senão por semana.
   const porMes = !intervalo.inicio || diasEntre(intervalo.inicio, intervalo.fim ?? h) > 366;
+  // Filtros do topo (conta, texto e categoria/subcategoria), usados em todo o ecrã
+  const filtroBase = useMemo(
+    () => ({ contaId: conta || undefined, texto: texto.trim() || undefined, categoria }),
+    [conta, texto, categoria],
+  );
   const e = useMemo(
-    () => estatisticas(dados, { intervalo, contaId: conta || undefined, texto: texto.trim() || undefined }, h),
+    () => estatisticas(dados, { intervalo, ...filtroBase }, h),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dados, intervalo.inicio, intervalo.fim, conta, texto, h],
+    [dados, intervalo.inicio, intervalo.fim, filtroBase, h],
   );
   const lista = useMemo(() => destaques(dados, intervalo, h), [dados, intervalo.inicio, intervalo.fim, h]);
-  // Lucro potencial do stock ao preço de referência (lib/plano.ts), com o mesmo filtro de conta/texto
+  // Lucro potencial do stock ao preço de referência (lib/plano.ts), com o mesmo filtro de conta/pesquisa
   const ctxPlano = useContextoPlano();
   const potencial = useMemo(
-    () => lucroPotencial(ctxPlano, (p) => (!conta || p.conta_id === conta) && correspondeTexto(p, texto.trim() || undefined)),
-    [ctxPlano, conta, texto],
+    () => lucroPotencial(ctxPlano, (p) => (!filtroBase.contaId || p.conta_id === filtroBase.contaId) && correspondeFiltro(p, filtroBase)),
+    [ctxPlano, filtroBase],
   );
   // Temas com pelo menos 2 vendas e dias conhecidos, para a dispersão
   const temas = useMemo(
@@ -60,7 +71,6 @@ export function Analises() {
     [dados, intervalo.inicio, intervalo.fim],
   );
   // Cada tabela tem o seu próprio período (pedido do Ricardo), com os mesmos filtros de conta e produto
-  const filtroBase = { contaId: conta || undefined, texto: texto.trim() || undefined };
   const pCat = usePeriodoTabela(dados, filtroBase, h);
   const pConta = usePeriodoTabela(dados, filtroBase, h);
   const pSub = usePeriodoTabela(dados, filtroBase, h);
@@ -89,11 +99,12 @@ export function Analises() {
           <option value="">Todas as contas</option>
           {dados.contas.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
         </select>
-        <input type="search" className="filtro-procura" placeholder="Produto ou n.º de set" value={texto} onChange={(ev) => setTexto(ev.target.value)} />
+        {/* A mesma pesquisa dos Produtos (pedido do Ricardo): sugere categorias/subcategorias e produtos */}
+        <PesquisaProdutos texto={texto} mudarTexto={setTexto} categoria={categoria} mudarCategoria={setCategoria} produtos={dados.produtos} placeholder="Produto, set ou categoria" />
       </div>
 
-      {/* Balanço (pedido do Ricardo): hoje vs. se vender tudo, desde sempre, com a conta/produto do topo */}
-      <Balanco dados={dados} filtro={{ contaId: conta || undefined, texto: texto.trim() || undefined }} potencial={potencial} h={h} />
+      {/* Balanço (pedido do Ricardo): 4 cartões e a barra do investimento recuperado, desde sempre, com a conta/pesquisa do topo */}
+      <Balanco dados={dados} filtro={filtroBase} potencial={potencial} h={h} />
 
       {/* Pedido do Ricardo: o eixo do tempo segue o período; "Sempre" (ou mais de um ano) por mês, o resto por semana */}
       {porMes ? (
@@ -234,7 +245,7 @@ export function Analises() {
         )}
       </Cartao>
 
-      <PorSet texto={texto} />
+      <PorSet filtro={filtroBase} />
 
       <Cartao
         titulo="Tempo até vender"
@@ -257,53 +268,46 @@ export function Analises() {
 /**
  * Balanço geral (pedido do Ricardo, nov/2026): "quanto já lucrei, quanto tenho parado e quanto
  * posso vir a ter". Sempre desde o início (um balanço não faz sentido só num período), com os
- * filtros de conta e produto do topo.
- *   HOJE
- *     Caixa = recebido (líquido das vendas) − gasto (compras)       ex.: gastei 100, vendi por 90 → −10 €
- *     Lucro feito = recebido − custo do que se vendeu               ex.: 90 − 50 = +40 €
- *     Parado = custo do stock                                       ex.: 50 €
- *     Barra do investimento recuperado: recebido ÷ gasto            ex.: 90 ÷ 100 = 90%
- *   SE VENDER TUDO
- *     Lucro total = lucro feito + lucro do stock ao preço avaliado (lucroPotencial; as unidades sem
- *     preço contam pelo custo, sem lucro)                            ex.: 40 + 40 = +80 €
- *     A mesma barra, com o recebido + o valor do stock ao preço avaliado ÷ gasto
- *                                                                    ex.: (90 + 90) ÷ 100 = 180%
- * Quando os registos batem certo, a caixa + o valor do stock dá o lucro total.
+ * filtros de conta e pesquisa do topo. Quatro cartões lado a lado (2 × 2 no telemóvel) e, por
+ * baixo, a barra do investimento recuperado (pedido do Ricardo: condensar).
+ *   Caixa = recebido (líquido das vendas) − gasto (custo dos produtos)  ex.: gastei 100, vendi por 90 → −10 €
+ *   Lucro feito = recebido − custo do que se vendeu                      ex.: 90 − 50 = +40 €
+ *   Em stock = custo do stock                                            ex.: 50 €
+ *   Se vender tudo = lucro feito + lucro do stock ao preço avaliado (lucroPotencial; as unidades
+ *     sem preço contam pelo custo, sem lucro)                             ex.: 40 + 40 = +80 €
+ *   Barra: investimento recuperado = recebido ÷ gasto                    ex.: 90 ÷ 100 = 90%
+ * Como tudo vem do custo dos produtos, caixa + stock = lucro feito.
  */
-function Balanco(props: { dados: Dados; filtro: { contaId?: string; texto?: string }; potencial: { lucro: number; custo: number; valor: number }; h: string }) {
+function Balanco(props: { dados: Dados; filtro: FiltroTopo; potencial: { lucro: number; custo: number; valor: number }; h: string }) {
   const g = useMemo(
     () => estatisticas(props.dados, { intervalo: { inicio: null, fim: null }, ...props.filtro }, props.h),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [props.dados, props.filtro.contaId, props.filtro.texto, props.h],
+    [props.dados, props.filtro, props.h],
   );
   const caixa = g.recebido - g.gasto;
   const total = g.lucro + props.potencial.lucro;
-  // Valor do stock se se vender tudo: o custo do stock + o lucro previsto (sem preço conta pelo custo).
-  const valorStock = g.inventarioCusto + props.potencial.lucro;
   const sinal = (v: number) => `${v > 0 ? '+' : ''}${fmtEuro(v)}`;
+  const cor = (v: number) => (v < 0 ? 'negativo' : 'positivo');
   return (
     <section className="cartao balanco" aria-label="Balanço">
-      <div className="balanco-titulo">Hoje</div>
-      <div className="balanco-linha">
-        <span>Caixa</span>
-        <strong className={caixa < 0 ? 'negativo' : 'positivo'}>{sinal(caixa)}</strong>
-      </div>
-      <div className="balanco-linha">
-        <span>Lucro feito</span>
-        <strong className={g.lucro < 0 ? 'negativo' : 'positivo'}>{sinal(g.lucro)}</strong>
-      </div>
-      <div className="balanco-linha">
-        <span>Parado em stock</span>
-        <strong>{fmtEuro(g.inventarioCusto)}</strong>
+      <div className="balanco-cartoes">
+        <div className="balanco-cartao">
+          <span>Caixa</span>
+          <strong className={cor(caixa)}>{sinal(caixa)}</strong>
+        </div>
+        <div className="balanco-cartao">
+          <span>Lucro feito</span>
+          <strong className={cor(g.lucro)}>{sinal(g.lucro)}</strong>
+        </div>
+        <div className="balanco-cartao">
+          <span>Em stock</span>
+          <strong>{fmtEuro(g.inventarioCusto)}</strong>
+        </div>
+        <div className="balanco-cartao">
+          <span>Se vender tudo</span>
+          <strong className={cor(total)}>{sinal(total)}</strong>
+        </div>
       </div>
       <BarraRecuperado recebido={g.recebido} gasto={g.gasto} nome="recebido" />
-      <hr />
-      <div className="balanco-titulo">Se vender tudo</div>
-      <div className="balanco-linha balanco-total">
-        <span>Lucro total</span>
-        <strong className={total < 0 ? 'negativo' : 'positivo'}>{sinal(total)}</strong>
-      </div>
-      <BarraRecuperado recebido={g.recebido + valorStock} gasto={g.gasto} nome="recebido + stock" />
     </section>
   );
 }
@@ -346,13 +350,13 @@ function BarraRecuperado(props: { recebido: number; gasto: number; nome: string 
  * Período próprio de uma tabela (pedido do Ricardo): um seletor pequeno no canto do cartão, por
  * defeito "Sempre", e as estatísticas calculadas com esse período (e a conta/produto do topo).
  */
-function usePeriodoTabela(dados: Dados, filtro: { contaId?: string; texto?: string }, h: string) {
+function usePeriodoTabela(dados: Dados, filtro: FiltroTopo, h: string) {
   const [p, setP] = useState<Predefinicao>('tudo');
   const intervalo = intervaloDe(p, h);
   const e = useMemo(
     () => estatisticas(dados, { intervalo, ...filtro }, h),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dados, intervalo.inicio, intervalo.fim, filtro.contaId, filtro.texto, h],
+    [dados, intervalo.inicio, intervalo.fim, filtro, h],
   );
   const seletor = (
     <select className="seletor-mini" value={p} onChange={(ev) => setP(ev.target.value as Predefinicao)} aria-label="Período da tabela">
@@ -422,16 +426,20 @@ function ResumoInvestimentoCartao() {
 type OrdemSets = 'rentab' | 'parado' | 'lucro';
 
 /** Tabela por set: o que já se vendeu, o que está parado e o estado do set no mercado. */
-function PorSet({ texto }: { texto: string }) {
+function PorSet({ filtro }: { filtro: FiltroTopo }) {
   const { dados } = useDados();
   const mercado = useMercado();
   const h = hoje();
   const [ordem, setOrdem] = useState<OrdemSets>('rentab');
   const [todos, setTodos] = useState(false);
   const r = useMemo(() => investimento(dados, mercado, h), [dados, mercado, h]);
-  const t = texto.trim().toLowerCase();
+  // Só os sets/produtos que passam a pesquisa do topo (texto e categoria)
+  const chaves = useMemo(
+    () => (filtro.texto || filtro.categoria ? new Set(dados.produtos.filter((p) => correspondeFiltro(p, filtro)).map(chaveComparacao)) : null),
+    [dados.produtos, filtro],
+  );
   const linhas = r.linhas
-    .filter((l) => !t || l.nome.toLowerCase().includes(t) || (l.setNumero ?? '').toLowerCase().includes(t))
+    .filter((l) => !chaves || chaves.has(l.chave))
     .sort((a, b) =>
       ordem === 'parado'
         ? b.custoStock - a.custoStock
