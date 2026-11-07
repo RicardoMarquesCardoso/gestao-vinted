@@ -64,7 +64,8 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
   /**
    * Apagar um produto inserido por engano (com confirmação). Não se apagam produtos com vendas:
    * aí apagam-se primeiro as vendas, ou muda-se o estado para "Cancelado". As fotografias dele
-   * também são apagadas do Storage (original e miniatura). Fica registado no histórico.
+   * também são apagadas do Storage (original e miniatura). Se era o único produto da compra, a compra
+ * também se apaga. Fica registado no histórico.
    */
   async function apagarProduto() {
     if (!p) return;
@@ -78,6 +79,9 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
     if (!ok) return;
     try {
       await apagar('produtos', p.id);
+      // Se era o único produto da compra, a compra também se apaga (pedido do Ricardo): uma compra
+      // sem produtos já não vale nada (o total de uma compra é a soma dos seus produtos).
+      if (p.compra_id && !dados.produtos.some((x) => x.compra_id === p.compra_id && x.id !== p.id)) await apagar('compras', p.compra_id);
       // Cada foto: a original e a miniatura (store.apagarFoto com um caminho apaga as duas)
       for (const f of p.fotos) store.apagarFoto(f).catch(() => undefined);
       aviso('Produto apagado.');

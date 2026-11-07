@@ -74,6 +74,7 @@ Guardar os dados que permitam estas análises desde já, mesmo que ainda não ap
 
 ## Regras do negócio
 
+- **O preço de cada produto é o que conta** (pedido do Ricardo, nov/2026): o total de uma compra é sempre a soma do custo dos seus produtos (`totalCompra(c, produtos)`); os valores guardados na compra (`valor_artigos`, `portes`) só servem para repartir ao registar. O gasto nas Análises/Painel vem dos produtos. Editar uma compra parte dos preços atuais dos produtos (modo individual). Apagar o último produto de uma compra apaga a compra.
 - **Acertos (tipo Splitwise):** o custo volta a quem pagou e o lucro vai para a conta conjunta.
   - Contam só as vendas concluídas com `acertada = false`.
   - **Nunca alterar acertos nem marcar vendas como acertadas sem o utilizador pedir.**

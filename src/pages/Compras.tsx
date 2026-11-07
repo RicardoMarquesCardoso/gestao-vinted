@@ -1,9 +1,11 @@
 // Ecrã "Compras": lista das compras com total, quem pagou e produtos; exportação para CSV.
+// O total de cada compra é a soma do custo dos seus produtos (totalCompra): corrigir o preço de um
+// produto atualiza a compra (pedido do Ricardo).
 
 import { useMemo, useState } from 'react';
 import { useAbrir } from '../components/acoes';
 import { Vazio , BotaoTopo } from '../components/ui';
-import { PREDEFINICOES, dentro, intervaloDe, totalCompra } from '../lib/calc';
+import { PREDEFINICOES, arred, dentro, intervaloDe, totalCompra } from '../lib/calc';
 import type { Predefinicao } from '../lib/calc';
 import { descarregar, paraCsv } from '../lib/csv';
 import { fmtData, fmtEuro, hoje, plural } from '../lib/format';
@@ -22,6 +24,8 @@ export function Compras() {
     for (const p of dados.produtos) if (p.compra_id) m.set(p.compra_id, [...(m.get(p.compra_id) ?? []), p]);
     return m;
   }, [dados.produtos]);
+  // Portes e outros custos de uma compra: a soma dos custos adicionais dos seus produtos.
+  const extrasDe = (id: string) => arred((produtosDe.get(id) ?? []).reduce((a, p) => a + (p.custos_adicionais || 0), 0));
 
   const lista = useMemo(() => {
     const t = texto.trim().toLowerCase();
@@ -38,9 +42,9 @@ export function Compras() {
       .sort((a, b) => b.data.localeCompare(a.data));
   }, [dados.compras, texto, periodo, pessoa, h, produtosDe]);
 
-  const total = lista.reduce((a, c) => a + totalCompra(c), 0);
+  const total = lista.reduce((a, c) => a + totalCompra(c, produtosDe.get(c.id) ?? []), 0);
   const porPessoa = [...new Set(lista.map((c) => nomePagador(c)))]
-    .map((nome) => ({ nome, total: lista.filter((c) => nomePagador(c) === nome).reduce((a, c) => a + totalCompra(c), 0) }))
+    .map((nome) => ({ nome, total: lista.filter((c) => nomePagador(c) === nome).reduce((a, c) => a + totalCompra(c, produtosDe.get(c.id) ?? []), 0) }))
     .filter((x) => x.total > 0);
 
   function exportar() {
@@ -51,10 +55,9 @@ export function Compras() {
         { titulo: 'Quem pagou', valor: (c) => nomePagador(c) },
         { titulo: 'Método', valor: (c) => c.metodo_pagamento },
         { titulo: 'Comprado a', valor: (c) => c.vendedor },
-        { titulo: 'Valor dos artigos', valor: (c) => c.valor_artigos },
-        { titulo: 'Portes', valor: (c) => c.portes },
-        { titulo: 'Outros custos', valor: (c) => c.outros_custos },
-        { titulo: 'Total', valor: (c) => totalCompra(c) },
+        { titulo: 'Valor dos artigos', valor: (c) => arred((produtosDe.get(c.id) ?? []).reduce((a, p) => a + (p.preco_compra || 0), 0)) },
+        { titulo: 'Portes e outros custos', valor: (c) => extrasDe(c.id) },
+        { titulo: 'Total', valor: (c) => totalCompra(c, produtosDe.get(c.id) ?? []) },
         { titulo: 'Produtos', valor: (c) => (produtosDe.get(c.id) ?? []).map((p) => `${p.quantidade}× ${p.nome}`).join(', ') },
         { titulo: 'Notas', valor: (c) => c.notas },
       ]),
@@ -105,10 +108,10 @@ export function Compras() {
                     </div>
                   </div>
                   <div className="registo-direita">
-                    <strong>{fmtEuro(totalCompra(c))}</strong>
+                    <strong>{fmtEuro(totalCompra(c, produtosDe.get(c.id) ?? []))}</strong>
                     <small className="mudo">
                       {plural(ps.reduce((a, p) => a + p.quantidade, 0), 'unidade', 'unidades')}
-                      {c.portes ? ` · portes ${fmtEuro(c.portes)}` : ''}
+                      {extrasDe(c.id) ? ` · portes ${fmtEuro(extrasDe(c.id))}` : ''}
                     </small>
                   </div>
                 </button>

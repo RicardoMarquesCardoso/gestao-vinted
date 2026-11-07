@@ -183,7 +183,7 @@ erDiagram
 |---|---|---|
 | `pessoas` | Ricardo e Cass | `nome` |
 | `contas` | Contas da Vinted e os seus limites | `nome`, `utilizador_vinted`, `titular_id` (quem recebe), `limite_vendas`, `limite_valor`, `periodo` |
-| `compras` | Cada compra | `data`, quem pagou (`tipo_pagamento` + `pessoa_id`), `valor_artigos`, `portes`, `distribuicao` |
+| `compras` | Cada compra | `data`, quem pagou (`tipo_pagamento` + `pessoa_id`), `valor_artigos`, `portes`, `distribuicao` (os valores só servem para repartir ao registar; o total da compra é a soma dos produtos) |
 | `produtos` | Cada produto (pode ter várias unidades) | `nome`, `set_numero`, `marca`, `tema`, `condicao`, `quantidade`, `preco_compra`, `custos_adicionais`, `estado`, `conta_id`, `preco_anuncio`, `fotos`, **`anuncios`** (períodos anunciado) |
 | `vendas` | Cada venda | `produto_id`, `quantidade`, `data_venda`, `preco_venda`, `comissao`, `portes`, `conta_id`, `pessoa_id`, `estado`, `acertada` |
 | `acertos` | Transferências já feitas entre as partes | `de`, `para`, `valor`, `data` |
@@ -230,6 +230,7 @@ lucro da venda  = líquido − custo unitário × unidades vendidas
 ```
 
 - Numa compra com vários produtos, o valor divide-se **em partes iguais** ou **pelo preço de cada um**. Os portes repartem-se em proporção ao preço, e os cêntimos que sobram vão para o último produto, para a soma bater certo (`distribuirCompra`).
+- **O preço de cada produto é o que conta** (pedido do Ricardo, nov/2026). Depois de registada, o **total de uma compra é sempre a soma do custo dos seus produtos** (`totalCompra`): corrigir o preço de um produto atualiza a compra, o gasto, a caixa e o investimento recuperado. Ao editar uma compra, o formulário parte do preço atual de cada produto. Apagar o último produto de uma compra apaga também a compra.
 - Só contam para o lucro as vendas **concluídas**.
 
 ### Acertos (`src/lib/acertos.ts`)
@@ -280,7 +281,7 @@ Pedido do Ricardo (nov/2026): perceber de relance quanto já se lucrou, quanto e
 
 Com os registos coerentes, caixa + valor do stock = lucro total (−10 + 90 = 80).
 
-O **gasto** é o total das compras (artigos + portes + outros custos) mais o custo dos produtos registados sem compra. Se o total de uma compra não bater com a soma dos custos dos seus produtos, o gasto (e por isso a caixa e o investimento recuperado) segue o total da compra, enquanto o lucro feito e o parado seguem os produtos.
+O **gasto** é a soma do custo de todos os produtos (na data da compra a que pertencem, ou na sua data de compra se foram registados sem compra). Como tudo vem dos produtos, a caixa + o parado em stock dá sempre o lucro feito.
 
 O período do topo começa em **Sempre** (as opções são Últimos 30 dias, Últimos 90 dias, Este ano, Sempre e Escolher datas; sem "Este mês" nem "Mês passado", a pedido do Ricardo) e aplica-se às vendas por semana/mês e ao resto do ecrã. As tabelas mais abaixo (lucro por categoria, por conta, subcategorias e tempo até vender) têm o **seu próprio período**, num seletor pequeno no canto de cada uma (por defeito Sempre); a conta e o produto do topo aplicam-se a todas.
 

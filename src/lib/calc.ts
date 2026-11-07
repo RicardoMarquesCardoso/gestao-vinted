@@ -123,7 +123,14 @@ export function chaveComparacao(p: Pick<Produto, 'set_numero' | 'nome'>) {
 // ---------- Compras ----------
 
 /** Total pago numa compra. */
-export const totalCompra = (c: Compra) => arred((c.valor_artigos || 0) + (c.portes || 0) + (c.outros_custos || 0));
+/**
+ * Total de uma compra = a soma do custo dos seus produtos (pedido do Ricardo, nov/2026). O preço de
+ * cada produto é o que conta: ao corrigir um produto (ou apagá-lo), a compra acompanha. Os valores
+ * guardados na própria compra (valor dos artigos, portes) só servem para repartir o custo ao registar.
+ *   ex.: compra registada a 45 €, produto corrigido para 12 € → a compra passa a valer 12 €.
+ */
+export const totalCompra = (c: Pick<Compra, 'id'>, produtos: Produto[]) =>
+  arred(soma(produtos.filter((p) => p.compra_id === c.id).map(custoTotalProduto)));
 
 export interface ItemCompra {
   quantidade: number;
@@ -418,37 +425,22 @@ export function estatisticas(d: Dados, f: Filtro, hoje: string): Estatisticas {
   const produtoPorId = new Map(d.produtos.map((p) => [p.id, p]));
   const compraPorId = new Map(d.compras.map((c) => [c.id, c]));
 
-  // Gastos: compras (com todos os produtos) + produtos registados sem compra.
-  const comprasFiltradas = d.compras.filter((c) => {
-    if (!dentro(c.data, f.intervalo)) return false;
-    if (f.pessoaId && c.pessoa_id !== f.pessoaId) return false;
-    if (f.texto || f.contaId) {
-      const ps = d.produtos.filter((p) => p.compra_id === c.id);
-      if (f.texto && !ps.some((p) => correspondeTexto(p, f.texto))) return false;
-      if (f.contaId && !ps.some((p) => p.conta_id === f.contaId)) return false;
-    }
-    return true;
-  });
-  const produtosSoltos = d.produtos.filter(
+  // Gastos: o custo de cada produto (pedido do Ricardo: o preço do produto é o que conta), na data
+  // da compra a que pertence (ou na sua data de compra, se foi registado sem compra). Com filtro de
+  // texto ou conta, só os produtos correspondentes.
+  const comprasFiltradas = d.compras.filter((c) => dentro(c.data, f.intervalo) && (!f.pessoaId || c.pessoa_id === f.pessoaId));
+  const compraFiltrada = new Set(comprasFiltradas.map((c) => c.id));
+  const produtosGasto = d.produtos.filter(
     (p) =>
-      !p.compra_id &&
-      dentro(p.data_compra, f.intervalo) &&
-      (!f.pessoaId || p.pessoa_id === f.pessoaId) &&
+      (p.compra_id
+        ? compraFiltrada.has(p.compra_id)
+        : dentro(p.data_compra, f.intervalo) && (!f.pessoaId || p.pessoa_id === f.pessoaId)) &&
       (!f.contaId || p.conta_id === f.contaId) &&
       correspondeTexto(p, f.texto),
   );
-  const gasto = arred(
-    // Com filtro de texto ou conta só conta o custo dos produtos correspondentes.
-    (f.texto || f.contaId
-      ? soma(
-          comprasFiltradas.flatMap((c) =>
-            d.produtos
-              .filter((p) => p.compra_id === c.id && correspondeTexto(p, f.texto) && (!f.contaId || p.conta_id === f.contaId))
-              .map(custoTotalProduto),
-          ),
-        )
-      : soma(comprasFiltradas.map(totalCompra))) + soma(produtosSoltos.map(custoTotalProduto)),
-  );
+  // A data do gasto de cada produto: a da compra (ou a data de compra do produto, sem compra).
+  const dataGasto = (p: Produto) => (p.compra_id ? compraPorId.get(p.compra_id)?.data ?? null : p.data_compra);
+  const gasto = arred(soma(produtosGasto.map(custoTotalProduto)));
 
   // Vendas
   const vendasFiltradas = d.vendas.filter(
@@ -493,8 +485,7 @@ export function estatisticas(d: Dados, f: Filtro, hoje: string): Estatisticas {
   const diasMediosVenda = tempos.length ? tempos.reduce((a, t) => a + t.dias, 0) / tempos.length : null;
 
   // Vendas e gastos agrupados no tempo (por mês e por semana). Cada grupo tem o n.º de vendas, o
-  // recebido, o lucro e os gastos em compras. Os gastos: compras inteiras (sem filtro) ou só o custo
-  // dos produtos que correspondem ao filtro de conta/produto, mais os produtos registados sem compra.
+  // recebido, o lucro e os gastos em compras (o custo de cada produto na data da compra).
   const agruparNoTempo = (chaveDe: (data: string) => string) => {
     const grupos = new Map<string, { vendas: number; receita: number; lucro: number; gasto: number }>();
     const grupo = (data: string) => {
@@ -509,12 +500,10 @@ export function estatisticas(d: Dados, f: Filtro, hoje: string): Estatisticas {
       x.receita += liquidoVenda(v);
       x.lucro += lucroVenda(v, produtoPorId.get(v.produto_id));
     }
-    if (f.texto || f.contaId) {
-      for (const c of comprasFiltradas)
-        for (const p of d.produtos)
-          if (p.compra_id === c.id && correspondeTexto(p, f.texto) && (!f.contaId || p.conta_id === f.contaId)) grupo(c.data).gasto += custoTotalProduto(p);
-    } else for (const c of comprasFiltradas) grupo(c.data).gasto += totalCompra(c);
-    for (const p of produtosSoltos) if (p.data_compra) grupo(p.data_compra).gasto += custoTotalProduto(p);
+    for (const p of produtosGasto) {
+      const data = dataGasto(p);
+      if (data) grupo(data).gasto += custoTotalProduto(p);
+    }
     return grupos;
   };
   // O fim dos eixos: o fim do período, ou hoje se o período ainda não acabou.

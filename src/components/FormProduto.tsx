@@ -108,7 +108,7 @@ export function FormProduto({ id, aoFechar }: { id?: string; aoFechar(): void })
     }
   }
 
-  // Apagar o produto (com confirmação)
+  // Apagar o produto (com confirmação); se era o único da compra, apaga também a compra
   async function eliminar() {
     if (temVendas) return aviso('Este produto tem vendas registadas. Apaga primeiro as vendas, ou muda o estado para "Cancelado".', 'erro');
     const ok = await confirmar({
@@ -120,6 +120,9 @@ export function FormProduto({ id, aoFechar }: { id?: string; aoFechar(): void })
     if (!ok) return;
     try {
       await apagar('produtos', novoId);
+      // Era o único produto da compra? Então a compra também se apaga (pedido do Ricardo).
+      const compraId = existente?.compra_id;
+      if (compraId && !dados.produtos.some((x) => x.compra_id === compraId && x.id !== novoId)) await apagar('compras', compraId);
       aviso('Produto apagado.');
       aoFechar();
     } catch (e) {

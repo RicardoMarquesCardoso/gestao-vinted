@@ -3,6 +3,8 @@
 // Uma compra tem data, quem pagou, valor, portes e uma ou mais linhas de produtos.
 // O custo de cada produto é calculado por distribuirCompra (lib/calc.ts): divide o valor
 // em partes iguais ou usa o preço de cada linha, e reparte os portes proporcionalmente.
+// Depois de registada, o total da compra é a soma dos produtos (totalCompra); ao editar uma compra,
+// o formulário parte do preço atual de cada produto.
 // Escrever o n.º do set preenche o nome e o tema a partir do catálogo.
 
 import { useState } from 'react';
@@ -35,15 +37,22 @@ export function FormCompra({ id, aoFechar }: { id?: string; aoFechar(): void }) 
   const existente = dados.compras.find((c) => c.id === id);
   const produtosAtuais = existente ? dados.produtos.filter((p) => p.compra_id === existente.id) : [];
 
+  // Numa compra que já existe, os valores vêm dos produtos (pedido do Ricardo: o preço de cada
+  // produto é o que conta). Abre-se com o preço de cada linha ("individual") e com os portes iguais à
+  // soma dos custos adicionais dos produtos, para guardar sem mudar o custo de nenhum produto, mesmo
+  // que algum tenha sido corrigido depois de registar a compra.
+  const extrasAtuais = arred(produtosAtuais.reduce((a, p) => a + (p.custos_adicionais || 0), 0));
+  const extrasGuardados = arred((existente?.portes || 0) + (existente?.outros_custos || 0));
+  const manterExtras = !!existente && extrasGuardados === extrasAtuais;
   const [f, setF] = useState(() => ({
     data: existente?.data ?? hoje(),
     pagador: existente ? valorPagador(existente) : '',
     metodo_pagamento: existente?.metodo_pagamento ?? '',
     vendedor: existente?.vendedor ?? '',
-    distribuicao: (existente?.distribuicao ?? 'individual') as Distribuicao,
-    valor_artigos: paraCampo(existente?.valor_artigos),
-    portes: paraCampo(existente?.portes),
-    outros_custos: paraCampo(existente?.outros_custos),
+    distribuicao: 'individual' as Distribuicao,
+    valor_artigos: paraCampo(existente ? arred(produtosAtuais.reduce((a, p) => a + (p.preco_compra || 0), 0)) : undefined),
+    portes: paraCampo(existente ? (manterExtras ? existente.portes : extrasAtuais) : undefined),
+    outros_custos: paraCampo(existente ? (manterExtras ? existente.outros_custos : 0) : undefined),
     notas: existente?.notas ?? '',
   }));
   const itemVazio = (): Item => ({ id: crypto.randomUUID(), novo: true, nome: '', set_numero: '', condicao: '', marca: 'LEGO', tema: '', quantidade: '1', preco: '' });

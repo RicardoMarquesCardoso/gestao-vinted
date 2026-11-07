@@ -130,6 +130,23 @@ test('estatísticas básicas', () => {
   assert.equal(chaveComparacao({ set_numero: ' 75192 ', nome: 'x' }), 'set:75192');
 });
 
+test('o total de uma compra é a soma dos seus produtos (o preço do produto é o que conta)', async () => {
+  const { totalCompra } = await import('../src/lib/calc.ts');
+  const compra = { id: 'k1', data: '2026-11-04', pessoa_id: null, tipo_pagamento: 'pessoa' as const, metodo_pagamento: null, vendedor: null, valor_artigos: 45, portes: 0, outros_custos: 0, distribuicao: 'igual' as const, notas: null };
+  const vazia = { ...compra, id: 'k2', valor_artigos: 22.5 };
+  const d: Dados = {
+    pessoas: [], contas: [], definicoes: [], acertos: [], vendas: [],
+    compras: [compra, vazia],
+    // Registada a 45 €, o produto foi corrigido para 12 € (+1 € de portes)
+    produtos: [produto({ id: 'p1', compra_id: 'k1', preco_compra: 12, custos_adicionais: 1 })],
+  };
+  assert.equal(totalCompra(compra, d.produtos), 13);
+  assert.equal(totalCompra(vazia, d.produtos), 0); // compra sem produtos não conta
+  const e = estatisticas(d, { intervalo: { inicio: null, fim: null } }, '2026-11-07');
+  assert.equal(e.gasto, 13);
+  assert.equal(e.porMes.find((m) => m.mes === '2026-11')!.gasto, 13);
+});
+
 import { lotes, idadeStock } from '../src/lib/calc.ts';
 
 test('lotes de compra e idade do stock', () => {
