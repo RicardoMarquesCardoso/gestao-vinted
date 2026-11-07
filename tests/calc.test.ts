@@ -582,3 +582,14 @@ test('pesquisa das Análises: categoria/subcategoria e texto sem acentos', async
   assert.equal(e.gasto, 20);
   assert.equal(e.recebido, 30);
 });
+
+test('pvpDoProduto: PVP escrito à mão para produtos sem PVP na Brickset', async () => {
+  const { pvpDoProduto, CHAVE_PVPS } = await import('../src/lib/plano.ts');
+  const p = produto({ id: 'pk', nome: '30th Celebration EX Box Greninja', set_numero: null, marca: 'Pokémon' });
+  const dados = (pvps: Record<string, number>) =>
+    ({ pessoas: [], contas: [], compras: [], acertos: [], produtos: [p], vendas: [], definicoes: [{ chave: CHAVE_PVPS, valor: pvps }] }) as unknown as Dados;
+  const ctx = (d: Dados) => ({ dados: d, mercado: null, hoje: '2026-11-07' }) as never;
+  assert.equal(pvpDoProduto(p, ctx(dados({}))), null);
+  const { chaveComparacao } = await import('../src/lib/calc.ts');
+  assert.deepEqual(pvpDoProduto(p, ctx(dados({ [chaveComparacao(p)]: 49.99 }))), { valor: 49.99, manual: true });
+});

@@ -963,3 +963,7 @@ select.seletor-mini, .cartao select.seletor-mini { width: auto; max-width: 11.5e
    uma coluna flex, o flex-basis dos filtros esticava o campo na vertical) */
 .analises-pesquisa { margin-bottom: 8px; }
 .pesquisa .filtro-procura { flex: none; }
+
+/* PVP debaixo do plano (pedido do Ricardo) */
+.linha-pvp { display: flex; align-items: center; gap: 6px; font-size: 0.9rem; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.linha-pvp input { width: 6em; min-height: 0; padding: 4px 8px; }

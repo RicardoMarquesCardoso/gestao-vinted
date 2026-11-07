@@ -7,11 +7,12 @@
 //   - LinhaPokemon: preço de mercado de produtos Pokémon e associação ao produto certo.
 
 import { useMemo, useState } from 'react';
-import { fmtData, fmtEuro, hoje, plural } from '../lib/format';
+import { fmtData, fmtEuro, hoje, lerNumero, plural } from '../lib/format';
 import { chavePokemon, entradaPokemon, idsPokemon, precoPokemon, urlImagemTcg, useMercado } from '../lib/investimento';
 import type { ProdutoTcg } from '../lib/investimento';
-import { custoUnitario, somarDias } from '../lib/calc';
-import { CHAVE_ADIADAS, CHAVE_PLANOS, CHAVE_POKEMON_IDS, chavePlano, mesAno, planosManuais, resumoAnuncio, sinais, sugerirPlano, tarefas, tarefasAdiadas } from '../lib/plano';
+import { chaveComparacao, custoUnitario, somarDias } from '../lib/calc';
+
+import { CHAVE_ADIADAS, CHAVE_PLANOS, CHAVE_POKEMON_IDS, CHAVE_PVPS, chavePlano, pvpDoProduto, mesAno, planosManuais, resumoAnuncio, sinais, sugerirPlano, tarefas, tarefasAdiadas } from '../lib/plano';
 import type { Contexto, Plano, PlanoManual, Sinal, Tarefa } from '../lib/plano';
 import type { Produto } from '../lib/types';
 import { useDados } from '../state';
@@ -84,6 +85,7 @@ export function LinhaPlano({ p }: { p: Produto }) {
           {a.margem !== null && <span className="mudo"> ({Math.round(a.margem * 100)}%)</span>}
           {pl.acao === 'guardar' && <span className="mudo"> · {textoPlano(pl)}</span>}
         </div>
+        <LinhaPvp p={p} ctx={ctx} />
         {mudar}
       </div>
     );
@@ -100,8 +102,55 @@ export function LinhaPlano({ p }: { p: Produto }) {
         {pl.precoSugerido !== null && <span> · {pl.acao === 'guardar' ? 'preço alvo' : 'anunciar a'} {fmtEuro(pl.precoSugerido)}</span>}
         {pl.manual && <span className="chip">decidido por vocês</span>}
       </div>
+      <LinhaPvp p={p} ctx={ctx} />
       {verPorque && pl.motivo && <p className="mudo linha-plano-porque">{pl.motivo}</p>}
       {mudar}
+    </div>
+  );
+}
+
+/**
+ * Preço normal (PVP) debaixo do plano (pedido do Ricardo). Vem da Brickset; nos produtos sem PVP
+ * conhecido (ex.: Pokémon) pode escrever-se à mão: fica em definicoes.pvps para todos os iguais.
+ */
+function LinhaPvp({ p, ctx }: { p: Produto; ctx: Contexto }) {
+  const { guardar, aviso } = useDados();
+  const [editar, setEditar] = useState(false);
+  const [texto, setTexto] = useState('');
+  const pvp = pvpDoProduto(p, ctx);
+  async function gravar() {
+    const v = lerNumero(texto);
+    const atuais = (ctx.dados.definicoes.find((d) => d.chave === CHAVE_PVPS)?.valor ?? {}) as Record<string, number>;
+    const novo = { ...atuais };
+    if (v > 0) novo[chaveComparacao(p)] = v;
+    else delete novo[chaveComparacao(p)];
+    await guardar('definicoes', [{ chave: CHAVE_PVPS, valor: novo as never }]);
+    setEditar(false);
+    aviso(v > 0 ? `PVP: ${fmtEuro(v)}` : 'PVP apagado.');
+  }
+  if (editar)
+    return (
+      <form className="linha-pvp" onSubmit={(ev) => (ev.preventDefault(), void gravar())}>
+        <span className="mudo">PVP</span>
+        <input inputMode="decimal" autoFocus aria-label="PVP em euros" value={texto} onChange={(ev) => setTexto(ev.target.value)} placeholder="€" />
+        <button className="link" type="submit">Guardar</button>
+      </form>
+    );
+  if (!pvp)
+    return (
+      <div className="linha-pvp">
+        <span className="mudo">PVP</span>{' '}
+        <button className="link" onClick={() => (setTexto(''), setEditar(true))}>indicar</button>
+      </div>
+    );
+  return (
+    <div className="linha-pvp">
+      <span className="mudo">PVP</span> {fmtEuro(pvp.valor)}
+      {pvp.manual && (
+        <button className="link" onClick={() => (setTexto(String(pvp.valor).replace('.', ',')), setEditar(true))}>
+          {' '}alterar
+        </button>
+      )}
     </div>
   );
 }

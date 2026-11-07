@@ -159,6 +159,22 @@ const vendasComparaveis = ultimoResultado((vendas: Venda[], listaProdutos: Produ
   return grupos;
 });
 
+/** Definição com os PVP escritos à mão, por produto (chave de comparação → €), para produtos sem PVP na Brickset (ex.: Pokémon). */
+export const CHAVE_PVPS = 'pvps';
+
+/**
+ * Preço normal (PVP) de um produto, para mostrar debaixo do plano (pedido do Ricardo): o da Brickset
+ * (LEGO Alemanha) ou, se não houver, o escrito à mão pelo Ricardo/Cass em definicoes.pvps.
+ * Só informativo: não entra nos cálculos do plano.
+ */
+export function pvpDoProduto(p: Produto, ctx: Contexto): { valor: number; manual: boolean } | null {
+  const m = infoMercado(ctx.mercado, p.set_numero, ctx.hoje);
+  if (m?.pvp) return { valor: m.pvp, manual: false };
+  const manuais = (ctx.dados.definicoes.find((d) => d.chave === CHAVE_PVPS)?.valor ?? {}) as Record<string, number>;
+  const v = manuais[chaveComparacao(p)];
+  return typeof v === 'number' && v > 0 ? { valor: v, manual: true } : null;
+}
+
 /** Preço de referência para vender agora: as nossas vendas → BrickLink → eBay (com desconto) → TCGplayer (Pokémon) → PVP. */
 export function referencia(p: Produto, ctx: Contexto): Referencia | null {
   const r = regrasPlano(ctx.dados.definicoes);
