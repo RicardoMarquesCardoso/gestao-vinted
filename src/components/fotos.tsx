@@ -2,6 +2,7 @@
 //
 // - AdicionarFotos: botão (ícone) para enviar fotografias novas, o 1.º da coluna à direita da foto: no
 //   telemóvel deixa escolher entre tirar uma foto e escolher da galeria, e aceita várias de uma vez.
+// - useEnviarFotos: envia fotografias para um produto (usado no detalhe do produto e no do grupo).
 // - PartilharFotos: botões com ícones de descarregar e partilhar, por baixo do "Adicionar".
 //   Só as fotos NOSSAS (nunca as imagens genéricas). No telemóvel, partilhar abre o menu de
 //   partilha do sistema com as originais (boa qualidade), e daí escolhe-se a Vinted, o WhatsApp,
@@ -17,7 +18,7 @@ import { FOTO_MINIATURA, fotosALimpar, nomeFicheiroFoto } from '../lib/fotos';
 import { hoje } from '../lib/format';
 import type { Produto } from '../lib/types';
 import { useDados } from '../state';
-import { reduzirFoto } from './ui';
+import { prepararFoto, reduzirFoto } from './ui';
 
 /** Os browsers que deixam partilhar ficheiros (sobretudo telemóveis). */
 const podePartilharFicheiros = () => {
@@ -67,6 +68,34 @@ const IconeAdicionar = () => (
  * É uma <label> com o <input type="file"> lá dentro: tocar abre o seletor do telemóvel ("Tirar
  * foto" ou "Biblioteca de fotografias"). Sem o atributo capture, para não obrigar a usar a câmara.
  */
+/**
+ * Enviar fotografias novas para um produto: prepara cada uma (original + miniatura), envia para o
+ * Storage e junta-as às do produto. É o mesmo no detalhe do produto e no detalhe do grupo de
+ * produtos iguais (pedido do Ricardo: os botões têm de estar nos dois).
+ */
+export function useEnviarFotos(p: Produto | undefined) {
+  const { store, guardar, aviso } = useDados();
+  const [aEnviar, setAEnviar] = useState(false);
+  async function enviar(ficheiros: FileList | null) {
+    if (!ficheiros?.length || !p) return;
+    setAEnviar(true);
+    try {
+      const novas: string[] = [];
+      for (const f of Array.from(ficheiros)) {
+        const { original, miniatura } = await prepararFoto(f, store.modo === 'demo');
+        novas.push(await store.enviarFoto(p.id, original, miniatura));
+      }
+      await guardar('produtos', [{ ...p, fotos: [...p.fotos, ...novas] }]);
+      aviso(novas.length === 1 ? 'Fotografia adicionada.' : `${novas.length} fotografias adicionadas.`);
+    } catch (e) {
+      aviso(`Não foi possível enviar a fotografia: ${e instanceof Error ? e.message : e}`, 'erro');
+    } finally {
+      setAEnviar(false);
+    }
+  }
+  return { aEnviar, enviar };
+}
+
 export function AdicionarFotos({ aEnviar, enviar }: { aEnviar: boolean; enviar(ficheiros: FileList | null): void }) {
   return (
     <label className={`acao-foto ${aEnviar ? 'desativado' : ''}`} title="Adicionar fotografias" aria-label="Adicionar fotografias">

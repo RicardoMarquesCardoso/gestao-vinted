@@ -8,6 +8,7 @@
 // No rodapé: Vendi, Anunciar e Retirar para o grupo (a app escolhe a unidade certa).
 
 import { LinhaPlano } from './planos';
+import { AdicionarFotos, PartilharFotos, useEnviarFotos } from './fotos';
 import { useAbrir } from './acoes';
 import { ImagemReferencia, Foto, Janela, Valor, urlReferencia, useImagemReferencia } from './ui';
 import { urlBrickEconomy, urlEbayVendidos, urlVinted } from '../lib/avaliar';
@@ -27,6 +28,9 @@ export function DetalheGrupo({ ids, aoFechar }: { ids: string[]; aoFechar(): voi
   // Todos os produtos iguais ao do cartão, incluindo os já vendidos (o cartão pode só mostrar os
   // que passam nos filtros do ecrã, mas aqui interessa o histórico todo)
   const base = ids.map((id) => dados.produtos.find((x) => x.id === id)).find((x): x is Produto => !!x);
+  // Produto que recebe as fotos novas: o primeiro igual que já tem fotos, senão o mais antigo
+  const comFotos = base ? dados.produtos.filter((x) => chaveComparacao(x) === chaveComparacao(base)).sort((a, b) => (a.data_compra ?? '').localeCompare(b.data_compra ?? '')) : [];
+  const fotos = useEnviarFotos(comFotos.find((x) => x.fotos.length) ?? comFotos[0]);
   if (!base) return null;
   const chave = chaveComparacao(base);
   const itens = dados.produtos.filter((x) => chaveComparacao(x) === chave);
@@ -66,10 +70,20 @@ export function DetalheGrupo({ ids, aoFechar }: { ids: string[]; aoFechar(): voi
         </>
       }
     >
-      {/* Imagem no mesmo enquadramento do detalhe do produto */}
-      <div className="fotos-com-acoes fotos-sem-acoes">
+      {/* Fotos no mesmo enquadramento do detalhe do produto, com os mesmos ícones à direita
+          (adicionar, descarregar, partilhar; pedido do Ricardo). São as do produto com fotos (ou
+          o mais antigo): as novas juntam-se a esse. */}
+      <div className="fotos-com-acoes">
         <div className="fotos-galeria">
-          {p.fotos[0] ? <Foto refFoto={p.fotos[0]} alt={p.nome} /> : <ImagemReferencia url={urlReferencia(p, true) ?? imagemReferencia(p, true)} alt={p.nome} />}
+          {p.fotos.length > 0 ? (
+            p.fotos.map((r) => <Foto key={r} refFoto={r} alt={p.nome} />)
+          ) : (
+            <ImagemReferencia url={urlReferencia(p, true) ?? imagemReferencia(p, true)} alt={p.nome} />
+          )}
+        </div>
+        <div className="acoes-fotos-coluna">
+          <AdicionarFotos aEnviar={fotos.aEnviar} enviar={fotos.enviar} />
+          <PartilharFotos p={p} vertical />
         </div>
       </div>
       {p.set_numero && urlReferencia(p) && (

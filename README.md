@@ -335,6 +335,8 @@ Todos estes números estão em **Definições → Regras das sugestões** e pode
 
 A lista **"O que fazer"** no Painel junta as tarefas: *Anunciar X a Y €*, *Baixar X para Y €* e *Rever X* (quando acaba um prazo de guardar escolhido por vocês). Cada tarefa pode ser **adiada** 14 dias. Tocar no título "O que fazer" minimiza ou maximiza a lista (fica lembrado em cada dispositivo).
 
+**Fotos no detalhe do grupo** (pedido do Ricardo): o detalhe de um grupo de produtos iguais tem as fotos e os mesmos três ícones do detalhe do produto (adicionar, descarregar, partilhar). As fotos são as do primeiro produto igual que já tem fotos (senão o mais antigo), e as novas juntam-se a esse. O envio é o mesmo nos dois sítios (`useEnviarFotos` em `components/fotos.tsx`).
+
 **PVP na caixa do plano** (pedido do Ricardo): debaixo do plano (ou do anúncio) aparece o preço normal do produto. Para LEGO vem da Brickset; nos produtos sem PVP conhecido (ex.: Pokémon) há um link *indicar* para o escrever à mão, que fica guardado em `definicoes.pvps` (chave → €, pela chave de comparação, por isso vale para todos os produtos iguais) e pode ser alterado depois (`pvpDoProduto`, `LinhaPvp`). É só informativo, não entra nos cálculos.
 
 **Aviso na janela Anunciar** (`vezesNaConta`): se a conta escolhida já tem 2 ou mais unidades do mesmo produto (vendidas nessa conta ou lá anunciadas agora), aparece um aviso para considerar outra conta, porque a Vinted reclama de muitos artigos iguais na mesma conta. Os anúncios retirados sem venda não contam. É só um aviso.

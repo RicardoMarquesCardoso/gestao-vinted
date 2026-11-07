@@ -4,7 +4,7 @@
 // detalhe do grupo), com este produto destacado e os outros exemplares iguais, também vendidos.
 
 import { LinhaPlano, LinhaPokemon } from './planos';
-import { AdicionarFotos, PartilharFotos } from './fotos';
+import { AdicionarFotos, PartilharFotos, useEnviarFotos } from './fotos';
 import { TabelaProdutos } from './DetalheGrupo';
 import { ehPokemon } from '../lib/plano';
 import { urlBrickEconomy, urlEbayVendidos, urlVinted } from '../lib/avaliar';
@@ -16,18 +16,17 @@ import { useDados } from '../state';
 import { useAbrir } from './acoes';
 import { compararNomes, useCatalogoSets } from './catalogo';
 import { CHAVE_MANTIDOS } from '../pages/ReverNomes';
-import { useState } from 'react';
-import { EtiquetaProduto, Foto, IconeLixo, ImagemReferencia, Janela, prepararFoto, urlReferencia, useConfirmar, useImagemReferencia } from './ui';
+import { EtiquetaProduto, Foto, IconeLixo, ImagemReferencia, Janela, urlReferencia, useConfirmar, useImagemReferencia } from './ui';
 
 export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void }) {
   const { dados, store, guardar, apagar, aviso, lista } = useDados();
   const confirmar = useConfirmar();
   const procurarSet = useCatalogoSets();
   const mercado = useMercado();
-  const [aEnviar, setAEnviar] = useState(false);
   const abrir = useAbrir();
   const imagemReferencia = useImagemReferencia();
   const p = dados.produtos.find((x) => x.id === id);
+  const { aEnviar, enviar } = useEnviarFotos(p);
   if (!p) return null;
   // Ciclo de vida do set (Brickset): quando saiu, quando foi/será retirado e o PVP
   const ciclo = p.set_numero && (!p.marca || /lego/i.test(p.marca)) ? infoMercado(mercado, p.set_numero, hoje()) : null;
@@ -43,24 +42,6 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
     .sort((a, b) => (a.data_compra ?? '').localeCompare(b.data_compra ?? ''));
 
   // Tirar/escolher uma fotografia e acrescentá-la ao produto
-  async function adicionarFoto(ficheiros: FileList | null) {
-    if (!ficheiros?.length || !p) return;
-    setAEnviar(true);
-    try {
-      const novas: string[] = [];
-      for (const f of Array.from(ficheiros)) {
-        const { original, miniatura } = await prepararFoto(f, store.modo === 'demo');
-        novas.push(await store.enviarFoto(p.id, original, miniatura));
-      }
-      await guardar('produtos', [{ ...p, fotos: [...p.fotos, ...novas] }]);
-      aviso(novas.length === 1 ? 'Fotografia adicionada.' : `${novas.length} fotografias adicionadas.`);
-    } catch (e) {
-      aviso(`Não foi possível enviar a fotografia: ${e instanceof Error ? e.message : e}`, 'erro');
-    } finally {
-      setAEnviar(false);
-    }
-  }
-
   /**
    * Apagar um produto inserido por engano (com confirmação). Não se apagam produtos com vendas:
    * aí apagam-se primeiro as vendas, ou muda-se o estado para "Cancelado". As fotografias dele
@@ -136,7 +117,7 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
           )}
         </div>
         <div className="acoes-fotos-coluna">
-          <AdicionarFotos aEnviar={aEnviar} enviar={adicionarFoto} />
+          <AdicionarFotos aEnviar={aEnviar} enviar={enviar} />
           <PartilharFotos p={p} vertical />
         </div>
       </div>
