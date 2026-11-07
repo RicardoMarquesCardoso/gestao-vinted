@@ -949,7 +949,7 @@ select.seletor-mini, .cartao select.seletor-mini { width: auto; max-width: 11.5e
 .balanco-linha { display: flex; justify-content: space-between; align-items: baseline; padding: 5px 0; font-variant-numeric: tabular-nums; }
 .balanco-linha strong { font-size: 1.1rem; }
 .balanco-barra { display: flex; height: 10px; border-radius: 5px; overflow: hidden; margin: 10px 0 6px; background: var(--superficie-2); }
-.balanco-legenda { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.78rem; color: var(--texto-2); font-variant-numeric: tabular-nums; }
+.balanco-legenda { display: flex; gap: 12px; flex-wrap: nowrap; white-space: nowrap; overflow: hidden; font-size: 0.78rem; color: var(--texto-2); font-variant-numeric: tabular-nums; }
 .balanco-legenda i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 3px; }
 .balanco-recebido { background: var(--positivo); }
 .balanco-falta { background: var(--superficie-2); box-shadow: inset 0 0 0 1px var(--texto-3); }
@@ -958,3 +958,8 @@ select.seletor-mini, .cartao select.seletor-mini { width: auto; max-width: 11.5e
 .balanco-recuperado { margin-top: 10px; }
 .balanco-recuperado span { font-size: 0.9rem; color: var(--texto-2); }
 .balanco-recuperado strong { font-size: 1rem; }
+
+/* Análises: pesquisa acima dos filtros, com a altura normal de um campo (dentro de .pesquisa, que é
+   uma coluna flex, o flex-basis dos filtros esticava o campo na vertical) */
+.analises-pesquisa { margin-bottom: 8px; }
+.pesquisa .filtro-procura { flex: none; }

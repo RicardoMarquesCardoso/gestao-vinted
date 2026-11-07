@@ -84,6 +84,11 @@ export function Analises() {
   return (
     <div className="pagina">
       <h1>Análises</h1>
+      {/* A mesma pesquisa dos Produtos (pedido do Ricardo): sugere categorias/subcategorias e
+          produtos. Fica acima dos filtros de período e conta (pedido do Ricardo). */}
+      <div className="analises-pesquisa">
+        <PesquisaProdutos texto={texto} mudarTexto={setTexto} categoria={categoria} mudarCategoria={setCategoria} produtos={dados.produtos} placeholder="Produto, set ou categoria" />
+      </div>
       <div className="filtros">
         <select value={periodo} onChange={(ev) => setPeriodo(ev.target.value as Predefinicao | 'datas')} aria-label="Período">
           {PERIODOS.map((p) => <option key={p.valor} value={p.valor}>{p.nome}</option>)}
@@ -99,8 +104,6 @@ export function Analises() {
           <option value="">Todas as contas</option>
           {dados.contas.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
         </select>
-        {/* A mesma pesquisa dos Produtos (pedido do Ricardo): sugere categorias/subcategorias e produtos */}
-        <PesquisaProdutos texto={texto} mudarTexto={setTexto} categoria={categoria} mudarCategoria={setCategoria} produtos={dados.produtos} placeholder="Produto, set ou categoria" />
       </div>
 
       {/* Balanço (pedido do Ricardo): 4 cartões e a barra do investimento recuperado, desde sempre, com a conta/pesquisa do topo */}
@@ -316,7 +319,7 @@ function Balanco(props: { dados: Dados; filtro: FiltroTopo; potencial: { lucro: 
  * Barra do investimento recuperado (pedido do Ricardo): o que se gastou é 100%; a parte verde é o
  * que já voltou (recebido) e a cinzenta o que falta recuperar. Quando já se recebeu mais do que se
  * gastou, a barra mostra o gasto todo recuperado (verde) e o que se recebeu a mais (azul).
- *   ex.: gasto 100, recebido 79 → 79% | verde 79 € · por recuperar 21 €
+ *   ex.: gasto 100, recebido 79 → 79% | verde 79 € · por recuperar 21 € (legenda numa só linha)
  *   ex.: gasto 100, recebido 130 → 130% | verde 100 € · a mais 30 €
  */
 function BarraRecuperado(props: { recebido: number; gasto: number; nome: string }) {
@@ -339,8 +342,8 @@ function BarraRecuperado(props: { recebido: number; gasto: number; nome: string 
       </div>
       <div className="balanco-legenda">
         <span><i className="balanco-recebido" /> {props.nome} {fmtEuro(recebido)}</span>
-        {falta > 0 && <span><i className="balanco-falta" /> por recuperar {fmtEuro(falta)} ({pct(falta)})</span>}
-        {aMais > 0 && <span><i className="balanco-amais" /> a mais {fmtEuro(aMais)} (+{pct(aMais)})</span>}
+        {falta > 0 && <span><i className="balanco-falta" /> por recuperar {fmtEuro(falta)}</span>}
+        {aMais > 0 && <span><i className="balanco-amais" /> a mais {fmtEuro(aMais)}</span>}
       </div>
     </>
   );
