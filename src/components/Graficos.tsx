@@ -89,7 +89,7 @@ export function BarrasSemanas(props: {
         <span className="mudo">{rotulo(d.semana)}</span>
         <strong>{d.vendas === 1 ? '1 venda' : `${d.vendas} vendas`}</strong>
         <span>
-          <i className="legenda legenda-receita" /> {fmtEuro(d.receita)}
+          <i className="legenda legenda-receita" /> vendas {fmtEuro(d.receita)}
         </span>
         <span className={d.lucro < 0 ? 'negativo' : ''}>
           <i className="legenda legenda-lucro" /> lucro {fmtEuro(d.lucro)}
