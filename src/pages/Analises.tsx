@@ -1,6 +1,7 @@
 // Ecrã "Análises". No topo, o Balanço (pedido do Ricardo): hoje (caixa, lucro feito, parado e a barra
 // do investimento recuperado) e se vender tudo (lucro total e a mesma barra), desde sempre; logo a
-// seguir as vendas por semana (recebido com o lucro noutra cor + gastos a vermelho). Depois: destaques
+// seguir as vendas por semana ou por mês, conforme o período (recebido com o lucro noutra cor + gastos
+// a vermelho; "Sempre" por mês). Períodos sem "Este mês" e "Mês passado". Depois: destaques
 // (lib/insights.ts: melhor/pior tema, preço final vs. anunciado, tempo anunciado, stock parado,
 // vagas nas contas, maior aposta), lucro por mês, rentabilidade vs. tempo por tema (dispersão),
 // investimento, por categoria/conta, subcategorias, lotes, idade do stock, por set e tempo até
@@ -14,13 +15,16 @@ import { lucroPotencial } from '../lib/plano';
 import { desempenhoTemas, destaques } from '../lib/insights';
 import type { Destaque } from '../lib/insights';
 import { Cartao } from '../components/ui';
-import { PREDEFINICOES, correspondeTexto, estatisticas, idadeStock, intervaloDe, lotes } from '../lib/calc';
+import { PREDEFINICOES, correspondeTexto, diasEntre, estatisticas, idadeStock, intervaloDe, lotes } from '../lib/calc';
 import type { Intervalo, Predefinicao } from '../lib/calc';
 import { fmtEuro, fmtMes, fmtNum, hoje, plural } from '../lib/format';
 import { investimento, useMercado } from '../lib/investimento';
 import type { LinhaInvestimento } from '../lib/investimento';
 import { useDados } from '../state';
 import type { Dados } from '../lib/types';
+
+// Períodos do ecrã: sem "Este mês" e "Mês passado" (pedido do Ricardo).
+const PERIODOS = PREDEFINICOES.filter((p) => p.valor !== 'mes' && p.valor !== 'mes_anterior');
 
 export function Analises() {
   const { dados, nomeConta } = useDados();
@@ -36,6 +40,8 @@ export function Analises() {
   const h = hoje();
 
   const intervalo: Intervalo = periodo === 'datas' ? { inicio: de || null, fim: ate || null } : intervaloDe(periodo, h);
+  // Sem início ("Sempre") ou mais de um ano: as vendas aparecem por mês; senão por semana.
+  const porMes = !intervalo.inicio || diasEntre(intervalo.inicio, intervalo.fim ?? h) > 366;
   const e = useMemo(
     () => estatisticas(dados, { intervalo, contaId: conta || undefined, texto: texto.trim() || undefined }, h),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -70,7 +76,7 @@ export function Analises() {
       <h1>Análises</h1>
       <div className="filtros">
         <select value={periodo} onChange={(ev) => setPeriodo(ev.target.value as Predefinicao | 'datas')} aria-label="Período">
-          {PREDEFINICOES.map((p) => <option key={p.valor} value={p.valor}>{p.nome}</option>)}
+          {PERIODOS.map((p) => <option key={p.valor} value={p.valor}>{p.nome}</option>)}
           <option value="datas">Escolher datas…</option>
         </select>
         {periodo === 'datas' && (
@@ -89,9 +95,16 @@ export function Analises() {
       {/* Balanço (pedido do Ricardo): hoje vs. se vender tudo, desde sempre, com a conta/produto do topo */}
       <Balanco dados={dados} filtro={{ contaId: conta || undefined, texto: texto.trim() || undefined }} potencial={potencial} h={h} />
 
-      <Cartao titulo="Vendas por semana">
-        <BarrasSemanas dados={e.porSemana} />
-      </Cartao>
+      {/* Pedido do Ricardo: o eixo do tempo segue o período; "Sempre" (ou mais de um ano) por mês, o resto por semana */}
+      {porMes ? (
+        <Cartao titulo="Vendas por mês">
+          <BarrasSemanas dados={e.porMes.map((m) => ({ ...m, semana: m.mes }))} rotulo={fmtMes} nome="Vendas por mês" />
+        </Cartao>
+      ) : (
+        <Cartao titulo="Vendas por semana">
+          <BarrasSemanas dados={e.porSemana} />
+        </Cartao>
+      )}
 
       {lista.length > 0 && (
         <div className="destaques">
@@ -347,7 +360,7 @@ function usePeriodoTabela(dados: Dados, filtro: { contaId?: string; texto?: stri
   );
   const seletor = (
     <select className="seletor-mini" value={p} onChange={(ev) => setP(ev.target.value as Predefinicao)} aria-label="Período da tabela">
-      {PREDEFINICOES.map((x) => <option key={x.valor} value={x.valor}>{x.nome}</option>)}
+      {PERIODOS.map((x) => <option key={x.valor} value={x.valor}>{x.nome}</option>)}
     </select>
   );
   return { e, seletor };

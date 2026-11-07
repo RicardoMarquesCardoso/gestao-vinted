@@ -68,17 +68,23 @@ export function BarrasMensais(props: {
  * do recebido); a segunda, vermelha, são os gastos em compras nessa semana. Tocar numa semana mostra
  * os números por cima. Por defeito mostra a última semana.
  */
-export function BarrasSemanas(props: { dados: { semana: string; vendas: number; receita: number; lucro: number; gasto: number }[] }) {
+export function BarrasSemanas(props: {
+  /** Uma entrada por barra; `semana` é a chave do tempo (a segunda-feira da semana, ou o mês "2026-10"). */
+  dados: { semana: string; vendas: number; receita: number; lucro: number; gasto: number }[];
+  /** Texto de cada barra (por defeito o dia da segunda-feira, "26/10"; por mês "out 26"). */
+  rotulo?: (k: string) => string;
+  nome?: string;
+}) {
   const [ativo, setAtivo] = useState<number | null>(null);
   if (!props.dados.length) return <p className="mudo">Sem dados no período.</p>;
   const max = Math.max(...props.dados.map((d) => Math.max(d.receita, d.gasto)), 1);
   const destaque = ativo ?? props.dados.length - 1;
   const d = props.dados[destaque];
-  const rotulo = (k: string) => `${k.slice(8, 10)}/${k.slice(5, 7)}`;
+  const rotulo = props.rotulo ?? ((k: string) => `${k.slice(8, 10)}/${k.slice(5, 7)}`);
   const alt = (v: number) => `${(Math.max(v, 0) / max) * 100}%`;
   const passo = Math.ceil(props.dados.length / 8);
   return (
-    <figure className="grafico" aria-label="Vendas por semana">
+    <figure className="grafico" aria-label={props.nome ?? 'Vendas por semana'}>
       <div className="grafico-leitura grafico-leitura-semana">
         <span className="mudo">{rotulo(d.semana)}</span>
         <strong>{d.vendas === 1 ? '1 venda' : `${d.vendas} vendas`}</strong>

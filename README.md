@@ -265,7 +265,7 @@ A ideia central: **um lucro de 20% em 1 mês vale muito mais do que 20% em 2 ano
 
 Sempre que um produto muda para *anunciado*, abre-se um período, e quando deixa de estar fecha-se, com o motivo (vendido ou retirado; vender a unidade anunciada de um produto com mais unidades conta como vendido, `fecharPeriodoVendido`). As mudanças de preço ficam registadas dentro do período. Tudo fica no campo `produtos.anuncios`. Assim, com o tempo, vai dar para saber quanto demora cada tipo de produto a vender **depois de anunciado** e se baixar o preço ajuda.
 
-### Topo das Análises: Balanço e vendas por semana
+### Topo das Análises: Balanço e vendas por semana/mês
 
 Pedido do Ricardo (nov/2026): perceber de relance quanto já se lucrou, quanto está parado e quanto se pode vir a ter. O cartão **Balanço** (`Balanco` em `pages/Analises.tsx`) é sempre **desde o início** (um balanço de um só período não faria sentido) e respeita os filtros de conta e produto:
 
@@ -282,9 +282,9 @@ Com os registos coerentes, caixa + valor do stock = lucro total (−10 + 90 = 80
 
 O **gasto** é o total das compras (artigos + portes + outros custos) mais o custo dos produtos registados sem compra. Se o total de uma compra não bater com a soma dos custos dos seus produtos, o gasto (e por isso a caixa e o investimento recuperado) segue o total da compra, enquanto o lucro feito e o parado seguem os produtos.
 
-O período do topo começa em **Sempre** e aplica-se às vendas por semana e ao resto do ecrã. As tabelas mais abaixo (lucro por categoria, por conta, subcategorias e tempo até vender) têm o **seu próprio período**, num seletor pequeno no canto de cada uma (por defeito Sempre); a conta e o produto do topo aplicam-se a todas.
+O período do topo começa em **Sempre** (as opções são Últimos 30 dias, Últimos 90 dias, Este ano, Sempre e Escolher datas; sem "Este mês" nem "Mês passado", a pedido do Ricardo) e aplica-se às vendas por semana/mês e ao resto do ecrã. As tabelas mais abaixo (lucro por categoria, por conta, subcategorias e tempo até vender) têm o **seu próprio período**, num seletor pequeno no canto de cada uma (por defeito Sempre); a conta e o produto do topo aplicam-se a todas.
 
-Logo a seguir, **Vendas por semana** (segunda a domingo, últimas 26 semanas do período, semanas vazias incluídas): em cada semana, uma barra com o **recebido** e, por baixo noutra cor, a parte que é **lucro**; ao lado, uma barra **vermelha** com os **gastos** em compras dessa semana. Tocar numa semana mostra o n.º de vendas, o recebido, o lucro e os gastos (`estatisticas` → `porSemana`, `BarrasSemanas`).
+Logo a seguir, **Vendas por semana** ou **por mês**: o eixo do tempo segue o período do topo. Com **Sempre** (ou datas com mais de um ano) as barras são **meses** (`porMes`, do 1.º mês com dados até hoje, meses vazios incluídos); nos outros períodos são **semanas** de segunda a domingo (`porSemana`, da semana do início do período à do fim, semanas vazias incluídas). Em cada barra, uma barra com o **recebido** e, por baixo noutra cor, a parte que é **lucro**; ao lado, uma barra **vermelha** com os **gastos** em compras dessa semana. Tocar numa barra mostra o n.º de vendas, o recebido, o lucro e os gastos (`estatisticas` → `porSemana`/`porMes`, `BarrasSemanas`).
 
 ### Análises de investimento (`src/lib/investimento.ts`)
 

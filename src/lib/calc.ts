@@ -388,8 +388,9 @@ export interface Estatisticas {
   inventarioProdutos: number;
   diasMediosVenda: number | null;
   margem: number | null; // lucro / custo das vendas
-  porMes: { mes: string; lucro: number; receita: number; gasto: number }[];
-  /** Por semana (de segunda a domingo): vendas, recebido, lucro e gastos em compras; as últimas até 26 semanas do período, sem saltar semanas vazias. */
+  /** Por mês: vendas, recebido, lucro e gastos, com os meses vazios, do início do período (ou dos dados) até ao fim. */
+  porMes: { mes: string; vendas: number; lucro: number; receita: number; gasto: number }[];
+  /** Por semana (de segunda a domingo): vendas, recebido, lucro e gastos em compras, sem saltar semanas vazias; do início ao fim do período (sem início, as últimas 26). */
   porSemana: { semana: string; vendas: number; receita: number; lucro: number; gasto: number }[];
   porConta: LinhaGrupo[];
   porPessoa: LinhaGrupo[];
@@ -491,53 +492,59 @@ export function estatisticas(d: Dados, f: Filtro, hoje: string): Estatisticas {
     .sort((a, b) => b.dias - a.dias);
   const diasMediosVenda = tempos.length ? tempos.reduce((a, t) => a + t.dias, 0) / tempos.length : null;
 
-  // Por mês
-  const meses = new Map<string, { lucro: number; receita: number; gasto: number }>();
-  const mes = (k: string) => {
-    let m = meses.get(k);
-    if (!m) meses.set(k, (m = { lucro: 0, receita: 0, gasto: 0 }));
-    return m;
+  // Vendas e gastos agrupados no tempo (por mês e por semana). Cada grupo tem o n.º de vendas, o
+  // recebido, o lucro e os gastos em compras. Os gastos: compras inteiras (sem filtro) ou só o custo
+  // dos produtos que correspondem ao filtro de conta/produto, mais os produtos registados sem compra.
+  const agruparNoTempo = (chaveDe: (data: string) => string) => {
+    const grupos = new Map<string, { vendas: number; receita: number; lucro: number; gasto: number }>();
+    const grupo = (data: string) => {
+      const k = chaveDe(data);
+      let x = grupos.get(k);
+      if (!x) grupos.set(k, (x = { vendas: 0, receita: 0, lucro: 0, gasto: 0 }));
+      return x;
+    };
+    for (const v of concluidas) {
+      const x = grupo(v.data_venda);
+      x.vendas += 1;
+      x.receita += liquidoVenda(v);
+      x.lucro += lucroVenda(v, produtoPorId.get(v.produto_id));
+    }
+    if (f.texto || f.contaId) {
+      for (const c of comprasFiltradas)
+        for (const p of d.produtos)
+          if (p.compra_id === c.id && correspondeTexto(p, f.texto) && (!f.contaId || p.conta_id === f.contaId)) grupo(c.data).gasto += custoTotalProduto(p);
+    } else for (const c of comprasFiltradas) grupo(c.data).gasto += totalCompra(c);
+    for (const p of produtosSoltos) if (p.data_compra) grupo(p.data_compra).gasto += custoTotalProduto(p);
+    return grupos;
   };
-  for (const v of concluidas) {
-    const m = mes(v.data_venda.slice(0, 7));
-    m.lucro += lucroVenda(v, produtoPorId.get(v.produto_id));
-    m.receita += liquidoVenda(v);
-  }
-  if (!f.texto && !f.contaId) for (const c of comprasFiltradas) mes(c.data.slice(0, 7)).gasto += totalCompra(c);
-  for (const p of produtosSoltos) if (p.data_compra) mes(p.data_compra.slice(0, 7)).gasto += custoTotalProduto(p);
-  const porMes = [...meses.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([k, m]) => ({ mes: k, lucro: arred(m.lucro), receita: arred(m.receita), gasto: arred(m.gasto) }));
+  // O fim dos eixos: o fim do período, ou hoje se o período ainda não acabou.
+  const fimEixo = f.intervalo.fim && f.intervalo.fim < hoje ? f.intervalo.fim : hoje;
 
-  // Por semana (pedido do Ricardo): n.º de vendas, recebido, lucro e gastos em compras, semana a
-  // semana, incluindo as semanas vazias (para se ver a quebra). Os gastos seguem a mesma regra do
-  // "por mês": compras inteiras (sem filtro) ou só o custo dos produtos que correspondem ao filtro.
-  // Vai até ao fim do período (ou hoje) e mostra no máximo as últimas 26 semanas.
-  const semanas = new Map<string, { vendas: number; receita: number; lucro: number; gasto: number }>();
-  const semana = (data: string) => {
-    const k = inicioSemana(data);
-    let w = semanas.get(k);
-    if (!w) semanas.set(k, (w = { vendas: 0, receita: 0, lucro: 0, gasto: 0 }));
-    return w;
-  };
-  for (const v of concluidas) {
-    const w = semana(v.data_venda);
-    w.vendas += 1;
-    w.receita += liquidoVenda(v);
-    w.lucro += lucroVenda(v, produtoPorId.get(v.produto_id));
+  // Por mês: do início do período (ou do 1.º mês com dados) até ao fim, com os meses vazios.
+  const meses = agruparNoTempo((data) => data.slice(0, 7));
+  const porMes: Estatisticas['porMes'] = [];
+  if (meses.size) {
+    const ultimo = fimEixo.slice(0, 7);
+    let k = f.intervalo.inicio ? f.intervalo.inicio.slice(0, 7) : [...meses.keys()].sort()[0];
+    for (; k <= ultimo; k = somarDias(`${k}-28`, 7).slice(0, 7)) {
+      const m = meses.get(k);
+      porMes.push({ mes: k, vendas: m?.vendas ?? 0, lucro: arred(m?.lucro ?? 0), receita: arred(m?.receita ?? 0), gasto: arred(m?.gasto ?? 0) });
+    }
   }
-  if (f.texto || f.contaId) {
-    for (const c of comprasFiltradas)
-      for (const p of d.produtos)
-        if (p.compra_id === c.id && correspondeTexto(p, f.texto) && (!f.contaId || p.conta_id === f.contaId)) semana(c.data).gasto += custoTotalProduto(p);
-  } else for (const c of comprasFiltradas) semana(c.data).gasto += totalCompra(c);
-  for (const p of produtosSoltos) if (p.data_compra) semana(p.data_compra).gasto += custoTotalProduto(p);
+
+  // Por semana (pedido do Ricardo): de segunda a domingo, incluindo as semanas vazias (para se ver
+  // a quebra). Com um período, vai da semana do início à do fim; sem início, as últimas 26 semanas.
+  const semanas = agruparNoTempo(inicioSemana);
   const porSemana: Estatisticas['porSemana'] = [];
   if (semanas.size) {
-    const fimSemanas = inicioSemana(f.intervalo.fim && f.intervalo.fim < hoje ? f.intervalo.fim : hoje);
-    const primeira = [...semanas.keys()].sort()[0];
-    let k = somarDias(fimSemanas, -7 * 25);
-    if (k < primeira) k = primeira;
+    const fimSemanas = inicioSemana(fimEixo);
+    let k: string;
+    if (f.intervalo.inicio) k = inicioSemana(f.intervalo.inicio);
+    else {
+      const primeira = [...semanas.keys()].sort()[0];
+      k = somarDias(fimSemanas, -7 * 25);
+      if (k < primeira) k = primeira;
+    }
     for (; k <= fimSemanas; k = somarDias(k, 7)) {
       const w = semanas.get(k);
       porSemana.push({ semana: k, vendas: w?.vendas ?? 0, receita: arred(w?.receita ?? 0), lucro: arred(w?.lucro ?? 0), gasto: arred(w?.gasto ?? 0) });

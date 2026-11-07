@@ -510,6 +510,25 @@ test('vendas por semana: de segunda a domingo, com as semanas sem vendas, lucro 
   assert.ok(e.porSemana[0].lucro > 0 && e.porSemana[0].lucro < e.porSemana[0].receita);
 });
 
+test('vendas no tempo: por mês com os meses vazios; por semana desde o início do período', () => {
+  const d: Dados = {
+    pessoas: [], contas: [], compras: [], acertos: [], definicoes: [],
+    produtos: [produto({ id: 'p1', quantidade: 3, data_compra: '2026-07-20', preco_compra: 15, custos_adicionais: 0 })],
+    vendas: [
+      venda({ id: 'v1', produto_id: 'p1', data_venda: '2026-07-25', preco_venda: 20 }),
+      venda({ id: 'v2', produto_id: 'p1', data_venda: '2026-10-14', preco_venda: 30 }),
+    ],
+  };
+  const e = estatisticas(d, { intervalo: { inicio: null, fim: null } }, '2026-11-05');
+  assert.deepEqual(e.porMes.map((m) => [m.mes, m.vendas]), [['2026-07', 1], ['2026-08', 0], ['2026-09', 0], ['2026-10', 1], ['2026-11', 0]]);
+  assert.equal(e.porMes[0].gasto, 15);
+  // Últimos 90 dias: as semanas começam na semana do início do período, mesmo sem dados
+  const n = estatisticas(d, { intervalo: { inicio: '2026-08-08', fim: '2026-11-05' } }, '2026-11-05');
+  assert.equal(n.porSemana[0].semana, '2026-08-03');
+  assert.equal(n.porSemana.at(-1)!.semana, '2026-11-02');
+  assert.equal(n.porSemana.length, 14);
+});
+
 test('vezesNaConta: vendidos nessa conta + anunciados lá agora, só dos iguais', async () => {
   const { vezesNaConta } = await import('../src/lib/calc.ts');
   const produtos = [
