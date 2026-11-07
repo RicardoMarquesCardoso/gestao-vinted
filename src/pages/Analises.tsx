@@ -3,13 +3,13 @@
 // seguir as vendas por semana ou por mês, conforme o período (recebido com o lucro noutra cor + gastos
 // a vermelho; "Sempre" por mês). Períodos sem "Este mês" e "Mês passado". Depois: destaques
 // (lib/insights.ts: melhor/pior tema, preço final vs. anunciado, tempo anunciado, stock parado,
-// vagas nas contas, maior aposta), lucro por mês, rentabilidade vs. tempo por tema (dispersão),
+// vagas nas contas, maior aposta), rentabilidade vs. tempo por tema (dispersão),
 // investimento, por categoria/conta, subcategorias, lotes, idade do stock, por set e tempo até
 // vender. Os cálculos estão em lib/calc.ts, lib/investimento.ts e lib/insights.ts.
 
 import { useMemo, useState } from 'react';
 import { useAbrir } from '../components/acoes';
-import { BarrasHorizontais, BarrasMensais, BarrasSemanas, Dispersao } from '../components/Graficos';
+import { BarrasHorizontais, BarrasSemanas, Dispersao } from '../components/Graficos';
 import { useContextoPlano } from '../components/planos';
 import { lucroPotencial } from '../lib/plano';
 import { desempenhoTemas, destaques } from '../lib/insights';
@@ -111,10 +111,6 @@ export function Analises() {
           {lista.map((d) => <CartaoDestaque key={d.id} d={d} />)}
         </div>
       )}
-
-      <Cartao titulo="Lucro por mês">
-        <BarrasMensais dados={e.porMes.map((m) => ({ mes: m.mes, valor: m.lucro }))} nome="Lucro por mês" />
-      </Cartao>
 
       <Cartao titulo="Rentabilidade vs. tempo, por tema">
         <Dispersao
