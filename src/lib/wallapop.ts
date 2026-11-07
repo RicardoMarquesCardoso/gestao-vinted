@@ -13,6 +13,7 @@
 //     até 30 dias de diferença), quando houver pelo menos 10 sets comparáveis (calibrarWallapop);
 //   - até lá, RACIO_WALLAPOP (0,85): em nov/2026 os nossos anúncios estavam ~ao nível da mediana
 //     da Wallapop (teste com 8 sets) e as nossas vendas ficaram a ~83% do último preço anunciado.
+// Não conta se for inverosímil face ao eBay ou ao PVP (wallapopPlausivel).
 // Depois junta-se com o eBay (juntarMercado): média dos dois, pesada pelo n.º de anúncios de cada
 // um (no máximo 20 cada, para uma fonte com muitos anúncios não apagar a outra).
 //
@@ -110,6 +111,17 @@ export const calibrarWallapop = ultimoResultado(
 /** A percentagem a usar: a medida, ou a de reserva enquanto há poucas vendas para comparar. */
 export const racioWallapop = (dados: Pick<Dados, 'produtos' | 'vendas' | 'definicoes'>, hoje: string): number =>
   calibrarWallapop(dados, hoje)?.racio ?? RACIO_WALLAPOP;
+
+/**
+ * A mediana da Wallapop é credível? Com poucos anúncios, uma pesquisa pode apanhar só minifiguras ou
+ * porta-chaves com o n.º do set (em nov/2026, o 76300 Arkham Asylum deu 15 € para um set de ~250 €).
+ * Não conta se ficar abaixo de metade do preço pedido no eBay ou abaixo de 30% do PVP.
+ */
+export function wallapopPlausivel(mediana: number, ebayPedido: number | null | undefined, pvp: number | null | undefined): boolean {
+  if (ebayPedido && mediana < ebayPedido * 0.5) return false;
+  if (pvp && mediana < pvp * 0.3) return false;
+  return true;
+}
 
 export interface FonteMercado {
   preco: number; // já com a percentagem a que vendemos

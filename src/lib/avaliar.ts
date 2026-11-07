@@ -44,7 +44,7 @@ import type { InfoMercado, Mercado } from './investimento';
 import { fmtData, fmtMesAno } from './format';
 import { ultimoResultado } from './memo';
 import { referencia, regrasPlano } from './plano';
-import { juntarMercado, racioWallapop, textoMercado, wallapopAtual } from './wallapop';
+import { juntarMercado, racioWallapop, textoMercado, wallapopAtual, wallapopPlausivel } from './wallapop';
 import type { FonteMercado } from './wallapop';
 import type { Dados, Produto, Venda } from './types';
 
@@ -251,7 +251,8 @@ export function estimativas(ctx: ContextoAvaliacao, set: string, ebayAoVivo?: [n
   } else eb = diario;
   const ebay: FonteMercado | null = eb ? { preco: eb[0] * (1 - descontoEbayEfetivo(ctx.dados, ctx.mercado, ctx.hoje)), pedido: eb[0], anuncios: eb[1] } : null;
   // 2b. Wallapop (rotação semanal dos sets em stock, lib/wallapop.ts) × a % a que costumamos vender
-  const w = wallapopAtual(ctx.dados.definicoes, set, ctx.hoje);
+  const w0 = wallapopAtual(ctx.dados.definicoes, set, ctx.hoje);
+  const w = w0 && wallapopPlausivel(w0[0], ebay?.pedido, m?.pvp) ? w0 : null;
   const racioW = racioWallapop(ctx.dados, ctx.hoje);
   const wallapop: FonteMercado | null = w ? { preco: w[0] * racioW, pedido: w[0], anuncios: w[1] } : null;
   // Com os dois, uma só linha "Mercado" com a média pesada pelo n.º de anúncios (juntarMercado)

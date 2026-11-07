@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { produtoNovo } from './anuncio';
 import { chaveComparacao, custoUnitario, custoVenda, diasEntre, emInventario, liquidoVenda, unidadesDisponiveis, vendaValida } from './calc';
 import type { Dados, Produto } from './types';
-import { juntarMercado, racioWallapop, wallapopAtual } from './wallapop';
+import { juntarMercado, racioWallapop, wallapopAtual, wallapopPlausivel } from './wallapop';
 
 // ---------- Dados de mercado (gerados todos os dias pela GitHub Action "mercado") ----------
 
@@ -413,7 +413,8 @@ export function investimento(d: Pick<Dados, 'produtos' | 'vendas'> & Partial<Pic
       // eBay só para novos (procuramos anúncios de novos), com desconto por serem preços pedidos
       // e Wallapop (lib/wallapop.ts), também só para novos; com os dois, a média pesada pelos anúncios
       const ebN = produtoNovo(p) && mercado?.ebay && mercado.ebay[1] >= 3 ? mercado.ebay : null;
-      const wpN = produtoNovo(p) ? wallapopAtual(defs, g.setNumero, hoje) : null;
+      const wp0 = produtoNovo(p) ? wallapopAtual(defs, g.setNumero, hoje) : null;
+      const wpN = wp0 && wallapopPlausivel(wp0[0], ebN?.[0], mercado?.pvp) ? wp0 : null;
       const eb = juntarMercado(
         ebN ? { preco: ebN[0] * (1 - descontoEbayEfetivo(d, m, hoje)), pedido: ebN[0], anuncios: ebN[1] } : null,
         wpN ? { preco: wpN[0] * racioW, pedido: wpN[0], anuncios: wpN[1] } : null,

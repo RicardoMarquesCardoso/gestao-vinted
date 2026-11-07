@@ -20,7 +20,7 @@ import { ultimoResultado } from './memo';
 import { descontoEbayEfetivo, idsPokemon, infoMercado, precoPokemon } from './investimento';
 import type { Mercado } from './investimento';
 import type { Dados, Definicao, Produto, Venda } from './types';
-import { juntarMercado, racioWallapop, textoMercado, wallapopAtual } from './wallapop';
+import { juntarMercado, racioWallapop, textoMercado, wallapopAtual, wallapopPlausivel } from './wallapop';
 import type { FonteMercado } from './wallapop';
 
 export const CHAVE_REGRAS = 'regras_plano';
@@ -231,7 +231,8 @@ export function precoMercado(set: string | null, ctx: Contexto): Referencia | nu
     const fator = 1 - descontoEbayEfetivo(ctx.dados, ctx.mercado, ctx.hoje);
     ebay = { preco: m.ebay[0] * fator, pedido: m.ebay[0], anuncios: m.ebay[1] };
   }
-  const w = wallapopAtual(ctx.dados.definicoes, set, ctx.hoje);
+  const w0 = wallapopAtual(ctx.dados.definicoes, set, ctx.hoje);
+  const w = w0 && wallapopPlausivel(w0[0], ebay?.pedido, m?.pvp) ? w0 : null;
   const wallapop: FonteMercado | null = w ? { preco: w[0] * racioWallapop(ctx.dados, ctx.hoje), pedido: w[0], anuncios: w[1] } : null;
   const preco = juntarMercado(ebay, wallapop);
   if (preco === null) return null;

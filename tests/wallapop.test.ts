@@ -92,3 +92,11 @@ test('Mercado: média do eBay e da Wallapop pesada pelos anúncios (máx. 20 cad
 test('Wallapop na app: sem vendas comparáveis usa a percentagem de reserva', () => {
   assert.equal(racioWallapop({ produtos: [], vendas: [], definicoes: [] }, '2026-11-07'), RACIO_WALLAPOP);
 });
+
+test('Wallapop inverosímil não conta (abaixo de metade do eBay ou de 30% do PVP)', async () => {
+  const { wallapopPlausivel } = await import('../src/lib/wallapop.ts');
+  assert.equal(wallapopPlausivel(15, 260, 230), false); // 76300 Arkham Asylum, nov/2026
+  assert.equal(wallapopPlausivel(15, null, 230), false);
+  assert.equal(wallapopPlausivel(60, 80, 70), true);
+  assert.equal(wallapopPlausivel(20, null, null), true);
+});
