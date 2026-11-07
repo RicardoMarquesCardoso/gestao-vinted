@@ -947,9 +947,11 @@ select.seletor-mini, .cartao select.seletor-mini { width: auto; max-width: 11.5e
 .balanco-barra { display: flex; height: 10px; border-radius: 5px; overflow: hidden; margin: 10px 0 6px; background: var(--superficie-2); }
 .balanco-legenda { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.78rem; color: var(--texto-2); font-variant-numeric: tabular-nums; }
 .balanco-legenda i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 3px; }
-.balanco-vendido { background: var(--barra); }
-.balanco-parado { background: #c9a227; }
+.balanco-recebido { background: var(--positivo); }
+.balanco-falta { background: var(--superficie-2); box-shadow: inset 0 0 0 1px var(--texto-3); }
+.balanco-barra .balanco-falta { box-shadow: none; }
+.balanco-amais { background: var(--barra); }
 .balanco hr { border: 0; border-top: 1px solid var(--borda, var(--superficie-2)); margin: 14px 0 10px; }
-.balanco-recuperado { font-size: 0.8rem; margin-top: 12px; }
-.balanco-progresso { height: 8px; border-radius: 4px; background: var(--superficie-2); overflow: hidden; margin-top: 6px; }
-.balanco-progresso span { display: block; height: 100%; background: var(--positivo); }
+.balanco-recuperado { margin-top: 6px; }
+.balanco-recuperado span { font-size: 0.9rem; color: var(--texto-2); }
+.balanco-recuperado strong { font-size: 1rem; }

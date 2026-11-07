@@ -274,9 +274,9 @@ Pedido do Ricardo (nov/2026): perceber de relance quanto já se lucrou, quanto e
 | Hoje | **Caixa** | recebido (líquido) − gasto em compras | 90 − 100 = **−10 €** |
 | Hoje | **Lucro feito** | recebido − custo do que se vendeu | 90 − 50 = **+40 €** |
 | Hoje | **Parado em stock** | custo do que está em stock | **50 €** |
-| Hoje | barra | o gasto dividido em vendido / parado (a custo) | 50 / 50 |
-| Hoje | **Investimento recuperado** | recebido ÷ gasto (a caixa em percentagem: abaixo de 100% a caixa é negativa) | 90 ÷ 100 = **90%** |
+| Hoje | **Investimento recuperado** (barra) | recebido ÷ gasto; verde = recebido, cinzento = por recuperar (ou azul = a mais, acima de 100%) | 90 ÷ 100 = **90%** |
 | Se vender tudo | **Lucro total** | lucro feito + lucro do stock ao preço de referência (`lucroPotencial`; sem preço conta pelo custo) | 40 + 40 = **+80 €** |
+| Se vender tudo | **Investimento recuperado** (barra) | (recebido + valor do stock ao preço de referência) ÷ gasto | (90 + 90) ÷ 100 = **180%** |
 
 Com os registos coerentes, caixa + valor do stock = lucro total (−10 + 90 = 80).
 

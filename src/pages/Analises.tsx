@@ -1,5 +1,5 @@
-// Ecrã "Análises". No topo, o Balanço (pedido do Ricardo): hoje (caixa, lucro feito, parado, com a
-// barra vendido/parado, investimento recuperado) e se vender tudo (lucro total), desde sempre; logo a
+// Ecrã "Análises". No topo, o Balanço (pedido do Ricardo): hoje (caixa, lucro feito, parado e a barra
+// do investimento recuperado) e se vender tudo (lucro total e a mesma barra), desde sempre; logo a
 // seguir as vendas por semana (recebido com o lucro noutra cor + gastos a vermelho). Depois: destaques
 // (lib/insights.ts: melhor/pior tema, preço final vs. anunciado, tempo anunciado, stock parado,
 // vagas nas contas, maior aposta), lucro por mês, rentabilidade vs. tempo por tema (dispersão),
@@ -253,12 +253,12 @@ export function Analises() {
  *     Caixa = recebido (líquido das vendas) − gasto (compras)       ex.: gastei 100, vendi por 90 → −10 €
  *     Lucro feito = recebido − custo do que se vendeu               ex.: 90 − 50 = +40 €
  *     Parado = custo do stock                                       ex.: 50 €
- *     Barra: o gasto dividido em vendido (custo) e parado (custo).
- *     Investimento recuperado = recebido ÷ gasto (a barra verde)    ex.: 90 ÷ 100 = 90%
- *       (o mesmo que a caixa, em percentagem: abaixo de 100% a caixa é negativa)
+ *     Barra do investimento recuperado: recebido ÷ gasto            ex.: 90 ÷ 100 = 90%
  *   SE VENDER TUDO
  *     Lucro total = lucro feito + lucro do stock ao preço avaliado (lucroPotencial; as unidades sem
  *     preço contam pelo custo, sem lucro)                            ex.: 40 + 40 = +80 €
+ *     A mesma barra, com o recebido + o valor do stock ao preço avaliado ÷ gasto
+ *                                                                    ex.: (90 + 90) ÷ 100 = 180%
  * Quando os registos batem certo, a caixa + o valor do stock dá o lucro total.
  */
 function Balanco(props: { dados: Dados; filtro: { contaId?: string; texto?: string }; potencial: { lucro: number; custo: number; valor: number }; h: string }) {
@@ -268,11 +268,10 @@ function Balanco(props: { dados: Dados; filtro: { contaId?: string; texto?: stri
     [props.dados, props.filtro.contaId, props.filtro.texto, props.h],
   );
   const caixa = g.recebido - g.gasto;
-  const custoVendido = g.recebido - g.lucro;
   const total = g.lucro + props.potencial.lucro;
-  const recuperado = g.gasto > 0 ? g.recebido / g.gasto : null;
+  // Valor do stock se se vender tudo: o custo do stock + o lucro previsto (sem preço conta pelo custo).
+  const valorStock = g.inventarioCusto + props.potencial.lucro;
   const sinal = (v: number) => `${v > 0 ? '+' : ''}${fmtEuro(v)}`;
-  const partes = custoVendido + g.inventarioCusto;
   return (
     <section className="cartao balanco" aria-label="Balanço">
       <div className="balanco-titulo">Hoje</div>
@@ -288,33 +287,49 @@ function Balanco(props: { dados: Dados; filtro: { contaId?: string; texto?: stri
         <span>Parado em stock</span>
         <strong>{fmtEuro(g.inventarioCusto)}</strong>
       </div>
-      {partes > 0 && (
-        <>
-          <div className="balanco-barra" role="img" aria-label={`Gasto: vendido ${fmtEuro(custoVendido)}, parado ${fmtEuro(g.inventarioCusto)}`}>
-            <span className="balanco-vendido" style={{ flex: Math.max(custoVendido, 0) }} />
-            <span className="balanco-parado" style={{ flex: g.inventarioCusto }} />
-          </div>
-          <div className="balanco-legenda">
-            <span><i className="balanco-vendido" /> vendido {fmtEuro(custoVendido)}</span>
-            <span><i className="balanco-parado" /> parado {fmtEuro(g.inventarioCusto)}</span>
-          </div>
-        </>
-      )}
-      {recuperado !== null && (
-        <>
-          <div className="balanco-recuperado mudo">Investimento recuperado {Math.round(recuperado * 100)}%</div>
-          <div className="balanco-progresso">
-            <span style={{ width: `${Math.min(recuperado, 1) * 100}%` }} />
-          </div>
-        </>
-      )}
+      <BarraRecuperado recebido={g.recebido} gasto={g.gasto} nome="recebido" />
       <hr />
       <div className="balanco-titulo">Se vender tudo</div>
       <div className="balanco-linha balanco-total">
         <span>Lucro total</span>
         <strong className={total < 0 ? 'negativo' : 'positivo'}>{sinal(total)}</strong>
       </div>
+      <BarraRecuperado recebido={g.recebido + valorStock} gasto={g.gasto} nome="recebido + stock" />
     </section>
+  );
+}
+
+/**
+ * Barra do investimento recuperado (pedido do Ricardo): o que se gastou é 100%; a parte verde é o
+ * que já voltou (recebido) e a cinzenta o que falta recuperar. Quando já se recebeu mais do que se
+ * gastou, a barra mostra o gasto todo recuperado (verde) e o que se recebeu a mais (azul).
+ *   ex.: gasto 100, recebido 79 → 79% | verde 79 € · por recuperar 21 €
+ *   ex.: gasto 100, recebido 130 → 130% | verde 100 € · a mais 30 €
+ */
+function BarraRecuperado(props: { recebido: number; gasto: number; nome: string }) {
+  const { recebido, gasto } = props;
+  if (gasto <= 0) return null;
+  const pct = (v: number) => `${Math.round((v / gasto) * 100)}%`;
+  const falta = Math.max(gasto - recebido, 0);
+  const aMais = Math.max(recebido - gasto, 0);
+  const verde = Math.max(Math.min(recebido, gasto), 0);
+  return (
+    <>
+      <div className="balanco-linha balanco-recuperado">
+        <span>Investimento recuperado</span>
+        <strong>{pct(recebido)}</strong>
+      </div>
+      <div className="balanco-barra" role="img" aria-label={`Gasto ${fmtEuro(gasto)}, ${props.nome} ${fmtEuro(recebido)}`}>
+        <span className="balanco-recebido" style={{ flex: verde }} />
+        {falta > 0 && <span className="balanco-falta" style={{ flex: falta }} />}
+        {aMais > 0 && <span className="balanco-amais" style={{ flex: aMais }} />}
+      </div>
+      <div className="balanco-legenda">
+        <span><i className="balanco-recebido" /> {props.nome} {fmtEuro(recebido)}</span>
+        {falta > 0 && <span><i className="balanco-falta" /> por recuperar {fmtEuro(falta)} ({pct(falta)})</span>}
+        {aMais > 0 && <span><i className="balanco-amais" /> a mais {fmtEuro(aMais)} (+{pct(aMais)})</span>}
+      </div>
+    </>
   );
 }
 
