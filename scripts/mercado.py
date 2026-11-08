@@ -14,8 +14,10 @@ Porque não é a app a chamar estes serviços diretamente?
 
 O QUE GERA (public/mercado-sets.json e docs/mercado-sets.json)
 --------------------------------------------------------------
-  brickset:  {"75192": [lançamento, retirada, pvp_DE, pvp_UK, disponibilidade], ...}
+  brickset:  {"75192": [lançamento, retirada, pvp_DE, pvp_UK, disponibilidade, peso_g?, medidas_cm?], ...}
              Todos os sets LEGO desde 2005 (datas AAAA-MM-DD ou null).
+             peso_g = peso da caixa em gramas; medidas_cm = [largura, altura, profundidade] da caixa.
+             Só aparecem quando a Brickset os tem (servem para calcular os portes, ex.: eBay).
   bricklink: {"75192": {"n": [média, n.º vendidos], "u": [média, n.º vendidos]}, ...}
              Preços de venda dos últimos 6 meses na Europa, em EUR (sem IVA), novo (n) e usado (u).
              Só para os sets que temos ou já vendemos.
@@ -85,6 +87,19 @@ def rpc_supabase(funcao, token):
 # A Brickset é uma base de dados de sets LEGO feita por fãs. Interessa-nos sobretudo a data em que
 # cada set saiu de produção ("exitDate"), porque é a partir daí que o preço costuma subir.
 
+def medidas_caixa(d):
+    """Peso (gramas, inteiro) e medidas ([largura, altura, profundidade] em cm) da caixa do set.
+
+    A Brickset dá o peso em kg e as medidas em cm, quando as conhece; 0 ou vazio = não sabe."""
+    d = d if isinstance(d, dict) else {}
+    num = lambda v: float(v) if isinstance(v, (int, float)) and v > 0 else None  # noqa: E731
+    kg = num(d.get('weight'))
+    peso = round(kg * 1000) if kg else None
+    lados = [num(d.get(k)) for k in ('width', 'height', 'depth')]
+    medidas = [round(x, 1) for x in lados] if all(lados) else None
+    return peso, medidas
+
+
 def brickset(chave):
     sets = {}
     for ano in range(2005, HOJE.year + 2):
@@ -107,7 +122,13 @@ def brickset(chave):
                 de, uk = lego.get('DE') or {}, lego.get('UK') or {}
                 lancamento = data(s.get('launchDate')) or data(de.get('dateFirstAvailable')) or data(uk.get('dateFirstAvailable'))
                 retirada = data(s.get('exitDate')) or data(de.get('dateLastAvailable')) or data(uk.get('dateLastAvailable'))
-                sets[numero] = (variante, [lancamento, retirada, de.get('retailPrice'), uk.get('retailPrice'), s.get('availability')])
+                linha = [lancamento, retirada, de.get('retailPrice'), uk.get('retailPrice'), s.get('availability')]
+                # Peso e medidas da caixa (para os portes). Só se acrescentam quando existem,
+                # para o ficheiro não crescer com milhares de "null".
+                peso, medidas = medidas_caixa(s.get('dimensions'))
+                if peso or medidas:
+                    linha += [peso, medidas]
+                sets[numero] = (variante, linha)
             print(f'Brickset {ano} p.{pagina}: {len(lista)} sets')
             if len(lista) < 500:
                 break

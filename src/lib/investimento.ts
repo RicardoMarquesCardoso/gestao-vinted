@@ -6,8 +6,20 @@ import type { Dados, Produto } from './types';
 
 // ---------- Dados de mercado (gerados todos os dias pela GitHub Action "mercado") ----------
 
-/** [lançamento, retirada, PVP Alemanha (EUR), PVP Reino Unido (GBP), disponibilidade] */
-export type LinhaBrickset = [string | null, string | null, number | null, number | null, string | null];
+/**
+ * [lançamento, retirada, PVP Alemanha (EUR), PVP Reino Unido (GBP), disponibilidade, peso?, medidas?]
+ * O peso (gramas) e as medidas da caixa ([largura, altura, profundidade] em cm) só vêm quando a
+ * Brickset os conhece. Servem para calcular os portes (ex.: anúncios no eBay).
+ */
+export type LinhaBrickset = [
+  string | null,
+  string | null,
+  number | null,
+  number | null,
+  string | null,
+  (number | null)?,
+  ([number, number, number] | null)?,
+];
 
 export interface Mercado {
   brickset: Record<string, LinhaBrickset>;
@@ -150,6 +162,10 @@ export interface InfoMercado {
    * sugere guardar perto da retirada (ver plano.ts).
    */
   exclusivoLego: boolean;
+  /** Peso da caixa em gramas (Brickset), sem a embalagem de envio. null = não se sabe. */
+  pesoG: number | null;
+  /** Medidas da caixa em cm: [largura, altura, profundidade] (Brickset). */
+  medidasCm: [number, number, number] | null;
 }
 
 /** Desconto das regras (Definições → "descontoEbay"), usado só quando não há vendas para calibrar. */
@@ -278,6 +294,8 @@ export function infoMercado(m: Mercado | null, setNumero: string | null, hoje: s
     blUsado: bl?.u ?? null,
     ebay: eb,
     exclusivoLego: /lego exclusive/i.test(b?.[4] ?? ''),
+    pesoG: b?.[5] ?? null,
+    medidasCm: b?.[6] ?? null,
   };
 }
 

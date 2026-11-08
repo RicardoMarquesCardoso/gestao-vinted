@@ -593,3 +593,19 @@ test('pvpDoProduto: PVP escrito à mão para produtos sem PVP na Brickset', asyn
   const { chaveComparacao } = await import('../src/lib/calc.ts');
   assert.deepEqual(pvpDoProduto(p, ctx(dados({ [chaveComparacao(p)]: 49.99 }))), { valor: 49.99, manual: true });
 });
+
+test('infoMercado: peso e medidas da caixa vêm da Brickset quando existem', () => {
+  const m = {
+    brickset: {
+      '10305': ['2022-01-01', null, 399.99, null, 'Retail', 7250, [58, 48, 18]],
+      '60400': ['2024-01-01', null, 9.99, null, 'Retail'],
+    },
+    bricklink: {},
+  } as never;
+  const com = infoMercado(m, '10305-1', '2026-11-08')!;
+  assert.equal(com.pesoG, 7250);
+  assert.deepEqual(com.medidasCm, [58, 48, 18]);
+  const sem = infoMercado(m, '60400', '2026-11-08')!;
+  assert.equal(sem.pesoG, null);
+  assert.equal(sem.medidasCm, null);
+});
