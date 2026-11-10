@@ -74,6 +74,7 @@ Guardar os dados que permitam estas análises desde já, mesmo que ainda não ap
 
 ## Regras do negócio
 
+- **Uma conta por plataforma** (decisão do Ricardo, nov/2026, para não mexer na arquitetura): cada conta da app é uma conta numa plataforma, com o nome `TITULAR (Plataforma)`, ex.: `RM1 (eBay)`, `RM1 (Wallapop)`. Os limites DAC7 (30 vendas / 2000 €) contam por plataforma, por isso cada conta tem os seus. As contas sem plataforma no nome (RM1, Cass1, Cass2) são da Vinted. Quando houver automação do eBay, identificar as contas eBay por esta convenção (ou por um campo `plataforma`, se for preciso).
 - **O preço de cada produto é o que conta** (pedido do Ricardo, nov/2026): o total de uma compra é sempre a soma do custo dos seus produtos (`totalCompra(c, produtos)`); os valores guardados na compra (`valor_artigos`, `portes`) só servem para repartir ao registar. O gasto nas Análises/Painel vem dos produtos. Editar uma compra parte dos preços atuais dos produtos (modo individual). Apagar o último produto de uma compra apaga a compra.
 - **Acertos (tipo Splitwise):** o custo volta a quem pagou e o lucro vai para a conta conjunta.
   - Contam só as vendas concluídas com `acertada = false`.
