@@ -43,6 +43,8 @@ export function FormProduto({ id, aoFechar }: { id?: string; aoFechar(): void })
     notas: existente?.notas ?? '',
   }));
   const [fotos, setFotos] = useState<string[]>(existente?.fotos ?? []);
+  // Fotografias tiradas neste formulário (✕): apagam-se do Storage só depois de guardar
+  const [removidas, setRemovidas] = useState<string[]>([]);
   const [aEnviar, setAEnviar] = useState(false);
   const [aGuardar, setAGuardar] = useState(false);
   const mudar = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((x) => ({ ...x, [k]: v }));
@@ -64,11 +66,12 @@ export function FormProduto({ id, aoFechar }: { id?: string; aoFechar(): void })
     }
   }
 
-  // Apagar uma fotografia (do produto e do Storage)
+  // Tirar uma fotografia do formulário. Só se apaga do Storage ao guardar o produto (submeter):
+  // se o formulário for fechado sem guardar, a fotografia continua lá e no produto.
   async function removerFoto(ref: string) {
-    if (!(await confirmar({ titulo: 'Remover fotografia', texto: 'A fotografia vai ser apagada.', botao: 'Remover', perigo: true }))) return;
+    if (!(await confirmar({ titulo: 'Remover fotografia', texto: 'A fotografia é apagada quando guardares o produto.', botao: 'Remover', perigo: true }))) return;
     setFotos((x) => x.filter((r) => r !== ref));
-    store.apagarFoto(ref).catch(() => undefined);
+    setRemovidas((x) => [...x, ref]);
   }
 
   // Validar e guardar as alterações do produto
@@ -99,6 +102,9 @@ export function FormProduto({ id, aoFechar }: { id?: string; aoFechar(): void })
     setAGuardar(true);
     try {
       await guardar('produtos', [p]);
+      // Só agora (produto guardado) se apagam do Storage as fotografias tiradas no formulário.
+      // Apenas as que se tiraram aqui com o ✕, nunca outras (ex.: juntadas noutro telemóvel).
+      for (const ref of removidas) if (!fotos.includes(ref)) store.apagarFoto(ref).catch(() => undefined);
       aviso(existente ? 'Produto atualizado.' : 'Produto criado.');
       aoFechar();
     } catch (e) {
