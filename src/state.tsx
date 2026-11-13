@@ -11,6 +11,11 @@
 //   3. Envia para a base de dados (store.guardar) e grava o histórico (store.registar).
 //   4. Atualiza logo a memória (setDados), para o ecrã mudar sem esperar por novo carregamento.
 //
+// SE A GRAVAÇÃO FALHAR: guardar()/apagar() lançam um ErroGravacao. Os formulários que tratam o
+// erro mostram a sua mensagem ("Erro ao guardar: …"). Nos botões que não o tratam, o erro fica
+// "por apanhar" e o DadosProvider mostra o aviso "Não foi guardado: …" (uma só mensagem, nunca
+// duas). Só as gravações usam este aviso: leituras e fotografias que falham não o mostram.
+//
 // SINCRONIZAÇÃO ENTRE OS DOIS: os dados voltam a ser carregados ao regressar à app
 // e de minuto a minuto, para verem o que a outra pessoa registou. Para isso ser seguro
 // (lib/sincronizar.ts):
@@ -55,6 +60,14 @@ interface Estado {
 
 const Contexto = createContext<Estado | null>(null);
 
+/** Erro de uma gravação (guardar/apagar) que falhou. Tem a mesma mensagem do erro original. */
+export class ErroGravacao extends Error {
+  constructor(original: unknown) {
+    super(original instanceof Error ? original.message : String(original));
+    this.name = 'ErroGravacao';
+  }
+}
+
 /** Acesso aos dados e às funções de guardar/apagar, em qualquer componente. */
 export function useDados(): Estado {
   const c = useContext(Contexto);
@@ -90,17 +103,32 @@ export function DadosProvider(props: { store: Store; aoExpirar(): void; children
     setTimeout(() => setAvisos((a) => a.filter((x) => x.id !== id)), tipo === 'erro' ? 7000 : 3000);
   }, []);
 
-  // Se a sessão expirou (a palavra-passe tem de ser pedida outra vez), volta ao ecrã de entrar.
+  // Erro ao gravar (só é usado por guardar e apagar). Se a sessão expirou (a palavra-passe tem de
+  // ser pedida outra vez), volta ao ecrã de entrar. Outro erro é relançado como ErroGravacao, com a
+  // mesma mensagem, para se saber que foi uma gravação que falhou (ver o aviso central abaixo).
   const tratarErro = useCallback(
     (e: unknown) => {
       if (e instanceof SessaoExpirada) {
         aoExpirar();
         return;
       }
-      throw e;
+      throw new ErroGravacao(e);
     },
     [aoExpirar],
   );
+
+  // Aviso central: uma gravação que falhou e que o ecrã não tratou (botões sem mensagem de erro
+  // própria, ex.: "Baixei", "Adiar", Definições) mostra "Não foi guardado: …". Os formulários que
+  // apanham o erro já mostram a sua mensagem e não chegam aqui, por isso nunca há duas mensagens.
+  useEffect(() => {
+    const porApanhar = (ev: PromiseRejectionEvent) => {
+      if (!(ev.reason instanceof ErroGravacao)) return; // só gravações de dados
+      ev.preventDefault();
+      aviso(`Não foi guardado: ${ev.reason.message}`, 'erro');
+    };
+    window.addEventListener('unhandledrejection', porApanhar);
+    return () => window.removeEventListener('unhandledrejection', porApanhar);
+  }, [aviso]);
 
   // Ir buscar todos os dados à base de dados (ou ao modo demonstração).
   const recarregar = useCallback(async () => {

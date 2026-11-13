@@ -149,6 +149,8 @@ A app carrega **todos os dados de uma vez**. São poucos milhares de linhas, por
 4. Envia para o Supabase com um *upsert*: cria a linha se não existir, ou atualiza-a se existir. Depois grava o histórico.
 5. Atualiza logo a memória, para o ecrã mudar sem esperar.
 
+Se a gravação falhar, os formulários mostram "Erro ao guardar: …". Nos botões sem mensagem própria ("Baixei", "Adiar", Definições, Rever nomes…), a app mostra o aviso **"Não foi guardado: …"** (`ErroGravacao` em `src/state.tsx`). Nunca aparecem as duas mensagens, e as leituras ou fotografias que falham não usam este aviso.
+
 ### Sincronização entre os dois
 
 Não há "tempo real". A app volta a carregar os dados **quando se regressa a ela** e **de minuto a minuto**. Há também o botão ↻ para atualizar à mão.
