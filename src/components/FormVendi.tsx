@@ -21,15 +21,25 @@ import { Dinheiro, Janela, Valor } from './ui';
 export function FormVendi({ ids, aoFechar, abrirCompleto }: { ids: string[]; aoFechar(): void; abrirCompleto(produtoId: string): void }) {
   const { dados, guardar, aviso } = useDados();
   const contas = dados.contas.filter((c) => c.ativa);
+  // Identificador da venda, fixo enquanto a janela estiver aberta: se uma gravação falhar e se tocar
+  // outra vez em "Guardar venda", atualiza-se a mesma venda em vez de criar uma segunda.
+  const [idVenda] = useState(() => crypto.randomUUID());
+  // Unidade escolhida na 1.ª tentativa de guardar: fica a mesma nas repetições.
+  const [unidadeFixa, setUnidadeFixa] = useState<string | null>(null);
+  // As vendas sem a desta janela (pode já ter ficado gravada numa tentativa anterior): assim a venda
+  // em curso nunca conta duas vezes nas unidades disponíveis nem no estado do produto.
+  const vendasSemEsta = dados.vendas.filter((v) => v.id !== idVenda);
   const candidatos = ids
     .map((id) => dados.produtos.find((p) => p.id === id))
-    .filter((p): p is Produto => !!p && (p.estado === 'por_anunciar' || p.estado === 'anunciado') && unidadesDisponiveis(p, dados.vendas) > 0)
+    .filter((p): p is Produto => !!p && (p.estado === 'por_anunciar' || p.estado === 'anunciado') && unidadesDisponiveis(p, vendasSemEsta) > 0)
     .sort((a, b) => (a.data_compra ?? '').localeCompare(b.data_compra ?? ''));
 
   const contasAnunciadas = [...new Set(candidatos.filter((p) => p.estado === 'anunciado' && p.conta_id).map((p) => p.conta_id!))];
   const [conta, setConta] = useState(() => contasAnunciadas[0] ?? contaHabitual(contas));
   const unidade = (c: string) =>
-    candidatos.find((p) => p.estado === 'anunciado' && p.conta_id === c) ?? candidatos.find((p) => p.estado === 'anunciado') ?? candidatos[0];
+    unidadeFixa
+      ? candidatos.find((p) => p.id === unidadeFixa)
+      : (candidatos.find((p) => p.estado === 'anunciado' && p.conta_id === c) ?? candidatos.find((p) => p.estado === 'anunciado') ?? candidatos[0]);
   const escolhido = unidade(conta);
   const [preco, setPreco] = useState(() => paraCampo(escolhido?.preco_anuncio));
   const [aGuardar, setAGuardar] = useState(false);
@@ -50,9 +60,10 @@ export function FormVendi({ ids, aoFechar, abrirCompleto }: { ids: string[]; aoF
     if (!(valor > 0)) return aviso('Indica o preço de venda.', 'erro');
     if (!conta) return aviso('Escolhe a conta onde vendeste.', 'erro');
     const p = unidade(conta)!;
+    setUnidadeFixa(p.id);
     const titular = dados.contas.find((c) => c.id === conta)?.titular_id ?? null;
     const v: Venda = {
-      id: crypto.randomUUID(),
+      id: idVenda,
       produto_id: p.id,
       quantidade: 1,
       data_venda: hoje(),
@@ -72,7 +83,7 @@ export function FormVendi({ ids, aoFechar, abrirCompleto }: { ids: string[]; aoF
       await guardar('vendas', [v]);
       const atualizado = { ...p, conta_id: p.conta_id ?? conta };
       // Sobram unidades: a anunciada foi vendida e as outras voltam a "por anunciar"
-      const estado = estadoAposNovaVenda(atualizado, [...dados.vendas, v]);
+      const estado = estadoAposNovaVenda(atualizado, [...vendasSemEsta, v]);
       const anuncios = p.estado === 'anunciado' && estado === 'por_anunciar' ? fecharPeriodoVendido(p.anuncios, new Date().toISOString()) : undefined;
       if (estado !== p.estado || atualizado.conta_id !== p.conta_id) await guardar('produtos', [{ ...atualizado, estado, ...(anuncios ? { anuncios } : {}) }]);
       try {

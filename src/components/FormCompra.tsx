@@ -55,6 +55,11 @@ export function FormCompra({ id, aoFechar }: { id?: string; aoFechar(): void }) 
     outros_custos: paraCampo(existente ? (manterExtras ? existente.outros_custos : 0) : undefined),
     notas: existente?.notas ?? '',
   }));
+  // Identificador da compra, fixo enquanto o formulário estiver aberto (numa compra nova é criado ao
+  // abrir): se uma gravação falhar e se tocar outra vez em Guardar, atualiza-se a mesma compra em vez
+  // de criar outra (os produtos já têm identificadores fixos, um por linha).
+  const [idNova] = useState(() => crypto.randomUUID());
+  const idCompra = existente?.id ?? idNova;
   const itemVazio = (): Item => ({ id: crypto.randomUUID(), novo: true, nome: '', set_numero: '', condicao: '', marca: 'LEGO', tema: '', quantidade: '1', preco: '' });
   const [itens, setItens] = useState<Item[]>(() =>
     produtosAtuais.length
@@ -106,7 +111,7 @@ export function FormCompra({ id, aoFechar }: { id?: string; aoFechar(): void }) 
   async function submeter() {
     if (!validos.length) return aviso('Acrescenta pelo menos um produto com nome.', 'erro');
     const compra: Compra = {
-      id: existente?.id ?? crypto.randomUUID(),
+      id: idCompra,
       data: f.data || hoje(),
       ...lerPagador(f.pagador),
       metodo_pagamento: vazioANull(f.metodo_pagamento),

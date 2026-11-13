@@ -36,6 +36,11 @@ export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?
     foraLimites: existente ? vendasForaLimites(dados).has(existente.id) : false,
   }));
   const [aGuardar, setAGuardar] = useState(false);
+  // Identificador da venda, fixo enquanto o formulário estiver aberto (numa venda nova é criado ao
+  // abrir): se uma gravação falhar e se tocar outra vez em Guardar, atualiza-se a mesma venda em vez
+  // de criar uma segunda. Numa venda que já existe é o dela.
+  const [idNova] = useState(() => crypto.randomUUID());
+  const idVenda = existente?.id ?? idNova;
   // Os detalhes abrem sozinhos só quando já têm alguma coisa preenchida
   const [detalhesAbertos] = useState(
     () => !!existente && (existente.estado !== 'concluida' || !!existente.comissao || !!existente.portes || !!existente.outros_custos || !!existente.notas || vendasForaLimites(dados).has(existente.id)),
@@ -43,7 +48,8 @@ export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?
   const mudar = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((x) => ({ ...x, [k]: v }));
 
   const produto = dados.produtos.find((p) => p.id === f.produto_id);
-  const disponiveis = produto ? Math.max(produto.quantidade - unidadesVendidas(produto.id, dados.vendas, id), 0) : 0;
+  // Sem contar esta venda (pode já ter ficado gravada numa tentativa anterior)
+  const disponiveis = produto ? Math.max(produto.quantidade - unidadesVendidas(produto.id, dados.vendas, idVenda), 0) : 0;
 
   // Produtos que se podem vender (com unidades disponíveis) + o atual.
   // Unidades iguais e intermutáveis (mesmo set, custo, condição, quem pagou e conta) aparecem uma só vez.
@@ -52,12 +58,12 @@ export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?
       .filter(
         (p) =>
           p.id === f.produto_id ||
-          ((p.estado === 'anunciado' || p.estado === 'por_anunciar') && unidadesVendidas(p.id, dados.vendas, id) < p.quantidade),
+          ((p.estado === 'anunciado' || p.estado === 'por_anunciar') && unidadesVendidas(p.id, dados.vendas, idVenda) < p.quantidade),
       )
       .sort((a, b) => a.nome.localeCompare(b.nome) || (a.data_compra ?? '').localeCompare(b.data_compra ?? ''));
     const grupos = new Map<string, { p: (typeof vendaveis)[number]; disp: number }>();
     for (const p of vendaveis) {
-      const disp = p.quantidade - unidadesVendidas(p.id, dados.vendas, id);
+      const disp = p.quantidade - unidadesVendidas(p.id, dados.vendas, idVenda);
       const k =
         p.id === f.produto_id
           ? p.id
@@ -74,7 +80,7 @@ export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?
         .join(' · '),
       imagem: p.fotos[0] ? null : imagemReferencia(p),
     }));
-  }, [dados.produtos, dados.vendas, f.produto_id, id, nomeConta, nomePagador, imagemReferencia]);
+  }, [dados.produtos, dados.vendas, f.produto_id, idVenda, nomeConta, nomePagador, imagemReferencia]);
 
   const qtd = Math.max(Math.round(lerNumero(f.quantidade)) || 1, 1);
   const liquido = arred(lerNumero(f.preco_venda) - lerNumero(f.comissao) - lerNumero(f.portes) - lerNumero(f.outros_custos));
@@ -98,7 +104,7 @@ export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?
     if (f.estado === 'concluida' && qtd > disponiveis)
       return aviso(`Só há ${disponiveis} unidade(s) disponível(eis) deste produto.`, 'erro');
     const v: Venda = {
-      id: existente?.id ?? crypto.randomUUID(),
+      id: idVenda,
       produto_id: produto.id,
       quantidade: qtd,
       data_venda: f.data_venda || hoje(),
