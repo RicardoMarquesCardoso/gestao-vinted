@@ -16,7 +16,7 @@ import { useDados } from '../state';
 import { useAbrir } from './acoes';
 import { compararNomes, useCatalogoSets } from './catalogo';
 import { CHAVE_MANTIDOS } from '../pages/ReverNomes';
-import { EtiquetaProduto, Foto, IconeLixo, ImagemReferencia, Janela, urlReferencia, useConfirmar, useImagemReferencia } from './ui';
+import { EtiquetaProduto, Foto, IconeLixo, ImagemReferencia, Janela, SelecionarPagador, lerPagador, urlReferencia, useConfirmar, useImagemReferencia, valorPagador } from './ui';
 
 export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void }) {
   const { dados, store, guardar, apagar, aviso, lista } = useDados();
@@ -158,6 +158,18 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
         {p.condicao && <span className="chip">{p.condicao}</span>}
       </div>
       {p.descricao && <p>{p.descricao}</p>}
+      {/* Quem pagou, alterável aqui mesmo (pedido do Ricardo): é o que diz aos acertos a quem
+          devolver o custo. Não se pode voltar a deixar em branco ("—"). */}
+      <p className="pagador-produto mudo">
+        Pagou{' '}
+        <SelecionarPagador
+          valor={valorPagador(p)}
+          mudar={(v) => {
+            if (!v) return aviso('Indica quem pagou o produto.', 'erro');
+            guardar('produtos', [{ ...p, ...lerPagador(v) }]).catch((e) => aviso(`Erro: ${e instanceof Error ? e.message : e}`, 'erro'));
+          }}
+        />
+      </p>
 
       {emInventario(p) && disponiveis > 0 && ehPokemon(p) && <LinhaPokemon p={p} />}
       {emInventario(p) && disponiveis > 0 && <LinhaPlano p={p} />}

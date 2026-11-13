@@ -78,7 +78,7 @@ Guardar os dados que permitam estas análises desde já, mesmo que ainda não ap
 - **O preço de cada produto é o que conta** (pedido do Ricardo, nov/2026): o total de uma compra é sempre a soma do custo dos seus produtos (`totalCompra(c, produtos)`); os valores guardados na compra (`valor_artigos`, `portes`) só servem para repartir ao registar. O gasto nas Análises/Painel vem dos produtos. Editar uma compra parte dos preços atuais dos produtos (modo individual). Apagar o último produto de uma compra apaga a compra.
 - **Acertos (tipo Splitwise):** o custo volta a quem pagou e o lucro vai para a conta conjunta.
   - Contam só as vendas concluídas com `acertada = false`.
-  - **"Quem pagou" é obrigatório** ao guardar compras e produtos (pedido do Ricardo, nov/2026: sem ele a venda fica fora dos acertos).
+  - **"Quem pagou" é obrigatório** ao guardar compras e produtos (pedido do Ricardo, nov/2026: sem ele a venda fica fora dos acertos). Também se muda no detalhe do produto, numa linha "Pagou [seletor]" que grava logo (`DetalheProduto`). Atenção: editar a compra volta a copiar o pagador da compra para todos os seus produtos.
   - **Nunca alterar acertos nem marcar vendas como acertadas sem o utilizador pedir.**
 - **Limites das contas da Vinted:** ano civil, 30 vendas / 2000 € (DAC7), com aviso aos 80%.
   - Para estes limites contam também as `vendas_externas`, guardadas em `definicoes`.

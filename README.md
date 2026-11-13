@@ -246,7 +246,7 @@ Funciona como o Splitwise. Quando uma venda fica **concluída**, quem recebeu o 
 
 Cada parte fica com um saldo, e as transferências já feitas abatem a esse saldo. No fim, a app **simplifica** as dívidas para o menor número de transferências. Vendas com `acertada = true` são de contas antigas já resolvidas e não entram.
 
-**"Quem pagou" é obrigatório** nas compras e nos produtos (`FormCompra`, `FormProduto`): sem isso a app não sabe a quem devolver o custo e a venda fica de fora dos acertos.
+**"Quem pagou" é obrigatório** nas compras e nos produtos (`FormCompra`, `FormProduto`): sem isso a app não sabe a quem devolver o custo e a venda fica de fora dos acertos. No detalhe do produto há uma linha "Pagou" para o mudar logo ali.
 
 ### Limites das contas (`usoConta`)
 

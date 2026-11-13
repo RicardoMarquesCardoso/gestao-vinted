@@ -856,6 +856,8 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .tabela-grupo tr.linha-atual td { background: var(--superficie-2); font-weight: 600; }
 .tabela-grupo tr.linha-atual td small { font-weight: 400; }
 .ciclo-set { font-size: 0.85rem; text-align: center; margin: 0 0 10px; }
+.pagador-produto { font-size: 0.85rem; text-align: center; margin: 0 0 10px; }
+.pagador-produto select { width: auto; display: inline-block; margin-left: 4px; }
 
 /* ---------- Análises: destaques e dispersão ---------- */
 /* Destaques: cartões pequenos com um número grande; a faixa à esquerda dá o tom (com ▲ ou !) */
