@@ -77,6 +77,8 @@ export function FormProduto({ id, aoFechar }: { id?: string; aoFechar(): void })
   // Validar e guardar as alterações do produto
   async function submeter() {
     if (!f.nome.trim()) return aviso('Indica o nome do produto.', 'erro');
+    // Sem quem pagou, os acertos não sabem a quem devolver o custo: não deixamos guardar.
+    if (!f.pagador) return aviso('Indica quem pagou o produto.', 'erro');
     const quantidade = Math.max(Math.round(lerNumero(f.quantidade)) || 1, 1);
     const p: Produto = {
       id: novoId,
@@ -197,7 +199,7 @@ export function FormProduto({ id, aoFechar }: { id?: string; aoFechar(): void })
         <Campo rotulo="Preço de compra">
           <Dinheiro valor={f.preco_compra} mudar={(v) => mudar('preco_compra', v)} />
         </Campo>
-        <Campo rotulo="Quem pagou">
+        <Campo rotulo="Quem pagou *">
           <SelecionarPagador valor={f.pagador} mudar={(v) => mudar('pagador', v)} />
         </Campo>
         <Campo rotulo="Estado">

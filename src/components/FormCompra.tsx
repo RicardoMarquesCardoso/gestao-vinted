@@ -110,6 +110,8 @@ export function FormCompra({ id, aoFechar }: { id?: string; aoFechar(): void }) 
   // Guardar a compra e criar/atualizar os produtos, com o custo de cada um repartido
   async function submeter() {
     if (!validos.length) return aviso('Acrescenta pelo menos um produto com nome.', 'erro');
+    // Sem quem pagou, os acertos não sabem a quem devolver o custo: não deixamos guardar.
+    if (!f.pagador) return aviso('Indica quem pagou a compra.', 'erro');
     const compra: Compra = {
       id: idCompra,
       data: f.data || hoje(),
@@ -216,7 +218,7 @@ export function FormCompra({ id, aoFechar }: { id?: string; aoFechar(): void }) 
       }
     >
       <div className="grelha-form">
-        <Campo rotulo="Quem pagou">
+        <Campo rotulo="Quem pagou *">
           <SelecionarPagador valor={f.pagador} mudar={(v) => mudar('pagador', v)} />
         </Campo>
         <Campo rotulo="Data">

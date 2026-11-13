@@ -246,6 +246,8 @@ Funciona como o Splitwise. Quando uma venda fica **concluída**, quem recebeu o 
 
 Cada parte fica com um saldo, e as transferências já feitas abatem a esse saldo. No fim, a app **simplifica** as dívidas para o menor número de transferências. Vendas com `acertada = true` são de contas antigas já resolvidas e não entram.
 
+**"Quem pagou" é obrigatório** nas compras e nos produtos (`FormCompra`, `FormProduto`): sem isso a app não sabe a quem devolver o custo e a venda fica de fora dos acertos.
+
 ### Limites das contas (`usoConta`)
 
 A Vinted e as Finanças (diretiva **DAC7**) acompanham quem faz **30 vendas ou 2000 € por ano civil**. Para cada conta, a app soma:
