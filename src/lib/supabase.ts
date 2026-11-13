@@ -164,6 +164,17 @@ async function cabecalhos(extra: Record<string, string> = {}) {
 
 // ---------- Base de dados (PostgREST) ----------
 
+/**
+ * Erro de um pedido à base de dados. Um 401 quer dizer que o servidor recusou o token da sessão
+ * (expirou, foi terminada noutro sítio ou o relógio do telemóvel está errado): trata-se como sessão
+ * terminada (SessaoExpirada), tal como quando a renovação falha. As faltas de permissão dão 403 e
+ * os outros erros (500, rede…) continuam a ser erros normais.
+ */
+async function erroBaseDados(res: Response): Promise<Error> {
+  if (res.status === 401) return new SessaoExpirada();
+  return erroDe(res);
+}
+
 // O PostgREST devolve no máximo 1000 linhas por pedido: pedimos por páginas até acabar.
 const PAGINA = 1000;
 
@@ -180,7 +191,7 @@ export async function listar<T>(tabela: string, ordem = 'id', limite = Infinity,
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${tabela}?select=*&order=${ordemUnica}`, {
       headers: await cabecalhos({ Range: `${inicio}-${fim}`, 'Range-Unit': 'items' }),
     });
-    if (!res.ok) throw await erroDe(res);
+    if (!res.ok) throw await erroBaseDados(res);
     const lote = (await res.json()) as T[];
     todos.push(...lote);
     if (lote.length < fim - inicio + 1) return todos;
@@ -195,7 +206,7 @@ export async function lerDefinicoes(chaves: string[]): Promise<Record<string, un
   const res = await fetch(`${SUPABASE_URL}/rest/v1/definicoes?select=chave,valor&chave=in.(${encodeURIComponent(lista)})`, {
     headers: await cabecalhos(),
   });
-  if (!res.ok) throw await erroDe(res);
+  if (!res.ok) throw await erroBaseDados(res);
   const linhas = (await res.json()) as { chave: string; valor: unknown }[];
   return Object.fromEntries(linhas.map((l) => [l.chave, l.valor]));
 }
@@ -207,7 +218,7 @@ export async function inserir<T>(tabela: string, linhas: T | T[]): Promise<void>
     headers: await cabecalhos({ 'Content-Type': 'application/json', Prefer: 'return=minimal' }),
     body: JSON.stringify(linhas),
   });
-  if (!res.ok) throw await erroDe(res);
+  if (!res.ok) throw await erroBaseDados(res);
 }
 
 /** Alterar alguns campos de uma linha. */
@@ -217,7 +228,7 @@ export async function atualizar(tabela: string, chave: string, valor: string, al
     headers: await cabecalhos({ 'Content-Type': 'application/json', Prefer: 'return=minimal' }),
     body: JSON.stringify(alteracoes),
   });
-  if (!res.ok) throw await erroDe(res);
+  if (!res.ok) throw await erroBaseDados(res);
 }
 
 /**
@@ -233,7 +244,7 @@ export async function upsert(tabela: string, linhas: object | object[]): Promise
     }),
     body: JSON.stringify(linhas),
   });
-  if (!res.ok) throw await erroDe(res);
+  if (!res.ok) throw await erroBaseDados(res);
 }
 
 /** Apagar uma linha pela chave. */
@@ -242,7 +253,7 @@ export async function apagar(tabela: string, chave: string, valor: string): Prom
     method: 'DELETE',
     headers: await cabecalhos(),
   });
-  if (!res.ok) throw await erroDe(res);
+  if (!res.ok) throw await erroBaseDados(res);
 }
 
 /** Chamar uma função SQL da base de dados (ex.: e_membro, que diz se o email está autorizado). */
@@ -252,7 +263,7 @@ export async function rpc<T>(funcao: string, args: object = {}): Promise<T> {
     headers: await cabecalhos({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(args),
   });
-  if (!res.ok) throw await erroDe(res);
+  if (!res.ok) throw await erroBaseDados(res);
   return (await res.json()) as T;
 }
 

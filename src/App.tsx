@@ -52,6 +52,9 @@ const gravarModo = (m: string | null) => {
   }
 };
 
+const MSG_SESSAO_GRAVACAO =
+  'A sessão terminou a meio de uma gravação. Ao voltar a entrar, confirma se a última alteração ficou registada antes de a repetir.';
+
 export function App() {
   // Ao abrir: modo demo, sessão guardada do Supabase, ou nada (mostra o ecrã de entrar)
   const [store, setStore] = useState<Store | null>(() => {
@@ -68,8 +71,11 @@ export function App() {
     navegar('/');
   }, [store]);
 
-  const expirou = useCallback(() => {
-    setMensagem('A sessão terminou. Volta a entrar.');
+  // Sessão terminada. Se foi a meio de uma gravação, avisa que a última alteração pode não ter
+  // ficado registada (numa operação em dois passos, o 1.º pode ter ficado e o 2.º não): confirmar
+  // antes de repetir, para não a registar duas vezes. Esta mensagem nunca é trocada pela geral.
+  const expirou = useCallback((duranteGravacao?: boolean) => {
+    setMensagem((atual) => (duranteGravacao || atual === MSG_SESSAO_GRAVACAO ? MSG_SESSAO_GRAVACAO : 'A sessão terminou. Volta a entrar.'));
     void sair();
     setStore(null);
   }, []);

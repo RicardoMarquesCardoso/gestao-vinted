@@ -82,7 +82,7 @@ interface Aviso {
   tipo: 'ok' | 'erro';
 }
 
-export function DadosProvider(props: { store: Store; aoExpirar(): void; children: ReactNode }) {
+export function DadosProvider(props: { store: Store; aoExpirar(duranteGravacao?: boolean): void; children: ReactNode }) {
   const { store, aoExpirar } = props;
   const [dados, setDados] = useState<Dados>(dadosVazios);
   const [carregando, setCarregando] = useState(true);
@@ -104,13 +104,15 @@ export function DadosProvider(props: { store: Store; aoExpirar(): void; children
   }, []);
 
   // Erro ao gravar (só é usado por guardar e apagar). Se a sessão expirou (a palavra-passe tem de
-  // ser pedida outra vez), volta ao ecrã de entrar. Outro erro é relançado como ErroGravacao, com a
-  // mesma mensagem, para se saber que foi uma gravação que falhou (ver o aviso central abaixo).
+  // ser pedida outra vez), volta ao ecrã de entrar com o aviso de que foi a meio de uma gravação, e
+  // a gravação FALHA (relança o erro): assim nenhum formulário continua para os passos seguintes nem
+  // mostra sucesso. Outro erro é relançado como ErroGravacao, com a mesma mensagem, para se saber que
+  // foi uma gravação que falhou (ver o aviso central abaixo).
   const tratarErro = useCallback(
-    (e: unknown) => {
+    (e: unknown): never => {
       if (e instanceof SessaoExpirada) {
-        aoExpirar();
-        return;
+        aoExpirar(true);
+        throw e; // a única mensagem é a do ecrã de entrar (o aviso central ignora este erro)
       }
       throw new ErroGravacao(e);
     },
@@ -204,8 +206,7 @@ export function DadosProvider(props: { store: Store; aoExpirar(): void; children
         await store.guardar(tabela, linhas);
         await store.registar(historico).catch(() => undefined);
       } catch (e) {
-        tratarErro(e);
-        return;
+        tratarErro(e); // lança sempre (ver tratarErro)
       }
       // Atualizar já a memória para a interface responder logo
       setDados((d) => {
@@ -248,8 +249,7 @@ export function DadosProvider(props: { store: Store; aoExpirar(): void; children
           ])
           .catch(() => undefined);
       } catch (e) {
-        tratarErro(e);
-        return;
+        tratarErro(e); // lança sempre (ver tratarErro)
       } finally {
         gravacoes.current++;
       }
@@ -273,7 +273,7 @@ export function DadosProvider(props: { store: Store; aoExpirar(): void; children
       guardar,
       apagar,
       aviso,
-      sessaoExpirada: aoExpirar,
+      sessaoExpirada: () => aoExpirar(),
       lista: (chave) => dados.definicoes.find((x) => x.chave === chave)?.valor ?? LISTAS_PADRAO[chave]?.valores ?? [],
       nomePessoa: (id) => (id ? dados.pessoas.find((p) => p.id === id)?.nome ?? '—' : '—'),
       nomeConta: (id) => (id ? dados.contas.find((c) => c.id === id)?.nome ?? '—' : '—'),

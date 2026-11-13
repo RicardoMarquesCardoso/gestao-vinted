@@ -151,6 +151,8 @@ A app carrega **todos os dados de uma vez**. São poucos milhares de linhas, por
 
 Se a gravação falhar, os formulários mostram "Erro ao guardar: …". Nos botões sem mensagem própria ("Baixei", "Adiar", Definições, Rever nomes…), a app mostra o aviso **"Não foi guardado: …"** (`ErroGravacao` em `src/state.tsx`). Nunca aparecem as duas mensagens, e as leituras ou fotografias que falham não usam este aviso.
 
+Se a sessão terminar (a renovação falha ou a base de dados responde 401), a app volta ao ecrã de entrar. Se foi a meio de uma gravação, a gravação falha (nenhum formulário mostra sucesso) e o ecrã de entrar avisa para confirmar se a última alteração ficou registada antes de a repetir.
+
 ### Sincronização entre os dois
 
 Não há "tempo real". A app volta a carregar os dados **quando se regressa a ela** e **de minuto a minuto**. Há também o botão ↻ para atualizar à mão.
