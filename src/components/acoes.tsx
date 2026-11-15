@@ -25,7 +25,7 @@ export type Acao =
   | { tipo: 'produto'; id?: string }
   | { tipo: 'detalhe'; id: string }
   | { tipo: 'grupo'; ids: string[] }
-  | { tipo: 'compra'; id?: string }
+  | { tipo: 'compra' } // só registar: uma compra não se edita depois de registada
   | { tipo: 'venda'; id?: string; produtoId?: string }
   | { tipo: 'conta'; id?: string }
   | { tipo: 'anunciar'; ids: string[]; retirar?: boolean; preco?: number | null; unidades?: number }
@@ -64,7 +64,7 @@ export function AcoesProvider({ children }: { children: ReactNode }) {
       {atual?.tipo === 'produto' && <FormProduto key={pilha.length} id={atual.id} aoFechar={fechar} />}
       {atual?.tipo === 'detalhe' && <DetalheProduto key={pilha.length} id={atual.id} aoFechar={fechar} />}
       {atual?.tipo === 'grupo' && <DetalheGrupo key={pilha.length} ids={atual.ids} aoFechar={fechar} />}
-      {atual?.tipo === 'compra' && <FormCompra key={pilha.length} id={atual.id} aoFechar={fechar} />}
+      {atual?.tipo === 'compra' && <FormCompra key={pilha.length} aoFechar={fechar} />}
       {atual?.tipo === 'venda' && <FormVenda key={pilha.length} id={atual.id} produtoId={atual.produtoId} aoFechar={fechar} />}
       {atual?.tipo === 'conta' && <FormConta key={pilha.length} id={atual.id} aoFechar={fechar} />}
       {atual?.tipo === 'vendi' && <FormVendi key={pilha.length} ids={atual.ids} aoFechar={fechar} abrirCompleto={(produtoId) => setPilha((p) => [...p.slice(0, -1), { tipo: 'venda', produtoId }])} />}

@@ -1,10 +1,13 @@
 // Formulário "Registar compra": a única forma de entrar produtos na app.
 //
-// Uma compra tem data, quem pagou, valor, portes e uma ou mais linhas de produtos.
+// Uma compra tem data, quem pagou, valor, portes e uma ou mais linhas de produtos, registados todos
+// numa só operação. Todos os produtos herdam a data e o pagador da compra (produtos pagos por pessoas
+// diferentes registam-se em compras separadas).
 // O custo de cada produto é calculado por distribuirCompra (lib/calc.ts): divide o valor
 // em partes iguais ou usa o preço de cada linha, e reparte os portes proporcionalmente.
-// Depois de registada, o total da compra é a soma dos produtos (totalCompra); ao editar uma compra,
-// o formulário parte do preço atual de cada produto.
+// UMA COMPRA NÃO SE EDITA DEPOIS DE REGISTADA (decisão do Ricardo, nov/2026): qualquer correção
+// (pagador, custo, data…) faz-se em cada produto, no Editar produto. O total de uma compra é sempre
+// a soma dos seus produtos (totalCompra).
 // Escrever o n.º do set preenche o nome e o tema a partir do catálogo.
 
 import { useState } from 'react';
@@ -12,13 +15,12 @@ import { arred, distribuirCompra, estadoAposVendas } from '../lib/calc';
 import { fmtEuro, hoje, lerNumero } from '../lib/format';
 import type { Compra, Distribuicao, Produto } from '../lib/types';
 import { useDados } from '../state';
-import { paraCampo, vazioANull } from './acoes';
-import { Campo, Dinheiro, Janela, SelecionarPagador, TextoSugerido, lerPagador, useConfirmar, valorPagador , EscolherOuEscrever, ImagemReferencia, NomeComSugestoes, urlReferencia, IconeLixo } from './ui';
+import { vazioANull } from './acoes';
+import { Campo, Dinheiro, Janela, SelecionarPagador, TextoSugerido, lerPagador, EscolherOuEscrever, ImagemReferencia, NomeComSugestoes, urlReferencia, IconeLixo } from './ui';
 import { useCatalogo, useInfoPorSet } from './catalogo';
 
 interface Item {
   id: string;
-  novo: boolean;
   nome: string;
   set_numero: string;
   condicao: string;
@@ -29,53 +31,28 @@ interface Item {
   preco: string;
 }
 
-export function FormCompra({ id, aoFechar }: { id?: string; aoFechar(): void }) {
-  const { dados, guardar, apagar, lista, aviso } = useDados();
-  const confirmar = useConfirmar();
+export function FormCompra({ aoFechar }: { aoFechar(): void }) {
+  const { dados, guardar, lista, aviso } = useDados();
   const catalogo = useCatalogo();
   const infoSet = useInfoPorSet();
-  const existente = dados.compras.find((c) => c.id === id);
-  const produtosAtuais = existente ? dados.produtos.filter((p) => p.compra_id === existente.id) : [];
 
-  // Numa compra que já existe, os valores vêm dos produtos (pedido do Ricardo: o preço de cada
-  // produto é o que conta). Abre-se com o preço de cada linha ("individual") e com os portes iguais à
-  // soma dos custos adicionais dos produtos, para guardar sem mudar o custo de nenhum produto, mesmo
-  // que algum tenha sido corrigido depois de registar a compra.
-  const extrasAtuais = arred(produtosAtuais.reduce((a, p) => a + (p.custos_adicionais || 0), 0));
-  const extrasGuardados = arred((existente?.portes || 0) + (existente?.outros_custos || 0));
-  const manterExtras = !!existente && extrasGuardados === extrasAtuais;
   const [f, setF] = useState(() => ({
-    data: existente?.data ?? hoje(),
-    pagador: existente ? valorPagador(existente) : '',
-    metodo_pagamento: existente?.metodo_pagamento ?? '',
-    vendedor: existente?.vendedor ?? '',
+    data: hoje(),
+    pagador: '',
+    metodo_pagamento: '',
+    vendedor: '',
     distribuicao: 'individual' as Distribuicao,
-    valor_artigos: paraCampo(existente ? arred(produtosAtuais.reduce((a, p) => a + (p.preco_compra || 0), 0)) : undefined),
-    portes: paraCampo(existente ? (manterExtras ? existente.portes : extrasAtuais) : undefined),
-    outros_custos: paraCampo(existente ? (manterExtras ? existente.outros_custos : 0) : undefined),
-    notas: existente?.notas ?? '',
+    valor_artigos: '',
+    portes: '',
+    outros_custos: '',
+    notas: '',
   }));
-  // Identificador da compra, fixo enquanto o formulário estiver aberto (numa compra nova é criado ao
-  // abrir): se uma gravação falhar e se tocar outra vez em Guardar, atualiza-se a mesma compra em vez
-  // de criar outra (os produtos já têm identificadores fixos, um por linha).
-  const [idNova] = useState(() => crypto.randomUUID());
-  const idCompra = existente?.id ?? idNova;
-  const itemVazio = (): Item => ({ id: crypto.randomUUID(), novo: true, nome: '', set_numero: '', condicao: '', marca: 'LEGO', tema: '', quantidade: '1', preco: '' });
-  const [itens, setItens] = useState<Item[]>(() =>
-    produtosAtuais.length
-      ? produtosAtuais.map((p) => ({
-          id: p.id,
-          novo: false,
-          nome: p.nome,
-          set_numero: p.set_numero ?? '',
-          condicao: p.condicao ?? '',
-          marca: p.marca ?? '',
-          tema: p.tema ?? '',
-          quantidade: String(p.quantidade),
-          preco: paraCampo(p.preco_compra),
-        }))
-      : [itemVazio()],
-  );
+  // Identificador da compra, criado ao abrir o formulário: se uma gravação falhar e se tocar outra
+  // vez em Guardar, atualiza-se a mesma compra em vez de criar outra (os produtos já têm
+  // identificadores fixos, um por linha).
+  const [idCompra] = useState(() => crypto.randomUUID());
+  const itemVazio = (): Item => ({ id: crypto.randomUUID(), nome: '', set_numero: '', condicao: '', marca: 'LEGO', tema: '', quantidade: '1', preco: '' });
+  const [itens, setItens] = useState<Item[]>(() => [itemVazio()]);
   const [aGuardar, setAGuardar] = useState(false);
   const mudar = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((x) => ({ ...x, [k]: v }));
   const mudarItem = (i: number, k: keyof Item, v: string) => setItens((xs) => xs.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
@@ -99,11 +76,8 @@ export function FormCompra({ id, aoFechar }: { id?: string; aoFechar(): void }) 
   };
   const total = arred(base.valor_artigos + base.portes + base.outros_custos);
 
-  // Retirar uma linha de produto (se já tiver vendas, pede confirmação)
-  async function removerItem(i: number) {
-    const item = itens[i];
-    if (!item.novo && dados.vendas.some((v) => v.produto_id === item.id))
-      return aviso('Este produto já tem vendas e não pode ser retirado da compra.', 'erro');
+  // Retirar uma linha de produto do formulário
+  function removerItem(i: number) {
     setItens((xs) => (xs.length === 1 ? [itemVazio()] : xs.filter((_, j) => j !== i)));
   }
 
@@ -124,16 +98,6 @@ export function FormCompra({ id, aoFechar }: { id?: string; aoFechar(): void }) 
       distribuicao: f.distribuicao,
       notas: vazioANull(f.notas),
     };
-    const removidos = produtosAtuais.filter((p) => !validos.some((i) => i.id === p.id));
-    if (removidos.length) {
-      const ok = await confirmar({
-        titulo: 'Retirar produtos',
-        texto: `Vais apagar ${removidos.length} produto(s) desta compra: ${removidos.map((p) => p.nome).join(', ')}. Continuar?`,
-        botao: 'Continuar',
-        perigo: true,
-      });
-      if (!ok) return;
-    }
     const produtos: Produto[] = validos.map((item, k) => {
       const atual = dados.produtos.find((p) => p.id === item.id);
       const p = {
@@ -155,15 +119,14 @@ export function FormCompra({ id, aoFechar }: { id?: string; aoFechar(): void }) 
         preco_compra: distribuicao[k].preco_compra,
         custos_adicionais: distribuicao[k].custos_adicionais,
       } as Produto;
-      // Se a quantidade mudou, o estado (vendido / por vender) pode mudar também
+      // Produto já gravado numa tentativa anterior (repetir depois de uma falha): manter o estado coerente
       return atual ? { ...p, estado: estadoAposVendas(p, dados.vendas) } : p;
     });
     setAGuardar(true);
     try {
       await guardar('compras', [compra]);
       await guardar('produtos', produtos);
-      for (const p of removidos) await apagar('produtos', p.id);
-      aviso(existente ? 'Compra atualizada.' : `Compra registada com ${produtos.length} produto(s).`);
+      aviso(`Compra registada com ${produtos.length} produto(s).`);
       aoFechar();
     } catch (e) {
       aviso(`Erro ao guardar: ${e instanceof Error ? e.message : e}`, 'erro');
@@ -172,40 +135,13 @@ export function FormCompra({ id, aoFechar }: { id?: string; aoFechar(): void }) 
     }
   }
 
-  // Apagar a compra e os seus produtos (só se nenhum tiver vendas)
-  async function eliminar() {
-    if (!existente) return;
-    if (produtosAtuais.some((p) => dados.vendas.some((v) => v.produto_id === p.id)))
-      return aviso('Há produtos desta compra com vendas registadas. Não é possível apagar a compra.', 'erro');
-    const ok = await confirmar({
-      titulo: 'Apagar compra',
-      texto: `Vais apagar esta compra de ${fmtEuro(total)} e os ${produtosAtuais.length} produto(s) associados. Fica registado no histórico. Continuar?`,
-      botao: 'Apagar compra',
-      perigo: true,
-    });
-    if (!ok) return;
-    try {
-      for (const p of produtosAtuais) await apagar('produtos', p.id);
-      await apagar('compras', existente.id);
-      aviso('Compra apagada.');
-      aoFechar();
-    } catch (e) {
-      aviso(`Erro ao apagar: ${e instanceof Error ? e.message : e}`, 'erro');
-    }
-  }
-
   return (
     <Janela
-      titulo={existente ? 'Editar compra' : 'Nova compra'}
+      titulo="Nova compra"
       aoFechar={aoFechar}
       larga
       rodape={
         <>
-          {existente && (
-            <button className="btn btn-perigo-texto" onClick={eliminar}>
-              Apagar
-            </button>
-          )}
           <span className="espaco" />
           <span className="total-rodape">Total {fmtEuro(total)}</span>
           <button className="btn" onClick={aoFechar}>

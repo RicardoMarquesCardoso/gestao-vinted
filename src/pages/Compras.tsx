@@ -98,7 +98,8 @@ export function Compras() {
             const ps = produtosDe.get(c.id) ?? [];
             return (
               <li key={c.id}>
-                <button className="registo" onClick={() => abrir({ tipo: 'compra', id: c.id })}>
+                {/* Só consulta: uma compra não se edita depois de registada; as correções fazem-se em cada produto */}
+                <div className="registo">
                   <div className="registo-esquerda">
                     <div className="registo-titulo">{ps.length ? ps.map((p) => p.nome).join(', ') : 'Compra sem produtos'}</div>
                     <div className="registo-meta">
@@ -114,7 +115,7 @@ export function Compras() {
                       {extrasDe(c.id) ? ` · portes ${fmtEuro(extrasDe(c.id))}` : ''}
                     </small>
                   </div>
-                </button>
+                </div>
               </li>
             );
           })}

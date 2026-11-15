@@ -234,7 +234,8 @@ lucro da venda  = líquido − custo unitário × unidades vendidas
 ```
 
 - Numa compra com vários produtos, o valor divide-se **em partes iguais** ou **pelo preço de cada um**. Os portes repartem-se em proporção ao preço, e os cêntimos que sobram vão para o último produto, para a soma bater certo (`distribuirCompra`).
-- **O preço de cada produto é o que conta** (pedido do Ricardo, nov/2026). Depois de registada, o **total de uma compra é sempre a soma do custo dos seus produtos** (`totalCompra`): corrigir o preço de um produto atualiza a compra, o gasto, a caixa e o investimento recuperado. Ao editar uma compra, o formulário parte do preço atual de cada produto. Apagar o último produto de uma compra apaga também a compra.
+- **O preço de cada produto é o que conta** (pedido do Ricardo, nov/2026). Depois de registada, o **total de uma compra é sempre a soma do custo dos seus produtos** (`totalCompra`): corrigir o preço de um produto atualiza a compra, o gasto, a caixa e o investimento recuperado. Apagar o último produto de uma compra apaga também a compra.
+- **Uma compra não se edita depois de registada** (decisão do Ricardo, nov/2026): o formulário só regista, numa operação, os produtos comprados na mesma ocasião, todos com a data e o pagador da compra (pagos por pessoas diferentes → compras separadas). As correções fazem-se em cada produto (Editar produto); os acertos usam o pagador e o custo de cada produto. A lista de Compras é só de consulta.
 - Só contam para o lucro as vendas **concluídas**.
 
 ### Acertos (`src/lib/acertos.ts`)

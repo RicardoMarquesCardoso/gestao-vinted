@@ -112,6 +112,10 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
   const lucroDe = (p: Produto) => (vendasDe.get(p.id) ?? []).reduce((a, v) => a + lucroVenda(v, p), 0);
 
   function exportar() {
+    // Campos que só existem na compra (vendedor, método, notas): o ecrã Compras deixou de ser
+    // usado, por isso o CSV de produtos leva-os, um por produto, a partir da compra de cada um.
+    const compraDe = new Map(dados.compras.map((c) => [c.id, c]));
+    const compra = (p: Produto) => (p.compra_id ? compraDe.get(p.compra_id) : undefined);
     descarregar(
       `produtos-${h}.csv`,
       paraCsv(lista, [
@@ -128,6 +132,9 @@ export function Inventario({ inicial = 'por_vender' }: { inicial?: 'por_vender' 
         { titulo: 'Custos adicionais', valor: (p) => p.custos_adicionais },
         { titulo: 'Custo total', valor: (p) => custoTotalProduto(p) },
         { titulo: 'Quem pagou', valor: (p) => nomePagador(p) },
+        { titulo: 'Comprado a', valor: (p) => compra(p)?.vendedor },
+        { titulo: 'Método de pagamento', valor: (p) => compra(p)?.metodo_pagamento },
+        { titulo: 'Notas da compra', valor: (p) => compra(p)?.notas },
         { titulo: 'Conta', valor: (p) => nomeConta(p.conta_id) },
         { titulo: 'Anunciado em', valor: (p) => p.data_anuncio },
         { titulo: 'Dias anunciado', valor: (p) => diasAnunciado(p, h) },
