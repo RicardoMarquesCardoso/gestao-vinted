@@ -91,6 +91,7 @@ Guardar os dados que permitam estas análises desde já, mesmo que ainda não ap
 
 - **Comentar todo o código** de forma didática, para quem não é programador perceber: um comentário no topo de cada ficheiro (para que serve e como funciona) e comentários nas funções e na lógica menos óbvia.
 - **Manter o `README.md` atualizado** a cada mudança relevante: arquitetura, fluxo de dados, modelo de dados, fórmulas, dados externos, segurança e mapa dos ficheiros.
+- `GUIA_TECNICO.md` (raiz): onde vive cada parte (o que está só na produção), como mudar sem partir, riscos em aberto. **Nunca guardar ficheiros escritos à mão em `docs/`**: o build apaga a pasta.
 
 ## Técnico
 

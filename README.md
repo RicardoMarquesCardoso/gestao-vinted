@@ -4,7 +4,7 @@ App web do Ricardo e da Cass para gerir a compra e venda de brinquedos (sobretud
 
 Além de registar compras e vendas, a VinteDuo trata o negócio **como um investimento**: mede quanto rende cada euro **e quanto tempo fica preso**, e sugere o que fazer com cada produto (vender já ou guardar até quando, e a que preço).
 
-Este README explica **o que a app faz, como está construída e porquê**, para quem não é programador perceber as peças e como encaixam.
+Este README explica **o que a app faz, como está construída e porquê**, para quem não é programador perceber as peças e como encaixam. O [`GUIA_TECNICO.md`](GUIA_TECNICO.md) complementa-o: onde vive cada parte (incluindo o que só existe na produção), como alterar sem partir nada e os riscos em aberto.
 
 ---
 
