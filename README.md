@@ -263,6 +263,18 @@ O aviso aparece aos 80%.
 
 É um modelo com marcadores, como `{marca} {numero} {nome}`, que são trocados pelos dados do produto. `{marca}` é a marca do produto ("Lego", "Pokémon"…), para um produto Pokémon não aparecer como Lego. Há um texto para produtos novos e outro para usados, editáveis em Definições. Cada conta da Vinted pode ter a sua descrição (pedido do Ricardo, para as contas não terem anúncios iguais); em branco usa a geral. A janela Anunciar mostra o texto da conta escolhida.
 
+### Piloto Wallapop (`src/lib/wallapop.ts`, nov/2026)
+
+Para poupar uns minutos por anúncio na Wallapop (pt.wallapop.com), sem publicar nada sozinho:
+
+1. Numa conta `… (Wallapop)`, a janela Anunciar mostra o texto da Wallapop (português, título até 50 e descrição até 640 caracteres; sem descrição própria da conta usa `TEXTO_WALLAPOP`) e o botão **Abrir na Wallapop**, que abre o formulário de publicação noutro separador.
+2. No separador da Wallapop carrega-se no botão **VinteDuo → Wallapop** da barra de favoritos (instala-se uma vez, em Definições → Botão Wallapop). É um *bookmarklet*: pede os dados à app pelo `window.opener` (`postMessage`) e preenche o formulário.
+   - 1.º clique, no início: resumo e fotografias (as originais, passadas como ficheiros de separador para separador).
+   - 2.º clique, no formulário final: escreve por cima do título e da descrição que a Wallapop sugere, escolhe o estado (novos → "Novo", usados → "Praticamente novo"), o preço e o escalão de peso (peso da caixa da Brickset; sem peso, escolhe-se à mão).
+3. Os "Continuar" e o "Publicar" são sempre carregados pela pessoa. Depois marca-se como anunciado na app, como hoje.
+
+Segurança: a app só responde à janela que ela própria abriu e a páginas `*.wallapop.com`; o botão só aceita dados vindos do endereço da app. Não há chaves nem palavras-passe envolvidas. O copiar e colar continua disponível para todas as contas. A Vinted fica de fora: os termos proíbem ferramentas de terceiros.
+
 ---
 
 ## 7. Investimento: análises, planos e tarefas
@@ -570,6 +582,7 @@ src/
     fotos.ts                fotografias: original + miniatura, caminhos, regras da limpeza
     avaliar.ts              "Vale a pena?": avaliar uma compra, PVP medido, tempo até vender, links Vinted/eBay
     anuncio.ts              texto dos anúncios
+    wallapop.ts             piloto Wallapop: texto, limites e o botão da barra de favoritos
     anuncios.ts             registo automático do tempo anunciado
     store.ts                "contrato" de dados: Supabase ou demonstração
     sincronizar.ts          juntar alterações dos dois telemóveis e reaproveitar o que não mudou
@@ -587,7 +600,7 @@ src/
     FormProduto.tsx         editar produto
     FormVenda.tsx           venda completa
     FormVendi.tsx           venda rápida
-    FormAnunciar.tsx        anunciar/retirar + texto para a Vinted
+    FormAnunciar.tsx        anunciar/retirar + texto para a Vinted (ou Wallapop + "Abrir na Wallapop")
     FormConta.tsx           conta da Vinted e limites
     DetalheProduto.tsx      detalhe de um produto
     PesquisaProdutos.tsx    pesquisa de Produtos com sugestões e filtro de categoria

@@ -58,6 +58,7 @@ Guardar os dados que permitam estas análises desde já, mesmo que ainda não ap
 ## Texto dos anúncios
 
 - `src/lib/anuncio.ts`: marcadores `{marca}` (nunca "Lego" fixo), `{numero}`, `{nome}`, `{tema}`. Descrição própria por conta em `modelo_anuncio.contas` (a RM1 tem uma diferente das da Cass).
+- **Piloto Wallapop** (pedido do Ricardo, nov/2026, `src/lib/wallapop.ts`): em contas `… (Wallapop)`, a janela Anunciar mostra o texto da Wallapop (PT, o mais simples possível: `TEXTO_WALLAPOP`; título ≤ 50, descrição ≤ 640) e "Abrir na Wallapop". Um botão da barra de favoritos (Definições → Botão Wallapop) pede os dados à app por `postMessage` e preenche o formulário em 2 cliques (resumo + fotos; depois título, descrição, estado, preço, peso = só o peso da caixa). **Os "Continuar" e o "Publicar" são sempre da pessoa**; nada é publicado sozinho. Categoria: a que a Wallapop sugere (revê-se à mão). Vinted fica de fora (termos proíbem ferramentas de terceiros); eBay, se avançar, pela API oficial.
 
 ## Ecrã Produtos
 

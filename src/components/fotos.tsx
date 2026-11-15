@@ -17,8 +17,20 @@ import type { ReactNode } from 'react';
 import { FOTO_MINIATURA, fotosALimpar, nomeFicheiroFoto } from '../lib/fotos';
 import { hoje } from '../lib/format';
 import type { Produto } from '../lib/types';
+import type { Store } from '../lib/store';
 import { useDados } from '../state';
 import { prepararFoto, reduzirFoto } from './ui';
+
+/** As fotografias originais de um produto como ficheiros (para partilhar, descarregar ou a Wallapop). */
+export async function ficheirosDoProduto(p: Produto, store: Store): Promise<File[]> {
+  const r: File[] = [];
+  for (const [i, ref] of p.fotos.entries()) {
+    const url = await store.urlFoto(ref, 'original');
+    const blob = await (await fetch(url)).blob();
+    r.push(new File([blob], nomeFicheiroFoto(p, i, p.fotos.length), { type: 'image/jpeg' }));
+  }
+  return r;
+}
 
 /** Os browsers que deixam partilhar ficheiros (sobretudo telemóveis). */
 const podePartilharFicheiros = () => {
@@ -140,12 +152,7 @@ export function PartilharFotos({ p, vertical }: { p: Produto; vertical?: boolean
   // Vai buscar as originais (ou a miniatura, se o produto já foi limpo) como ficheiros
   async function ficheiros(): Promise<File[]> {
     if (preparados.current?.chave === chave) return preparados.current.ficheiros;
-    const r: File[] = [];
-    for (const [i, ref] of p.fotos.entries()) {
-      const url = await store.urlFoto(ref, 'original');
-      const blob = await (await fetch(url)).blob();
-      r.push(new File([blob], nomeFicheiroFoto(p, i, p.fotos.length), { type: 'image/jpeg' }));
-    }
+    const r = await ficheirosDoProduto(p, store);
     preparados.current = { chave, ficheiros: r };
     return r;
   }

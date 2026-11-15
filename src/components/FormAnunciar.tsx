@@ -4,15 +4,20 @@
 // Ao marcar como anunciado, o registo do tempo anunciado começa sozinho (lib/anuncios.ts).
 // Avisa se a conta escolhida já vendeu ou tem anunciadas 2 ou mais unidades iguais (vezesNaConta):
 // a Vinted reclama de muitos artigos iguais na mesma conta (pedido do Ricardo).
+// Contas "… (Wallapop)" (piloto, nov/2026): o texto é o da Wallapop (em português, título até 50 e
+// descrição até 640 caracteres) e há o botão "Abrir na Wallapop", que abre o formulário de
+// publicação e entrega os dados ao botão da barra de favoritos (ver lib/wallapop.ts).
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { fmtEuro, hoje, lerNumero } from '../lib/format';
 import { vezesNaConta } from '../lib/calc';
 import type { Produto } from '../lib/types';
 import { useDados } from '../state';
 import { modeloAnuncio, textoAnuncio } from '../lib/anuncio';
 import { Campo, Dinheiro, Janela, SelecionarConta } from './ui';
-import { PartilharFotos } from './fotos';
+import { PartilharFotos, ficheirosDoProduto } from './fotos';
+import { infoMercado, useMercado } from '../lib/investimento';
+import { URL_PUBLICAR_WALLAPOP, dadosWallapop, eContaWallapop } from '../lib/wallapop';
 
 const CHAVE_CONTA = 'gv.ultimaConta';
 
@@ -118,7 +123,7 @@ export function FormAnunciar({ ids, retirar, precoSugerido, unidades, aoFechar }
           ⚠ Esta conta já tem {vezes} {vezes === 1 ? 'unidade' : 'unidades'} deste produto (vendidas ou anunciadas). A Vinted reclama de muitos artigos iguais na mesma conta: considera outra conta.
         </p>
       )}
-      {!retirar && <TextoVinted produto={candidatos[0]} contaId={conta} />}
+      {!retirar && <TextoVinted produto={candidatos[0]} contaId={conta} preco={preco ? lerNumero(preco) : null} />}
       {/* As fotografias do produto, para pôr no anúncio (Partilhar → Vinted, ou Descarregar) */}
       {!retirar && candidatos[0].fotos.length > 0 && (
         <div className="texto-vinted">
@@ -130,10 +135,17 @@ export function FormAnunciar({ ids, retirar, precoSugerido, unidades, aoFechar }
   );
 }
 
-/** Título e descrição prontos a copiar para a Vinted (com a descrição própria da conta, se tiver). */
-function TextoVinted({ produto, contaId }: { produto: Produto; contaId: string }) {
+/**
+ * Título e descrição prontos a copiar (com a descrição própria da conta, se tiver).
+ * Numa conta Wallapop: o texto da Wallapop e o botão "Abrir na Wallapop".
+ */
+function TextoVinted({ produto, contaId, preco }: { produto: Produto; contaId: string; preco: number | null }) {
   const { dados, aviso } = useDados();
-  const t = textoAnuncio(produto, modeloAnuncio(dados.definicoes), contaId);
+  const mercado = useMercado();
+  const wallapop = eContaWallapop(dados.contas.find((c) => c.id === contaId)?.nome);
+  const modelo = modeloAnuncio(dados.definicoes);
+  const pesoG = infoMercado(mercado, produto.set_numero, hoje())?.pesoG ?? null;
+  const t = wallapop ? dadosWallapop(produto, modelo, contaId, preco, pesoG) : textoAnuncio(produto, modelo, contaId);
   async function copiar(texto: string, o: string) {
     try {
       await navigator.clipboard.writeText(texto);
@@ -144,7 +156,8 @@ function TextoVinted({ produto, contaId }: { produto: Produto; contaId: string }
   }
   return (
     <div className="texto-vinted">
-      <h4>Texto para a Vinted</h4>
+      <h4>{wallapop ? 'Texto para a Wallapop' : 'Texto para a Vinted'}</h4>
+      {wallapop && <AbrirWallapop produto={produto} contaId={contaId} preco={preco} pesoG={pesoG} />}
       <div className="texto-vinted-bloco">
         <div className="texto-vinted-topo">
           <span className="campo-rotulo">Título</span>
@@ -160,6 +173,56 @@ function TextoVinted({ produto, contaId }: { produto: Produto; contaId: string }
         <p className="texto-vinted-descricao">{t.descricao}</p>
       </div>
       <p className="mudo pequeno">O texto muda-se em Definições → Texto dos anúncios.</p>
+    </div>
+  );
+}
+
+/**
+ * Abre o formulário de publicação da Wallapop noutro separador e responde aos pedidos do botão
+ * da barra de favoritos que corre nesse separador. Só responde à janela que ela própria abriu
+ * e a páginas da Wallapop. As fotografias vão como ficheiros, diretamente de separador para
+ * separador (nada passa por outros servidores). Publicar continua a ser feito à mão.
+ */
+function AbrirWallapop({ produto, contaId, preco, pesoG }: { produto: Produto; contaId: string; preco: number | null; pesoG: number | null }) {
+  const { dados, store, aviso } = useDados();
+  const janela = useRef<Window | null>(null);
+  const fotos = useRef<{ chave: string; ficheiros: Promise<File[]> } | null>(null);
+  // Valores atuais, lidos quando o pedido chega (o ouvinte não muda a cada tecla)
+  const atual = useRef({ produto, contaId, preco, pesoG, definicoes: dados.definicoes });
+  atual.current = { produto, contaId, preco, pesoG, definicoes: dados.definicoes };
+
+  useEffect(() => {
+    async function ouvir(e: MessageEvent) {
+      if (!janela.current || e.source !== janela.current) return;
+      if (!/^https:\/\/([a-z0-9-]+\.)?wallapop\.com$/.test(e.origin) || e.data?.vinteduo !== 'pedido') return;
+      const a = atual.current;
+      try {
+        const chave = a.produto.fotos.join('|');
+        if (fotos.current?.chave !== chave) fotos.current = { chave, ficheiros: ficheirosDoProduto(a.produto, store) };
+        const ficheiros = await fotos.current.ficheiros;
+        const d = dadosWallapop(a.produto, modeloAnuncio(a.definicoes), a.contaId, a.preco, a.pesoG);
+        (e.source as Window).postMessage({ ...d, fotos: ficheiros }, e.origin);
+      } catch (err) {
+        fotos.current = null;
+        aviso(`Não foi possível preparar o anúncio: ${err instanceof Error ? err.message : err}`, 'erro');
+      }
+    }
+    window.addEventListener('message', ouvir);
+    return () => window.removeEventListener('message', ouvir);
+  }, [store, aviso]);
+
+  return (
+    <div className="botoes">
+      <button
+        type="button"
+        className="btn"
+        onClick={() => {
+          janela.current = window.open(URL_PUBLICAR_WALLAPOP, 'vinteduo-wallapop');
+          if (!janela.current) aviso('O browser bloqueou a nova janela.', 'erro');
+        }}
+      >
+        Abrir na Wallapop
+      </button>
     </div>
   );
 }

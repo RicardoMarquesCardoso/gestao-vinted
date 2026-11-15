@@ -1,7 +1,7 @@
 // Ecrã "Definições": sessão, instalar no telemóvel, rever nomes, texto dos anúncios, regras das
 // sugestões, pessoas, exportar/cópia de segurança, listas, dados de exemplo e histórico.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Cartao, useConfirmar } from '../components/ui';
 import { descarregar } from '../lib/csv';
 import { fmtDataHora, hoje } from '../lib/format';
@@ -18,6 +18,7 @@ import { CHAVE_REGRAS, REGRAS_PADRAO, regrasPlano } from '../lib/plano';
 import { MIN_SETS_CALIBRACAO, calibrarEbay, useMercado } from '../lib/investimento';
 import { CHAVE_TOKEN_PROMOCOES, promocoesRecebidas } from '../lib/promocoes';
 import { SUPABASE_KEY, SUPABASE_URL } from '../config';
+import { codigoBotaoWallapop, eContaWallapop } from '../lib/wallapop';
 import { fmtDataHora as fmtQuando } from '../lib/format';
 import type { RegrasPlano } from '../lib/plano';
 
@@ -124,6 +125,8 @@ export function Definicoes(props: { aoSair(): void }) {
       <CartaoReverNomes />
 
       <CartaoTextoAnuncios />
+
+      {dados.contas.some((c) => c.ativa && eContaWallapop(c.nome)) && <CartaoBotaoWallapop />}
 
       <CartaoRegrasPlano />
 
@@ -501,6 +504,26 @@ function CartaoReceberPromocoes() {
         em % (ex.: 30). Basta um de <code>preco</code> ou <code>desconto</code>. Sem <code>pvp</code>, usa-se o PVP da Brickset. Se vierem os dois, conta o <code>preco</code>.{' '}
         <code>valida_ate</code> é opcional. Em vez de <code>itens</code> pode enviar-se <code>texto</code> (a lista como se cola na app). Guardar o código só na outra app; nunca o publicar.
       </p>
+    </Cartao>
+  );
+}
+
+/**
+ * Botão da barra de favoritos para o piloto Wallapop (ver lib/wallapop.ts). Arrasta-se uma vez
+ * para a barra de favoritos do Chrome do computador. O endereço "javascript:" é posto depois de o
+ * ecrã aparecer, porque o React não deixa escrever endereços "javascript:" diretamente.
+ */
+function CartaoBotaoWallapop() {
+  const ligacao = useRef<HTMLAnchorElement>(null);
+  useEffect(() => {
+    ligacao.current?.setAttribute('href', codigoBotaoWallapop());
+  }, []);
+  return (
+    <Cartao titulo="Botão Wallapop">
+      <p className="nota">Arrasta para a barra de favoritos do Chrome:</p>
+      <a ref={ligacao} className="btn" onClick={(e) => e.preventDefault()}>
+        VinteDuo → Wallapop
+      </a>
     </Cartao>
   );
 }
