@@ -43,10 +43,11 @@ repositório as migrações, os agendamentos e a função `wallapop-rotacao` (se
 ## 2. Fazer uma alteração à app
 
 1. Mudar o código em `src/` (comentado de forma didática, como pede o `CLAUDE.md`).
-2. Testes: `npx tsx --test tests/*.test.ts` (96 testes a 15/11/2026, em `tests/`).
+2. Testes: `npm test` (lógica) e `npm run test:navegador` (ecrã). Ver secção 7.
 3. Verificação de tipos: sem `@types/react` instalados (sem rede), usa-se um *shim* local do React
    só para verificar, fora do repositório. O único aviso esperado é o do `import './styles.css'`.
-4. Compilar: `node scripts/build.mjs`. **Apaga e recria `docs/`.**
+4. Compilar: `node scripts/build.mjs`. **Apaga e recria `docs/`** (só aceita apagar `docs/` ou uma pasta
+   temporária: `scripts/destino.mjs`). Antes de publicar, correr também `npm run test:navegador`.
    - Se `node_modules` não existir: `ln -s /opt/npm-tools/node_modules node_modules`.
 5. Atualizar o `README.md` (e o `CLAUDE.md`, se mudar uma regra).
 6. Commit e push para `main` (só com autorização do Ricardo). O GitHub Pages publica em ~1 minuto.
@@ -124,11 +125,16 @@ As Edge Functions publicam-se com o ficheiro partilhado `_shared/ebay.ts`.
 
 ## 7. Testes
 
-- **Lógica:** `tests/*.test.ts` com `node:test` via `tsx`. Cobrem cálculos, acertos, avaliar,
-  promoções, fotos, insights, sincronização e o piloto Wallapop.
-- **No browser:** os testes de ecrã (Playwright + Chrome, com um Supabase simulado e dados fictícios)
-  foram corridos à parte e **não estão no repositório**. Pendente: trazê-los, se valer a pena.
-- Não há CI (os testes não correm sozinhos a cada push) nem `package-lock.json`.
+Fazem parte do projeto (em `tests/`, no Git). Como correr e as regras: README → "Testes".
+
+- **Lógica:** `tests/*.test.ts` com `node:test` via `tsx` (`npm test`).
+- **Ecrã:** `tests/navegador/*.test.mjs` com Playwright (`npm run test:navegador`). A app é compilada para
+  uma pasta temporária e servida pelo próprio teste no seu endereço; todos os pedidos ao Supabase são
+  respondidos por um **Supabase simulado** em memória, com dados fictícios e sessão falsa. Qualquer
+  escrita que tente sair da simulação faz o teste falhar. Não precisam de rede, dados pessoais nem
+  serviços pagos.
+- Cada funcionalidade ou correção importante traz os seus testes.
+- Ainda não há CI (os testes não correm sozinhos a cada push) nem `package-lock.json`.
 
 ---
 

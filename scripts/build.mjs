@@ -7,13 +7,21 @@
 // Cada ficheiro gerado leva um código de versão no endereço, para o telemóvel não usar uma cópia antiga.
 //   npm run build  -> gera docs/
 //   npm run dev    -> gera e serve em http://localhost:5173, atualizando ao gravar
+//   GV_DESTINO=/tmp/pasta node scripts/build.mjs -> gera noutra pasta (usado pelos testes de browser,
+//   para não mexerem em docs/)
+//
+// SEGURANÇA: o build APAGA a pasta de destino antes de a recriar. Por isso só aceita apagar
+// a pasta docs/ deste projeto ou uma pasta dentro da pasta temporária do sistema; qualquer
+// outro caminho é recusado antes de se apagar o que quer que seja (ver destinoSeguro).
 import { createHash } from 'node:crypto';
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { destinoSeguro } from './destino.mjs';
 
 const raiz = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const destino = resolve(raiz, 'docs');
+
+const destino = destinoSeguro(process.env.GV_DESTINO || resolve(raiz, 'docs'), raiz);
 const dev = process.argv.includes('--dev');
 
 let esbuild;

@@ -124,6 +124,8 @@ export function DadosProvider(props: { store: Store; aoExpirar(duranteGravacao?:
   // apanham o erro já mostram a sua mensagem e não chegam aqui, por isso nunca há duas mensagens.
   useEffect(() => {
     const porApanhar = (ev: PromiseRejectionEvent) => {
+      // Sessão expirada: a app já voltou ao ecrã de entrada com a mensagem; não é um erro por tratar
+      if (ev.reason instanceof SessaoExpirada) return ev.preventDefault();
       if (!(ev.reason instanceof ErroGravacao)) return; // só gravações de dados
       ev.preventDefault();
       aviso(`Não foi guardado: ${ev.reason.message}`, 'erro');

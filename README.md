@@ -616,7 +616,8 @@ src/
 public/                     ficheiros copiados tal como estão (ícones, manifest, catálogos JSON)
 docs/                       versão publicada (gerada; não editar à mão)
 scripts/
-  build.mjs                 compila src/ para docs/ com o esbuild
+  build.mjs                 compila src/ para docs/ com o esbuild (ou para GV_DESTINO, nos testes)
+  destino.mjs               verificação de segurança antes de o build apagar a pasta de destino
   catalogo.py               gera o catálogo de sets (GitHub Action mensal)
   mercado.py                gera os dados de mercado (GitHub Action diária)
 .github/workflows/          as GitHub Actions (catalogo.yml, mercado.yml)
@@ -624,7 +625,9 @@ supabase/schema.sql         tabelas, regras de segurança e funções da base de
 supabase/functions/ebay-set Edge Function: eBay de um set, pedido no botão (só para membros)
 supabase/functions/ebay-rotacao Edge Function: rotação automática dos sets do Continente (pg_cron)
 supabase/functions/_shared/ebay.ts pesquisa do eBay partilhada pelas duas
-tests/                      testes automáticos dos cálculos
+tests/                      testes automáticos da lógica (*.test.ts)
+tests/navegador/            testes de ecrã (Playwright) com o Supabase simulado (comum.mjs)
+GUIA_TECNICO.md             onde vive cada parte, como alterar sem partir, riscos em aberto
 CLAUDE.md                   notas e regras para o Claude quando altera a app
 ```
 
@@ -641,10 +644,38 @@ Cada ficheiro de código começa com um comentário que explica para que serve e
 ```bash
 npm install        # instala as bibliotecas (uma vez)
 npm run dev        # abre em http://localhost:5173 e atualiza ao gravar
-npm test           # corre os testes dos cálculos
+npm test           # corre os testes da lógica (cálculos, regras)
+npm run test:navegador  # corre os testes de ecrã num browser (ver "Testes" em baixo)
 npm run typecheck  # confirma os tipos do TypeScript
 npm run build      # gera a versão publicada em docs/
 ```
+
+### Testes
+
+Os testes fazem parte do projeto: estão em `tests/`, vão para o Git, e cada funcionalidade ou correção importante traz os seus testes (novos ou atualizados).
+
+| Tipo | Onde | Como correr | O que precisa |
+|---|---|---|---|
+| Lógica | `tests/*.test.ts` | `npm test` | Node |
+| Ecrã (browser) | `tests/navegador/*.test.mjs` | `npm run test:navegador` | Node + Playwright + Chromium (`npx playwright install chromium`, uma vez, grátis). Para usar o Chrome do sistema: `GV_CHROME=<caminho>` |
+| Tudo | | `npm run test:tudo` | |
+
+Para correr só um teste: `node --test --test-name-pattern="Vendi" tests/navegador/duplicados.test.mjs`.
+
+**Regras dos testes** (também no `CLAUDE.md`):
+- **Nunca alteram nem apagam dados reais.** Os testes de ecrã compilam a app para uma pasta temporária (nunca em `docs/`) e respondem a todos os pedidos ao Supabase com um Supabase **simulado**, em memória (`tests/navegador/comum.mjs`). A sessão é falsa e cada teste abre um browser novo, isolado: não usam a tua sessão nem dados pessoais. Se um pedido de escrita tentar sair da simulação, o teste falha.
+- **Cada teste tem os seus dados fictícios** (emails `@exemplo.invalid`) e a sua localização isolada (pasta temporária própria, apagada no fim).
+- **Operações destrutivas validam o caminho antes de apagar:** o build só apaga `docs/` do projeto ou uma pasta dentro da pasta temporária do sistema (`scripts/destino.mjs`, testado em `tests/destino.test.ts`).
+- Não usam serviços pagos nem rede.
+
+| Ficheiro | O que testa |
+|---|---|
+| `tests/navegador/duplicados.test.mjs` | Repetir uma venda/compra depois de uma falha não a duplica |
+| `tests/navegador/avisos.test.mjs` | Toda a gravação que falha mostra uma (e só uma) mensagem |
+| `tests/navegador/sessao.test.mjs` | Sessão expirada nunca mostra sucesso falso |
+| `tests/navegador/fotos.test.mjs` | Editar produto: as fotos só se apagam depois de gravar |
+| `tests/navegador/compras.test.mjs` | Compras só se registam; correções por produto; CSV com os campos da compra |
+| `tests/navegador/wallapop.test.mjs` | Piloto Wallapop de ponta a ponta numa Wallapop simulada |
 
 O CSS e o JS levam no endereço um código que muda a cada compilação (`?v=…`), para o telemóvel não usar uma cópia antiga. Os ícones (separador do browser, ecrã principal e `manifest`) levam um código calculado a partir do conteúdo dos ficheiros de ícone, por isso só mudam quando o logótipo muda.
 
