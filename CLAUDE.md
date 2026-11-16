@@ -87,6 +87,19 @@ Guardar os dados que permitam estas análises desde já, mesmo que ainda não ap
   - Não contam as vendas listadas em `definicoes.vendas_fora_limites`.
 - **Interface:** o mais simples possível. Qualquer janela tem de se poder fechar, e o gesto de voltar fecha-a.
 
+## Cópias de segurança (16/11/2026)
+
+- Repositório **privado** `vinteduo-backups` (tem o seu README): cópia diária da base de dados às 03:23 UTC, validada por restauro e cifrada com `age` (chave privada só com o Ricardo). Utilizador de base de dados `backup_leitura` (só leitura). Fotografias e limpeza das cópias antigas: **por aprovar**, não ativar sem pedido expresso. Estado e decisões: `GUIA_TECNICO.md` secção 9 e o documento do Projeto `claude/copias-seguranca-2026-11.md`.
+- **Antes de mudar a estrutura da base de dados**, confirmar que há uma cópia válida recente.
+- Palavras-passe de utilizadores da base de dados nunca em claro no SQL (a produção regista o DDL): código SCRAM gerado no browser do Ricardo.
+
+## Como trabalhar com o Ricardo (lições, nov/2026)
+
+- Commit, push, publicação e alterações à produção só com autorização explícita; mostrar antes o SQL exato, as permissões, o impacto e como reverter.
+- Passos para ele fazer: numerados, completos e sem remeter para mensagens antigas; no Windows, comandos de PowerShell prontos a colar. Nunca pedir nem aceitar palavras-passe ou chaves no chat; avisar logo se uma captura mostrar um segredo.
+- Repositórios novos têm de ser acrescentados à aplicação do GitHub do Claude (Settings → Applications → Installed GitHub Apps → Claude → Configure).
+- Vinted: os termos proíbem ferramentas de terceiros (sem automação nem extensões); a venda comercial pode exigir conta Pro (risco a avaliar pelo Ricardo). Wallapop: piloto do botão (falta testar estado e peso na página real). eBay: só pela API oficial.
+
 ## Documentação (pedido do Ricardo)
 
 - **Comentar todo o código** de forma didática, para quem não é programador perceber: um comentário no topo de cada ficheiro (para que serve e como funciona) e comentários nas funções e na lógica menos óbvia.

@@ -2,7 +2,7 @@
 
 Complementa o `README.md`. O README explica **como a app funciona** (dados, regras, fórmulas, ecrãs).
 Este guia explica **onde vive cada parte, como se muda sem partir nada e que riscos estão em aberto**.
-Estado a 15/11/2026.
+Estado a 16/11/2026.
 
 > Fica na raiz do repositório de propósito: `node scripts/build.mjs` apaga e recria a pasta `docs/`,
 > por isso nada escrito à mão pode ficar lá dentro.
@@ -17,7 +17,7 @@ Estado a 15/11/2026.
 | App publicada | `docs/` → GitHub Pages | Sim, gerada pelo build |
 | Dados (produtos, vendas, acertos…) | Supabase, projeto `gestao-vinted` (`hunuxphczekrxilfmthb`), PostgreSQL 17, plano Free | Não |
 | Estrutura inicial da base de dados | `supabase/schema.sql` | Sim, mas **desatualizado**: as alterações seguintes foram feitas por migrações |
-| Migrações (12, de 26/10 a 07/11/2026) | Só no Supabase (`supabase_migrations.schema_migrations`) | **Não** |
+| Migrações (13, de 26/10 a 15/11/2026) | Só no Supabase (`supabase_migrations.schema_migrations`); também dentro de cada cópia de segurança | **Não** |
 | Edge Function `ebay-set` | `supabase/functions/ebay-set` + `_shared/ebay.ts` | Sim |
 | Edge Function `ebay-rotacao` | `supabase/functions/ebay-rotacao` + `_shared/ebay.ts` | Sim |
 | Edge Function `wallapop-rotacao` | Ativa em produção | **Só no ramo `wallapop`** |
@@ -28,15 +28,18 @@ Estado a 15/11/2026.
 | Segredos das tarefas do GitHub | GitHub → Settings → Secrets (`VINTEDUO_TOKEN`, `BRICKSET_API_KEY`, eBay…) | Não (por segurança) |
 | Segredos das Edge Functions | Supabase → Edge Functions → Secrets (`EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET`) | Não (por segurança) |
 | Códigos das integrações | `definicoes`: `token_mercado`, `token_promocoes`, `token_rotacao_ebay` | Não |
-| Cópias de segurança | **Ainda não existem** (ver secção 9) | — |
+| Utilizador da base de dados `backup_leitura` (só leitura, para as cópias) | Supabase; palavra-passe só no secret `SUPABASE_DB_URL` do `vinteduo-backups` | Migração no Supabase e no `vinteduo-backups/migracoes/` |
+| Cópias de segurança da base de dados | Repositório **privado** `vinteduo-backups` (Releases cifradas com `age`), diárias às 03:23 UTC | Sim (privado) |
+| Chave privada das cópias | PC do Ricardo (fora do OneDrive) + cópia de reserva | Nunca |
 
 As 12 migrações, por ordem: `restringir_e_membro`, `acertos_e_pagadores`, `acertos_partes_explicitas`,
 `vendas_acertada`, `remover_estado_venda_pendente`, `sets_mercado_inclui_sets_avaliar`, `receber_promocao`,
 `casa_compras_tabelas`, `remover_casa_compras_tabelas`, `ebay_pesquisas_rotacao`, `extensoes_cron_net`,
-`wallapop_pesquisas`.
+`wallapop_pesquisas`, `backup_leitura` (15/11).
 
-**Consequência:** hoje, o GitHub sozinho não chega para reconstruir a produção. Falta trazer para o
-repositório as migrações, os agendamentos e a função `wallapop-rotacao` (secção 9).
+**Consequência:** o GitHub da app sozinho não chega para reconstruir a produção. A base de dados
+(estrutura, dados, migrações, agendamentos) recupera-se das cópias de segurança; falta trazer para o
+repositório da app as migrações, os agendamentos e a função `wallapop-rotacao` (secção 9).
 
 ---
 
@@ -140,7 +143,7 @@ Fazem parte do projeto (em `tests/`, no Git). Como correr e as regras: README �
 
 ## 8. Riscos técnicos conhecidos
 
-1. **Sem cópias de segurança.** O plano Free não dá cópias acessíveis. Ver secção 9.
+1. **Fotografias sem cópia de segurança** (fase 2 adiada). A base de dados tem cópia diária. Ver secção 9.
 2. **Produção ≠ GitHub:** migrações, agendamentos e `wallapop-rotacao` só existem na produção.
 3. **`supabase/schema.sql` desatualizado:** não serve, sozinho, para recriar a base de dados.
 4. **`catalogo.yml` faz push sem `git pull --rebase`** (o `mercado.yml` faz). Se as duas tarefas se
@@ -154,14 +157,34 @@ Fazem parte do projeto (em `tests/`, no Git). Como correr e as regras: README �
 
 ## 9. Recuperação e próximos passos
 
-- **Cópias de segurança:** proposta aprovada na arquitetura (repositório GitHub privado
-  `vinteduo-backups`, cópia diária às 03:23 UTC, 14 diárias + 6 mensais, cifra `age` com a chave
-  privada só com o Ricardo, fotografias incrementais, restauro de teste em cada cópia).
-  Os ficheiros estão preparados; faltam a aprovação das duas alterações à produção (utilizador
-  `backup_leitura` e leitura das fotos para o utilizador da cópia) e a configuração pelo Ricardo.
-  Decisões e estado: documento do Projeto `claude/copias-seguranca-2026-11.md`.
-- **Depois da primeira cópia testada:**
-  1. Trazer as 12 migrações para `supabase/migrations/`.
-  2. Guardar os agendamentos (sem códigos) no repositório.
-  3. Juntar `wallapop-rotacao` ao `main`.
-- Corrigir os pontos 4 e 5 da secção 8 e os avisos do Supabase (secção 6).
+### Cópias de segurança (fase 1, a funcionar desde 16/11/2026)
+- **Onde:** repositório privado `vinteduo-backups` (o README de lá tem a configuração, o restauro
+  passo a passo e a lista do que se refaz à mão). Decisões e estado: documento do Projeto
+  `claude/copias-seguranca-2026-11.md`.
+- **O quê:** só a base de dados (estrutura, dados, logins, migrações, regras das fotos, agendamentos).
+  **Sem** fotografias (fase 2, adiada), sem códigos das integrações, sem sessões de login.
+- **Como:** todos os dias às 03:23 UTC, com o utilizador só de leitura `backup_leitura` (Session
+  pooler) e `pg_dump` 17. Cada cópia é restaurada num Supabase temporário, comparada com a produção e
+  testada (login, API, RLS) antes de ser marcada como válida; depois é cifrada (`age`).
+- **Ensaio de restauro:** feito a 16/11/2026 no PC do Ricardo (decifrar com a chave privada e conferir).
+- **Limpeza das cópias antigas:** desligada (só simula) até aprovação expressa do Ricardo.
+- **Desastre:** restaurar num projeto Supabase **novo**, nunca sobre a produção (`restaurar.sh` recusa).
+
+### Lições da montagem (para não repetir)
+- `supabase db dump` muda para o utilizador `postgres`: não funciona com um utilizador só de leitura.
+  Usar `pg_dump` direto, da mesma versão principal da produção (17).
+- `log_statement = ddl` na produção: nunca escrever palavras-passe em claro em `alter role`; usar o
+  código SCRAM gerado localmente.
+- O Session pooler guarda a palavra-passe em cache: depois de a mudar, pode recusar durante uns minutos.
+- `pg_read_all_data` dá acesso a todos os esquemas; com as permissões que o Supabase dá a todos
+  (PUBLIC), o utilizador pode usar o `pg_net` e agendar `pg_cron`, mas não alterar dados da app.
+- O `pg_dump` ≥ 17.6 acrescenta `\restrict`/`\unrestrict`; há funções com fins de linha do Windows
+  no corpo: nenhum filtro pode mexer nisso.
+- O ensaio com a chave verdadeira apanhou uma cópia de reserva da chave errada: testar sempre com a
+  chave guardada, não só com a original.
+
+### Próximos passos
+1. Trazer as 13 migrações para `supabase/migrations/`, os agendamentos (sem códigos) e
+   `wallapop-rotacao` para o `main`.
+2. Fase 2 das cópias (fotografias) e limpeza das cópias antigas, quando o Ricardo aprovar.
+3. Corrigir os pontos 4 e 5 da secção 8 e os avisos do Supabase (secção 6).
