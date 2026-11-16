@@ -6,10 +6,11 @@
 //   2. No separador da Wallapop carrega-se no botão "VinteDuo → Wallapop" da barra de favoritos
 //      (um "bookmarklet", instalado uma vez a partir de Definições). Esse botão pede os dados à app
 //      (que está no separador que abriu este, "window.opener") e preenche o formulário:
-//        - 1.º clique (início do formulário): o resumo e as fotografias;
-//        - 2.º clique (formulário final, depois de a Wallapop sugerir título/descrição): escreve por
-//          cima o título e a descrição, e escolhe o estado, o preço e o escalão de peso.
-//   3. Os "Continuar" e o "Publicar" são sempre carregados pela pessoa.
+//        num só clique: o resumo e as fotografias, carrega em "Continuar" (só muda de passo) e, no
+//        formulário final, escreve por cima o título e a descrição que a Wallapop sugere e escolhe
+//        o estado, o preço e o escalão de peso (ver preencherWallapop).
+//   3. Com o formulário preenchido, a app marca o produto como anunciado nessa conta e preço.
+//   4. O "Publicar" é sempre carregado pela pessoa.
 //
 // Este ficheiro tem as regras (testadas em tests/wallapop.test.ts) e o código do botão.
 // A Wallapop (pt.wallapop.com) limita o título a 50 caracteres e a descrição a 640.
@@ -18,7 +19,12 @@ import { textoAnuncio, produtoNovo } from './anuncio';
 import type { ModeloAnuncio } from './anuncio';
 import type { Produto } from './types';
 
-export const URL_PUBLICAR_WALLAPOP = 'https://pt.wallapop.com/app/catalog/upload';
+/**
+ * Formulário de publicação de um artigo. É o endereço do passo "Algo de que não preciso mais":
+ * o endereço sem "/consumer-goods" abre antes a pergunta "O que vais adicionar?", onde o formulário
+ * ainda não existe (confirmado na página verdadeira em 16/11/2026).
+ */
+export const URL_PUBLICAR_WALLAPOP = 'https://pt.wallapop.com/app/catalog/upload/consumer-goods';
 /** Endereço da app: o botão só aceita dados vindos daqui. */
 export const ORIGEM_APP = 'https://ricardomarquescardoso.github.io';
 
@@ -94,14 +100,29 @@ export function dadosWallapop(
  * O código do botão da barra de favoritos. Corre DENTRO da página da Wallapop; por isso tem de
  * ser autossuficiente (não pode usar nada de fora desta função). É convertido em texto com
  * toString() e posto num endereço "javascript:".
+ *
+ * Um só clique (pedido do Ricardo, nov/2026):
+ *   1. (se aparecer a pergunta "O que vais adicionar?") escolhe "Algo de que não preciso mais";
+ *   2. escreve o resumo e junta as fotografias;
+ *   3. carrega em "Continuar" (só passa ao passo seguinte; não publica) e espera pelo formulário final;
+ *   4. escreve o título, a descrição e o preço e escolhe o estado e o peso;
+ *   5. avisa a app ("preenchido"), que marca o produto como anunciado nessa conta.
+ * Se o passo 3 não resultar (a Wallapop mudou o botão, as fotos ainda a carregar…), pára e pede à
+ * pessoa que carregue em Continuar e depois outra vez no botão: o 2.º clique faz os passos 4 e 5.
+ * O "Publicar" é SEMPRE da pessoa.
  */
 export function preencherWallapop(origemApp: string) {
-  const aviso = (texto: string, erro?: boolean) => {
+  // Mensagem no topo da página. duracao = 0: fica até ser substituída.
+  const aviso = (texto: string, erro?: boolean, duracao?: number) => {
+    document.getElementById('vinteduo-aviso')?.remove();
     const d = document.createElement('div');
+    d.id = 'vinteduo-aviso';
     d.textContent = texto;
-    d.style.cssText = `position:fixed;z-index:2147483647;left:50%;top:16px;transform:translateX(-50%);padding:10px 16px;border-radius:10px;font:15px system-ui,sans-serif;color:#fff;background:${erro ? '#b3261e' : '#13a89e'};box-shadow:0 4px 16px rgba(0,0,0,.25)`;
+    d.style.cssText = `position:fixed;z-index:2147483647;left:50%;top:16px;transform:translateX(-50%);max-width:90vw;padding:10px 16px;border-radius:10px;font:15px system-ui,sans-serif;color:#fff;background:${erro ? '#b3261e' : '#13a89e'};box-shadow:0 4px 16px rgba(0,0,0,.25)`;
     document.body.appendChild(d);
-    setTimeout(() => d.remove(), erro ? 6000 : 3000);
+    const ms = duracao ?? (erro ? 10000 : 5000);
+    if (ms > 0) setTimeout(() => d.remove(), ms);
+    return d;
   };
   const escrever = (el: HTMLInputElement | HTMLTextAreaElement | null, valor: string) => {
     if (!el || !valor) return false;
@@ -121,10 +142,34 @@ export function preencherWallapop(origemApp: string) {
     });
     return acc;
   };
+  const porId = (id: string) => document.getElementById(id);
+  /** Espera (até ms) que a condição dê alguma coisa; devolve-a ou null. */
+  const ate = async <T,>(cond: () => T | null | undefined | false, ms: number, cada?: () => void): Promise<T | null> => {
+    const fim = Date.now() + ms;
+    for (;;) {
+      const r = cond();
+      if (r) return r;
+      if (Date.now() > fim) return null;
+      cada?.();
+      await esperar(400);
+    }
+  };
+  const texto = (e: Element) => (e.textContent ?? '').replace(/\s+/g, ' ').trim();
+  const desativado = (e: Element) => (e as HTMLButtonElement).disabled === true || e.getAttribute('aria-disabled') === 'true' || e.hasAttribute('disabled');
+  /** O botão com este texto exato (de preferência o <button> verdadeiro, mesmo dentro de shadow DOM). */
+  const botao = (re: RegExp) => {
+    const cands = todos(document).filter((e) => (e.tagName === 'BUTTON' || e.tagName === 'WALLA-BUTTON' || e.getAttribute('role') === 'button') && re.test(texto(e)));
+    const host = cands.find((e) => e.tagName === 'BUTTON') ?? cands[0];
+    if (!host) return null;
+    const dentro = host.shadowRoot?.querySelector('button');
+    return (dentro ?? host) as HTMLElement;
+  };
 
   (async () => {
     const app = window.opener as Window | null;
     if (!app) return aviso('Abre a Wallapop pelo botão "Abrir na Wallapop" da VinteDuo.', true);
+    // Sinal imediato: sem ele, a espera pela app (até 20 s) parecia "não faz nada"
+    aviso('VinteDuo: a pedir os dados à app…', false, 0);
 
     // Pedir os dados à app (que está no separador que abriu este)
     const dados = await new Promise<any>((ok) => {
@@ -143,15 +188,14 @@ export function preencherWallapop(origemApp: string) {
     });
     if (!dados) return aviso('A VinteDuo não respondeu. Mantém a janela Anunciar aberta e tenta outra vez.', true);
 
-    const titulo = document.getElementById('title') as HTMLInputElement | null;
-    if (titulo) {
-      // 2.º clique: formulário final
-      escrever(titulo, dados.titulo);
-      escrever(document.getElementById('description') as HTMLTextAreaElement | null, dados.descricao);
-      escrever(document.getElementById('price_amount') as HTMLInputElement | null, dados.preco);
+    // Passo final: título, descrição, preço, estado e peso; depois avisa a app
+    const final = async () => {
+      escrever(porId('title') as HTMLInputElement | null, dados.titulo);
+      escrever(porId('description') as HTMLTextAreaElement | null, dados.descricao);
+      escrever(porId('price_amount') as HTMLInputElement | null, dados.preco);
       // Estado: abrir a lista e escolher a opção com o texto certo
       let estadoOk = false;
-      const condicao = document.getElementById('condition');
+      const condicao = porId('condition');
       // O "botão" da lista é o antepassado com papel de botão; senão, a caixa de texto ao lado
       const abrir = (condicao?.closest('[role="button"], button') ??
         condicao?.parentElement?.querySelector('input[type="text"]')) as HTMLElement | null;
@@ -169,20 +213,36 @@ export function preencherWallapop(origemApp: string) {
       // Peso: escalões 0–5
       let pesoOk = dados.escalao == null;
       if (dados.escalao != null) {
-        const r = document.getElementById(String(dados.escalao)) as HTMLInputElement | null;
+        const r = porId(String(dados.escalao)) as HTMLInputElement | null;
         if (r && r.type === 'radio') {
           r.click();
           pesoOk = true;
         }
       }
+      app.postMessage({ vinteduo: 'preenchido', v: 1 }, origemApp);
       const falta = [!estadoOk && 'estado', !pesoOk && 'peso', dados.escalao == null && 'peso (desconhecido)'].filter(Boolean);
-      return aviso(falta.length ? `VinteDuo: preenchido. Falta escolher: ${falta.join(', ')}.` : 'VinteDuo: preenchido ✓ Revê a categoria e publica.', falta.length > 0);
+      aviso(
+        falta.length
+          ? `VinteDuo: preenchido e marcado como anunciado. Falta escolher: ${falta.join(', ')}. Depois revê a categoria e publica.`
+          : 'VinteDuo: preenchido ✓ e marcado como anunciado. Revê a categoria e publica.',
+        falta.length > 0,
+        15000,
+      );
+    };
+
+    // Já no formulário final (2.º clique, ou o Continuar foi carregado à mão)
+    if (porId('title')) return final();
+
+    // Pergunta "O que vais adicionar?": escolher "Algo de que não preciso mais"
+    if (!porId('summary')) {
+      const opcao = todos(document).find((e) => /^algo de que n[ãa]o preciso mais$/i.test(texto(e))) as HTMLElement | undefined;
+      opcao?.click();
+      if (!(await ate(() => porId('summary'), 5000)))
+        return aviso('VinteDuo: não encontrei o formulário. Escolhe "Algo de que não preciso mais" e carrega outra vez no botão.', true);
     }
 
-    const resumo = document.getElementById('summary') as HTMLTextAreaElement | null;
-    if (!resumo) return aviso('VinteDuo: não encontrei o formulário de publicação da Wallapop.', true);
-    // 1.º clique: resumo e fotografias
-    escrever(resumo, dados.titulo);
+    // Resumo e fotografias
+    escrever(porId('summary') as HTMLTextAreaElement | null, dados.titulo);
     const fotos: File[] = dados.fotos ?? [];
     const entrada = (todos(document).find((e) => e instanceof HTMLInputElement && e.type === 'file' && e.multiple && !e.id) ??
       todos(document).find((e) => e instanceof HTMLInputElement && e.type === 'file')) as HTMLInputElement | undefined;
@@ -192,7 +252,26 @@ export function preencherWallapop(origemApp: string) {
       entrada.files = dt.files;
       entrada.dispatchEvent(new Event('change', { bubbles: true }));
     }
-    aviso(fotos.length && entrada ? `VinteDuo: resumo e ${Math.min(fotos.length, 10)} fotografia(s) ✓ Carrega em Continuar.` : 'VinteDuo: resumo ✓ (sem fotografias). Carrega em Continuar.', !(fotos.length && entrada));
+    aviso('VinteDuo: resumo e fotografias ✓ A continuar…', false, 0);
+
+    // Continuar (só avança de passo; não publica). Tenta a cada 2 s, enquanto o botão estiver
+    // desativado (ex.: fotografias a carregar), até aparecer o formulário final (máx. 30 s).
+    let ultimo = 0;
+    const chegou = await ate(
+      () => porId('title'),
+      30000,
+      () => {
+        if (Date.now() - ultimo < 2000) return;
+        const b = botao(/^continuar$/i);
+        if (b && !desativado(b)) {
+          ultimo = Date.now();
+          b.click();
+        }
+      },
+    );
+    if (!chegou) return aviso('VinteDuo: resumo e fotografias ✓ Carrega em Continuar e depois outra vez no botão.', true, 0);
+    await esperar(800); // a Wallapop escreve as sugestões dela no formulário; escrevemos por cima depois
+    return final();
   })().catch((e) => aviso('VinteDuo: erro — ' + (e instanceof Error ? e.message : String(e)), true));
 }
 

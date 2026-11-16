@@ -6,7 +6,11 @@
 // a Vinted reclama de muitos artigos iguais na mesma conta (pedido do Ricardo).
 // Contas "… (Wallapop)" (piloto, nov/2026): o texto é o da Wallapop (em português, título até 50 e
 // descrição até 640 caracteres) e há o botão "Abrir na Wallapop", que abre o formulário de
-// publicação e entrega os dados ao botão da barra de favoritos (ver lib/wallapop.ts).
+// publicação e entrega os dados ao botão da barra de favoritos (ver lib/wallapop.ts). Quando o botão
+// avisa que o formulário ficou preenchido, a app marca o produto como anunciado nessa conta e preço
+// (pedido do Ricardo, nov/2026), como se se carregasse em "Marcar como anunciado".
+// O preço vem preenchido com o sugerido pelo plano (o mesmo do "Anunciar a X €"), venha a janela
+// das tarefas ou do detalhe do produto.
 
 import { useEffect, useRef, useState } from 'react';
 import { fmtEuro, hoje, lerNumero } from '../lib/format';
@@ -18,6 +22,8 @@ import { Campo, Dinheiro, Janela, SelecionarConta } from './ui';
 import { PartilharFotos, ficheirosDoProduto } from './fotos';
 import { infoMercado, useMercado } from '../lib/investimento';
 import { URL_PUBLICAR_WALLAPOP, dadosWallapop, eContaWallapop } from '../lib/wallapop';
+import { sugerirPlano } from '../lib/plano';
+import { useContextoPlano } from './planos';
 
 const CHAVE_CONTA = 'gv.ultimaConta';
 
@@ -33,6 +39,9 @@ export function FormAnunciar({ ids, retirar, precoSugerido, unidades, aoFechar }
     .filter((p): p is Produto => !!p && p.estado === (retirar ? 'anunciado' : 'por_anunciar'))
     .sort((a, b) => (a.data_compra ?? '').localeCompare(b.data_compra ?? ''));
   const nome = candidatos[0]?.nome ?? 'Produto';
+  // Sem preço vindo de fora (ex.: aberto no detalhe do produto), usa o sugerido pelo plano
+  const ctx = useContextoPlano();
+  const sugerido = precoSugerido ?? (!retirar && candidatos[0] ? sugerirPlano(candidatos[0], ctx).precoSugerido : null);
 
   const [conta, setConta] = useState(() => {
     try {
@@ -45,12 +54,12 @@ export function FormAnunciar({ ids, retirar, precoSugerido, unidades, aoFechar }
   });
   // Quantas unidades marcar (vindo das tarefas é 1: anuncia-se uma de cada vez)
   const [qtd, setQtd] = useState(String(Math.min(unidades ?? candidatos.length, candidatos.length)));
-  const [preco, setPreco] = useState(precoSugerido ? String(precoSugerido).replace('.', ',') : '');
+  const [preco, setPreco] = useState(sugerido ? String(sugerido).replace('.', ',') : '');
   const [aGuardar, setAGuardar] = useState(false);
   // Quantos iguais já passaram por esta conta (vendidos + anunciados agora)
   const vezes = !retirar && candidatos[0] ? vezesNaConta(dados, candidatos[0], conta) : 0;
 
-  async function submeter() {
+  async function submeter(origem?: 'wallapop') {
     const n = Math.min(Math.max(Math.round(lerNumero(qtd)) || 1, 1), candidatos.length);
     if (!retirar && !conta) return aviso('Escolhe a conta da Vinted.', 'erro');
     const escolhidos = candidatos.slice(0, n);
@@ -67,7 +76,7 @@ export function FormAnunciar({ ids, retirar, precoSugerido, unidades, aoFechar }
       } catch {
         /* ignorar */
       }
-      aviso(retirar ? `Anúncio retirado (${n}).` : `${n} unidade(s) marcada(s) como anunciada(s).`);
+      aviso(retirar ? `Anúncio retirado (${n}).` : origem === 'wallapop' ? `Marcado como anunciado na Wallapop${preco ? ` a ${fmtEuro(lerNumero(preco))}` : ''}.` : `${n} unidade(s) marcada(s) como anunciada(s).`);
       aoFechar();
     } catch (e) {
       aviso(`Erro: ${e instanceof Error ? e.message : e}`, 'erro');
@@ -75,6 +84,10 @@ export function FormAnunciar({ ids, retirar, precoSugerido, unidades, aoFechar }
       setAGuardar(false);
     }
   }
+
+  // A versão mais recente de submeter, para o aviso "preenchido" da Wallapop (que chega mais tarde)
+  const submeterRef = useRef(submeter);
+  submeterRef.current = submeter;
 
   if (!candidatos.length) {
     return (
@@ -94,7 +107,7 @@ export function FormAnunciar({ ids, retirar, precoSugerido, unidades, aoFechar }
           <button className="btn" onClick={aoFechar}>
             Cancelar
           </button>
-          <button className="btn btn-primario" onClick={submeter} disabled={aGuardar}>
+          <button className="btn btn-primario" onClick={() => submeter()} disabled={aGuardar}>
             {retirar ? 'Retirar' : 'Marcar como anunciado'}
           </button>
         </>
@@ -112,7 +125,7 @@ export function FormAnunciar({ ids, retirar, precoSugerido, unidades, aoFechar }
           </Campo>
         )}
         {!retirar && (
-          <Campo rotulo="Preço do anúncio" ajuda={precoSugerido ? 'Sugerido pela app' : candidatos[0].preco_anuncio ? `Atual: ${fmtEuro(candidatos[0].preco_anuncio)}` : 'Opcional'}>
+          <Campo rotulo="Preço do anúncio" ajuda={sugerido ? 'Sugerido pela app' : candidatos[0].preco_anuncio ? `Atual: ${fmtEuro(candidatos[0].preco_anuncio)}` : 'Opcional'}>
             <Dinheiro valor={preco} mudar={setPreco} placeholder="" />
           </Campo>
         )}
@@ -123,7 +136,7 @@ export function FormAnunciar({ ids, retirar, precoSugerido, unidades, aoFechar }
           ⚠ Esta conta já tem {vezes} {vezes === 1 ? 'unidade' : 'unidades'} deste produto (vendidas ou anunciadas). A Vinted reclama de muitos artigos iguais na mesma conta: considera outra conta.
         </p>
       )}
-      {!retirar && <TextoVinted produto={candidatos[0]} contaId={conta} preco={preco ? lerNumero(preco) : null} />}
+      {!retirar && <TextoVinted produto={candidatos[0]} contaId={conta} preco={preco ? lerNumero(preco) : null} aoPreencherWallapop={() => submeterRef.current('wallapop')} />}
       {/* As fotografias do produto, para pôr no anúncio (Partilhar → Vinted, ou Descarregar) */}
       {!retirar && candidatos[0].fotos.length > 0 && (
         <div className="texto-vinted">
@@ -139,7 +152,7 @@ export function FormAnunciar({ ids, retirar, precoSugerido, unidades, aoFechar }
  * Título e descrição prontos a copiar (com a descrição própria da conta, se tiver).
  * Numa conta Wallapop: o texto da Wallapop e o botão "Abrir na Wallapop".
  */
-function TextoVinted({ produto, contaId, preco }: { produto: Produto; contaId: string; preco: number | null }) {
+function TextoVinted({ produto, contaId, preco, aoPreencherWallapop }: { produto: Produto; contaId: string; preco: number | null; aoPreencherWallapop(): void }) {
   const { dados, aviso } = useDados();
   const mercado = useMercado();
   const wallapop = eContaWallapop(dados.contas.find((c) => c.id === contaId)?.nome);
@@ -157,7 +170,7 @@ function TextoVinted({ produto, contaId, preco }: { produto: Produto; contaId: s
   return (
     <div className="texto-vinted">
       <h4>{wallapop ? 'Texto para a Wallapop' : 'Texto para a Vinted'}</h4>
-      {wallapop && <AbrirWallapop produto={produto} contaId={contaId} preco={preco} pesoG={pesoG} />}
+      {wallapop && <AbrirWallapop produto={produto} contaId={contaId} preco={preco} pesoG={pesoG} aoPreencher={aoPreencherWallapop} />}
       <div className="texto-vinted-bloco">
         <div className="texto-vinted-topo">
           <span className="campo-rotulo">Título</span>
@@ -182,20 +195,31 @@ function TextoVinted({ produto, contaId, preco }: { produto: Produto; contaId: s
  * da barra de favoritos que corre nesse separador. Só responde à janela que ela própria abriu
  * e a páginas da Wallapop. As fotografias vão como ficheiros, diretamente de separador para
  * separador (nada passa por outros servidores). Publicar continua a ser feito à mão.
+ * Quando o botão avisa "preenchido", chama aoPreencher (marca o produto como anunciado), uma vez.
  */
-function AbrirWallapop({ produto, contaId, preco, pesoG }: { produto: Produto; contaId: string; preco: number | null; pesoG: number | null }) {
+function AbrirWallapop({ produto, contaId, preco, pesoG, aoPreencher }: { produto: Produto; contaId: string; preco: number | null; pesoG: number | null; aoPreencher(): void }) {
   const { dados, store, aviso } = useDados();
   const janela = useRef<Window | null>(null);
   const fotos = useRef<{ chave: string; ficheiros: Promise<File[]> } | null>(null);
   // Valores atuais, lidos quando o pedido chega (o ouvinte não muda a cada tecla)
-  const atual = useRef({ produto, contaId, preco, pesoG, definicoes: dados.definicoes });
-  atual.current = { produto, contaId, preco, pesoG, definicoes: dados.definicoes };
+  const atual = useRef({ produto, contaId, preco, pesoG, definicoes: dados.definicoes, aoPreencher });
+  atual.current = { produto, contaId, preco, pesoG, definicoes: dados.definicoes, aoPreencher };
+  const marcado = useRef(false);
 
   useEffect(() => {
     async function ouvir(e: MessageEvent) {
       if (!janela.current || e.source !== janela.current) return;
-      if (!/^https:\/\/([a-z0-9-]+\.)?wallapop\.com$/.test(e.origin) || e.data?.vinteduo !== 'pedido') return;
+      if (!/^https:\/\/([a-z0-9-]+\.)?wallapop\.com$/.test(e.origin)) return;
       const a = atual.current;
+      // O formulário ficou preenchido: marcar como anunciado (só uma vez)
+      if (e.data?.vinteduo === 'preenchido') {
+        if (!marcado.current) {
+          marcado.current = true;
+          a.aoPreencher();
+        }
+        return;
+      }
+      if (e.data?.vinteduo !== 'pedido') return;
       try {
         const chave = a.produto.fotos.join('|');
         if (fotos.current?.chave !== chave) fotos.current = { chave, ficheiros: ficheirosDoProduto(a.produto, store) };

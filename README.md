@@ -267,11 +267,14 @@ O aviso aparece aos 80%.
 
 Para poupar uns minutos por anúncio na Wallapop (pt.wallapop.com), sem publicar nada sozinho:
 
-1. Numa conta `… (Wallapop)`, a janela Anunciar mostra o texto da Wallapop (português, título até 50 e descrição até 640 caracteres; sem descrição própria da conta usa `TEXTO_WALLAPOP`) e o botão **Abrir na Wallapop**, que abre o formulário de publicação noutro separador.
-2. No separador da Wallapop carrega-se no botão **VinteDuo → Wallapop** da barra de favoritos (instala-se uma vez, em Definições → Botão Wallapop). É um *bookmarklet*: pede os dados à app pelo `window.opener` (`postMessage`) e preenche o formulário.
-   - 1.º clique, no início: resumo e fotografias (as originais, passadas como ficheiros de separador para separador).
-   - 2.º clique, no formulário final: escreve por cima do título e da descrição que a Wallapop sugere, escolhe o estado (novos → "Novo", usados → "Praticamente novo"), o preço e o escalão de peso (peso da caixa da Brickset; sem peso, escolhe-se à mão).
-3. Os "Continuar" e o "Publicar" são sempre carregados pela pessoa. Depois marca-se como anunciado na app, como hoje.
+1. Numa conta `… (Wallapop)`, a janela Anunciar mostra o texto da Wallapop (português, título até 50 e descrição até 640 caracteres; sem descrição própria da conta usa `TEXTO_WALLAPOP`) e o botão **Abrir na Wallapop**, que abre o formulário de publicação noutro separador (`pt.wallapop.com/app/catalog/upload/consumer-goods`, o passo "Algo de que não preciso mais"; o endereço sem `/consumer-goods` mostra antes uma escolha e não tem o formulário).
+2. No separador da Wallapop carrega-se no botão **VinteDuo → Wallapop** da barra de favoritos (instala-se uma vez, em Definições → Botão Wallapop). É um *bookmarklet*: pede os dados à app pelo `window.opener` (`postMessage`) e preenche o formulário. Ao carregar mostra logo "VinteDuo: a pedir os dados à app…"; se nem isso aparece, o favorito não é o botão certo (instalar de novo).
+   - **Um só clique** (pedido do Ricardo, nov/2026): se aparecer "O que vais adicionar?", escolhe "Algo de que não preciso mais"; escreve o resumo e junta as fotografias (as originais, passadas como ficheiros de separador para separador); carrega em **Continuar** (só muda de passo; tenta a cada 2 s enquanto o botão estiver desativado, até 30 s); no formulário final escreve por cima do título e da descrição que a Wallapop sugere e escolhe o estado (novos → "Novo", usados → "Praticamente novo"), o preço e o escalão de peso (peso da caixa da Brickset; sem peso, escolhe-se à mão).
+   - Se o Continuar não resultar, pede para o carregar à mão e carregar outra vez no botão: no formulário final, o botão faz só a parte final.
+3. Com o formulário preenchido, o botão avisa a app (`postMessage` "preenchido") e a app **marca o produto como anunciado** nessa conta e a esse preço, como o "Marcar como anunciado" (uma vez por janela). Se não se publicar, retira-se o anúncio na app.
+4. O "Publicar" é sempre carregado pela pessoa.
+
+O preço da janela Anunciar vem sempre preenchido com o sugerido pelo plano (`sugerirPlano`), também quando se abre a partir do detalhe do produto (antes só vinha das tarefas "Anunciar a X €").
 
 Segurança: a app só responde à janela que ela própria abriu e a páginas `*.wallapop.com`; o botão só aceita dados vindos do endereço da app. Não há chaves nem palavras-passe envolvidas. O copiar e colar continua disponível para todas as contas. A Vinted fica de fora: os termos proíbem ferramentas de terceiros.
 

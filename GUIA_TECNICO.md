@@ -150,8 +150,11 @@ Fazem parte do projeto (em `tests/`, no Git). Como correr e as regras: README �
    cruzarem, o catálogo pode falhar a publicar.
 5. **Sem CI e sem lockfile:** uma versão nova de uma dependência pode mudar o build sem aviso.
 6. **Edição concorrente** fora de `definicoes`: a última gravação ganha (raro com duas pessoas).
-7. **Piloto Wallapop:** depende do formulário da Wallapop; se mudar, o botão deixa de preencher até
-   ser ajustado (copiar e colar continua a funcionar).
+7. **Piloto Wallapop:** depende do formulário da Wallapop (ids `summary`, `title`, `description`,
+   `price_amount`, `condition`, escalões de peso `0`–`5` e o botão "Continuar"); se mudar, o botão deixa
+   de preencher até ser ajustado (copiar e colar continua a funcionar). Se o Continuar falhar, o botão
+   volta aos dois cliques. A app marca como anunciado quando o formulário fica preenchido, não quando
+   se publica.
 
 ---
 
