@@ -30,7 +30,7 @@ Este README explica **o que a app faz, como está construída e porquê**, para 
 
 | Ecrã | Para quê |
 |---|---|
-| **Painel** | Botões *Registar venda* e *Registar compra*, a lista **"O que fazer"**, as **promoções recebidas** de outra app (com quantos sets compensam) (anunciar, baixar preços, rever), os números do período, alertas de limites, acertos por fazer e vendas recentes. |
+| **Painel** | Botões *Registar venda* e *Registar compra*, a lista **"O que fazer"**, as **promoções recebidas** de outra app (com quantos sets compensam) (anunciar, fotografar, baixar preços, rever), os números do período, alertas de limites, acertos por fazer e vendas recentes. |
 | **Produtos** | Stock e vendidos num só sítio. Filtros *Por anunciar / Anunciados / Vendidos* (podem combinar-se à vontade; ao abrir estão ligados Por anunciar e Anunciados). Produtos iguais aparecem agrupados num cartão (×N, custo médio); tocar abre o **detalhe do grupo** (`components/DetalheGrupo.tsx`): resumo (em stock, custo médio, vendidas, lucro), o anúncio/plano e uma **tabela com uma linha por unidade** de todos os produtos iguais (também as vendidas: compra, custo, estado, lucro); tocar numa linha abre esse produto. Não há expandir na lista. O **detalhe de um produto** usa a mesma tabela (`TabelaProdutos`), com esse produto destacado e os outros exemplares iguais (também vendidos), em vez da lista de campos e das vendas; o ciclo do set fica numa linha por cima. No detalhe de cada produto há um botão com o **ícone do lixo**, ao lado do ✏️, para apagar um produto inserido por engano (pede confirmação; não deixa apagar produtos com vendas; apaga também as fotografias). Cada produto mostra uma **bolinha tipo semáforo** e a próxima ação numa só linha (ver *Sinal dos produtos*). Por baixo do nome, só a categoria e o número do set (sem a palavra "Set"); a retirada do set fica no detalhe do produto. A pesquisa sugere produtos e categorias/subcategorias (ex.: *LEGO › Speed Champions*) enquanto se escreve; escolher uma categoria liga-a como filtro. |
 | **Detalhe do produto** | Fotografias (com **Partilhar** e **Descarregar**, ver *Fotografias* abaixo), imagem oficial do set (com links para o site da LEGO, a Brickset e a **pesquisa do set na Vinted**) (ou do produto no TCGplayer, nos Pokémon), plano e preço sugerido, ciclo do set (lançamento, retirada real ou prevista e PVP, do Brickset), dados da compra, **Vendas** (deste produto e dos outros exemplares do mesmo set, com valor e lucro) e **Em stock** (outros exemplares do set por vender). Botões ✏️ (editar), 📷, *Anunciar/Retirar* e *Vendi*. |
 | **Anunciar** | Escolhe a conta e o preço, e mostra o **título e a descrição prontos a copiar** para a Vinted e as **fotografias para partilhar** (ex.: diretamente para a app da Vinted) ou descarregar. |
@@ -355,7 +355,7 @@ flowchart TD
 
 Todos estes números estão em **Definições → Regras das sugestões** e podem ser mudados.
 
-A lista **"O que fazer"** no Painel junta as tarefas: *Anunciar X a Y €*, *Baixar X para Y €* e *Rever X* (quando acaba um prazo de guardar escolhido por vocês). Cada tarefa pode ser **adiada** 14 dias. Tocar no título "O que fazer" minimiza ou maximiza a lista (fica lembrado em cada dispositivo).
+A lista **"O que fazer"** no Painel junta as tarefas, **por ordem de prioridade** (pedido do Ricardo, nov/2026): 1) *Anunciar X a Y €* (já tem fotografias), 2) *Fotografar X* (plano vender mas ainda sem fotografias; o botão **Fotos** abre o produto para as tirar; depois passa a *Anunciar*), 3) *Baixar X para Y €*, 4) *Rever X* (quando acaba um prazo de guardar escolhido por vocês). Dentro de cada tipo, primeiro o que tem mais dinheiro parado. Contam as fotografias do próprio produto ou de um igual (mesmo set e condição, `produtoComFotos`), e nesse caso a janela Anunciar mostra as do igual; as miniaturas que ficam depois da limpeza não contam. Um *Anunciar* adiado antes desta mudança continua adiado como *Fotografar*. Cada tarefa pode ser **adiada** 14 dias. Tocar no título "O que fazer" minimiza ou maximiza a lista (fica lembrado em cada dispositivo).
 
 **Fotos no detalhe do grupo** (pedido do Ricardo): o detalhe de um grupo de produtos iguais tem as fotos e os mesmos três ícones do detalhe do produto (adicionar, descarregar, partilhar). As fotos são as do primeiro produto igual que já tem fotos (senão o mais antigo), e as novas juntam-se a esse. O envio é o mesmo nos dois sítios (`useEnviarFotos` em `components/fotos.tsx`).
 
@@ -370,7 +370,7 @@ A lista **"O que fazer"** no Painel junta as tarefas: *Anunciar X a Y €*, *Bai
 | Cor | Quando | Texto |
 |---|---|---|
 | 🟢 Verde | Anunciado há até 60 dias, ou outra unidade igual já está anunciada | *Anunciado há 12 dias* / *Outro igual já anunciado* |
-| 🟡 Amarelo | Há uma ação: anunciar (plano vender) ou baixar o preço | *Anunciar a 89 €* / *Baixar para 38 €* |
+| 🟡 Amarelo | Há uma ação: fotografar ou anunciar (plano vender) ou baixar o preço | *Fotografar* / *Anunciar a 89 €* / *Baixar para 38 €* |
 | 🔵 Azul | Guardado de propósito, ou a tarefa de anunciar foi adiada | *Guardar até jul/27* / *Anunciar adiado* |
 | 🔴 Vermelho | Anunciado há mais de 60 dias (`DIAS_PARADO`), ou acabou o prazo de guardar escolhido por vocês | *74 dias · baixar para 39 €* / *Prazo de guardar acabou* |
 | ⚪ Cinzento | Já não está em stock | *Vendido* / *Cancelado* / *Devolvido* |

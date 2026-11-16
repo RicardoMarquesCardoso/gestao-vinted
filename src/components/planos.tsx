@@ -226,6 +226,11 @@ export function CartaoTarefas() {
                   Anunciar
                 </button>
               )}
+              {t.tipo === 'fotografar' && (
+                <button className="btn btn-pequeno btn-primario" onClick={() => abrir({ tipo: 'detalhe', id: t.produtos[0].id })}>
+                  Fotos
+                </button>
+              )}
               {t.tipo === 'baixar' && (
                 <button className="btn btn-pequeno btn-primario" onClick={() => baixei(t)}>
                   Já baixei

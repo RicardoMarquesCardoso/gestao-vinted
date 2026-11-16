@@ -16,6 +16,7 @@
 import { produtoNovo } from './anuncio';
 import { chaveComparacao, custoUnitario, diasEntre, emInventario, somarDias, unidadesDisponiveis, vendaValida } from './calc';
 import { fmtEuro } from './format';
+import { eMiniatura } from './fotos';
 import { ultimoResultado } from './memo';
 import { descontoEbayEfetivo, idsPokemon, infoMercado, precoPokemon } from './investimento';
 import type { Mercado } from './investimento';
@@ -399,13 +400,28 @@ export function sugerirPlano(p: Produto, ctx: Contexto): Plano {
 
 export interface Tarefa {
   id: string;
-  tipo: 'anunciar' | 'baixar' | 'rever';
+  tipo: 'anunciar' | 'fotografar' | 'baixar' | 'rever';
   produtos: Produto[];
   unidades: number;
   titulo: string;
   detalhe: string;
   preco: number | null;
   capital: number; // custo das unidades, para ordenar
+}
+
+/** Tem fotografias que servem para um anúncio? (as miniaturas que ficam depois da limpeza não servem) */
+export const temFotosUsaveis = (p: Produto) => (p.fotos ?? []).some((f) => !eMiniatura(f));
+
+/**
+ * Produto de onde vêm as fotografias para anunciar p: o próprio, se tiver; senão um igual (mesmo set
+ * e mesma condição, `chavePlano`) que tenha, de preferência ainda em stock. As fotos novas do
+ * detalhe do grupo vão para o 1.º igual com fotos, por isso podem estar noutra unidade.
+ */
+export function produtoComFotos(p: Produto, produtos: Produto[]): Produto | null {
+  if (temFotosUsaveis(p)) return p;
+  const k = chavePlano(p);
+  const iguais = produtos.filter((x) => x.id !== p.id && chavePlano(x) === k && temFotosUsaveis(x));
+  return iguais.find(emInventario) ?? iguais[0] ?? null;
 }
 
 /** Última vez que o anúncio começou ou mudou de preço. */
@@ -473,6 +489,8 @@ export function tarefas(ctx: Contexto): Tarefa[] {
   const jaAnunciados = new Set(
     ctx.dados.produtos.filter((p) => p.estado === 'anunciado' && unidadesDisponiveis(p, ctx.dados.vendas) > 0).map(chaveComparacao),
   );
+  // Grupos de iguais (set + condição) com fotografias que servem para anunciar
+  const comFotos = new Set(ctx.dados.produtos.filter(temFotosUsaveis).map(chavePlano));
   for (const p of ctx.dados.produtos) {
     if (!emInventario(p) || !unidadesDisponiveis(p, ctx.dados.vendas)) continue;
     const plano = sugerirPlano(p, ctx);
@@ -482,7 +500,9 @@ export function tarefas(ctx: Contexto): Tarefa[] {
     if (plano.manual && plano.acao === 'guardar' && plano.ate && plano.ate <= ctx.hoje) {
       tipo = 'rever';
     } else if (p.estado === 'por_anunciar' && plano.acao === 'vender' && !jaAnunciados.has(chaveComparacao(p))) {
-      tipo = 'anunciar';
+      // Primeiro fotografar, depois anunciar (pedido do Ricardo): sem fotografias que sirvam
+      // (deste produto ou de um igual), a tarefa é "Fotografar"; o preço fica para o anúncio.
+      tipo = comFotos.has(chavePlano(p)) ? 'anunciar' : 'fotografar';
       preco = plano.precoSugerido;
     } else if (p.estado === 'anunciado' && p.preco_anuncio) {
       const desde = desdeUltimaMudanca(p);
@@ -502,23 +522,36 @@ export function tarefas(ctx: Contexto): Tarefa[] {
   }
   const lista: Tarefa[] = [];
   for (const [id, g] of grupos) {
-    const ate = adiadas[id];
+    // Um "Fotografar" adiado antes de existir esta tarefa estava guardado como "Anunciar"
+    const ate = adiadas[id] ?? (g.tipo === 'fotografar' ? adiadas[id.replace(/^fotografar:/, 'anunciar:')] : undefined);
     if (ate && ate > ctx.hoje) continue;
     const p = g.produtos[0];
     const unidades = g.produtos.reduce((a, x) => a + unidadesDisponiveis(x, ctx.dados.vendas), 0);
-    // "Anunciar" é sempre de 1 unidade; nas outras tarefas mostra-se quantas são
-    const nome = `${unidades > 1 && g.tipo !== 'anunciar' ? `${unidades}× ` : ''}${p.nome}`;
+    // "Anunciar" e "Fotografar" são sempre de 1 unidade; nas outras tarefas mostra-se quantas são
+    const umaDeCadaVez = g.tipo === 'anunciar' || g.tipo === 'fotografar';
+    const nome = `${unidades > 1 && !umaDeCadaVez ? `${unidades}× ` : ''}${p.nome}`;
     const titulo =
-      g.tipo === 'anunciar' ? `Anunciar ${nome} a ${fmtEuro(g.preco)}` : g.tipo === 'baixar' ? `Baixar ${nome} para ${fmtEuro(g.preco)}` : `Rever ${nome}: o prazo para guardar acabou`;
+      g.tipo === 'anunciar'
+        ? `Anunciar ${nome} a ${fmtEuro(g.preco)}`
+        : g.tipo === 'fotografar'
+          ? `Fotografar ${nome}`
+          : g.tipo === 'baixar'
+            ? `Baixar ${nome} para ${fmtEuro(g.preco)}`
+            : `Rever ${nome}: o prazo para guardar acabou`;
     const detalhe =
       g.tipo === 'baixar'
         ? `${g.extra}. Mínimo: ${fmtEuro(g.plano.chao)}.`
-        : g.tipo === 'anunciar' && unidades > 1
+        : g.tipo === 'fotografar'
+          ? `Depois anunciar a ${fmtEuro(g.preco)}.`
+          : g.tipo === 'anunciar' && unidades > 1
           ? `${g.plano.motivo} (${unidades} em stock: anuncia-se 1 de cada vez.)`
           : g.plano.motivo;
     lista.push({ id, tipo: g.tipo, produtos: g.produtos, unidades, titulo, detalhe, preco: g.preco, capital: g.produtos.reduce((a, x) => a + custoUnitario(x) * unidadesDisponiveis(x, ctx.dados.vendas), 0) });
   }
-  const ordem = { rever: 0, baixar: 1, anunciar: 2 };
+  // Ordem de prioridade (pedido do Ricardo, nov/2026): primeiro anunciar o que já tem fotos (é o que
+  // falta para começar a vender), depois fotografar, depois baixar preços e rever prazos.
+  // Dentro de cada tipo, primeiro o que tem mais dinheiro parado.
+  const ordem = { anunciar: 0, fotografar: 1, baixar: 2, rever: 3 };
   return lista.sort((a, b) => ordem[a.tipo] - ordem[b.tipo] || b.capital - a.capital);
 }
 
@@ -588,6 +621,7 @@ export function sinais(ctx: Contexto): Map<string, Sinal> {
     // Por anunciar
     const pl = sugerirPlano(p, ctx);
     if (t?.tipo === 'anunciar') res.set(p.id, { cor: 'amarelo', texto: `Anunciar a ${fmtEuro(t.preco)}`, porque: pl.motivo });
+    else if (t?.tipo === 'fotografar') res.set(p.id, { cor: 'amarelo', texto: 'Fotografar', porque: `Sem fotografias. Depois anunciar a ${fmtEuro(t.preco)}. ${pl.motivo}` });
     else if (pl.acao === 'guardar') res.set(p.id, { cor: 'azul', texto: pl.ate ? `Guardar até ${mesAno(pl.ate)}` : 'Guardar', porque: pl.motivo });
     else if (jaAnunciados.has(chaveComparacao(p))) res.set(p.id, { cor: 'verde', texto: 'Outro igual já anunciado', porque: 'Anuncia-se 1 unidade de cada vez.' });
     else res.set(p.id, { cor: 'azul', texto: 'Anunciar adiado', porque: 'A tarefa de anunciar foi adiada no Painel.' });

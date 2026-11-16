@@ -22,7 +22,7 @@ import { Campo, Dinheiro, Janela, SelecionarConta } from './ui';
 import { PartilharFotos, ficheirosDoProduto } from './fotos';
 import { infoMercado, useMercado } from '../lib/investimento';
 import { URL_PUBLICAR_WALLAPOP, dadosWallapop, eContaWallapop } from '../lib/wallapop';
-import { sugerirPlano } from '../lib/plano';
+import { produtoComFotos, sugerirPlano } from '../lib/plano';
 import { useContextoPlano } from './planos';
 
 const CHAVE_CONTA = 'gv.ultimaConta';
@@ -42,6 +42,8 @@ export function FormAnunciar({ ids, retirar, precoSugerido, unidades, aoFechar }
   // Sem preço vindo de fora (ex.: aberto no detalhe do produto), usa o sugerido pelo plano
   const ctx = useContextoPlano();
   const sugerido = precoSugerido ?? (!retirar && candidatos[0] ? sugerirPlano(candidatos[0], ctx).precoSugerido : null);
+  // Fotografias para o anúncio: as deste produto ou, se não tiver, as de um igual (mesmo set e condição)
+  const fotosDe = candidatos[0] ? produtoComFotos(candidatos[0], dados.produtos) : null;
 
   const [conta, setConta] = useState(() => {
     try {
@@ -136,12 +138,12 @@ export function FormAnunciar({ ids, retirar, precoSugerido, unidades, aoFechar }
           ⚠ Esta conta já tem {vezes} {vezes === 1 ? 'unidade' : 'unidades'} deste produto (vendidas ou anunciadas). A Vinted reclama de muitos artigos iguais na mesma conta: considera outra conta.
         </p>
       )}
-      {!retirar && <TextoVinted produto={candidatos[0]} contaId={conta} preco={preco ? lerNumero(preco) : null} aoPreencherWallapop={() => submeterRef.current('wallapop')} />}
+      {!retirar && <TextoVinted produto={candidatos[0]} fotosDe={fotosDe} contaId={conta} preco={preco ? lerNumero(preco) : null} aoPreencherWallapop={() => submeterRef.current('wallapop')} />}
       {/* As fotografias do produto, para pôr no anúncio (Partilhar → Vinted, ou Descarregar) */}
-      {!retirar && candidatos[0].fotos.length > 0 && (
+      {!retirar && fotosDe && (
         <div className="texto-vinted">
           <h4>Fotografias</h4>
-          <PartilharFotos p={candidatos[0]} />
+          <PartilharFotos p={fotosDe} />
         </div>
       )}
     </Janela>
@@ -152,7 +154,7 @@ export function FormAnunciar({ ids, retirar, precoSugerido, unidades, aoFechar }
  * Título e descrição prontos a copiar (com a descrição própria da conta, se tiver).
  * Numa conta Wallapop: o texto da Wallapop e o botão "Abrir na Wallapop".
  */
-function TextoVinted({ produto, contaId, preco, aoPreencherWallapop }: { produto: Produto; contaId: string; preco: number | null; aoPreencherWallapop(): void }) {
+function TextoVinted({ produto, fotosDe, contaId, preco, aoPreencherWallapop }: { produto: Produto; fotosDe: Produto | null; contaId: string; preco: number | null; aoPreencherWallapop(): void }) {
   const { dados, aviso } = useDados();
   const mercado = useMercado();
   const wallapop = eContaWallapop(dados.contas.find((c) => c.id === contaId)?.nome);
@@ -170,7 +172,7 @@ function TextoVinted({ produto, contaId, preco, aoPreencherWallapop }: { produto
   return (
     <div className="texto-vinted">
       <h4>{wallapop ? 'Texto para a Wallapop' : 'Texto para a Vinted'}</h4>
-      {wallapop && <AbrirWallapop produto={produto} contaId={contaId} preco={preco} pesoG={pesoG} aoPreencher={aoPreencherWallapop} />}
+      {wallapop && <AbrirWallapop produto={produto} fotosDe={fotosDe} contaId={contaId} preco={preco} pesoG={pesoG} aoPreencher={aoPreencherWallapop} />}
       <div className="texto-vinted-bloco">
         <div className="texto-vinted-topo">
           <span className="campo-rotulo">Título</span>
@@ -197,13 +199,13 @@ function TextoVinted({ produto, contaId, preco, aoPreencherWallapop }: { produto
  * separador (nada passa por outros servidores). Publicar continua a ser feito à mão.
  * Quando o botão avisa "preenchido", chama aoPreencher (marca o produto como anunciado), uma vez.
  */
-function AbrirWallapop({ produto, contaId, preco, pesoG, aoPreencher }: { produto: Produto; contaId: string; preco: number | null; pesoG: number | null; aoPreencher(): void }) {
+function AbrirWallapop({ produto, fotosDe, contaId, preco, pesoG, aoPreencher }: { produto: Produto; fotosDe: Produto | null; contaId: string; preco: number | null; pesoG: number | null; aoPreencher(): void }) {
   const { dados, store, aviso } = useDados();
   const janela = useRef<Window | null>(null);
   const fotos = useRef<{ chave: string; ficheiros: Promise<File[]> } | null>(null);
   // Valores atuais, lidos quando o pedido chega (o ouvinte não muda a cada tecla)
-  const atual = useRef({ produto, contaId, preco, pesoG, definicoes: dados.definicoes, aoPreencher });
-  atual.current = { produto, contaId, preco, pesoG, definicoes: dados.definicoes, aoPreencher };
+  const atual = useRef({ produto, fotosDe, contaId, preco, pesoG, definicoes: dados.definicoes, aoPreencher });
+  atual.current = { produto, fotosDe, contaId, preco, pesoG, definicoes: dados.definicoes, aoPreencher };
   const marcado = useRef(false);
 
   useEffect(() => {
@@ -221,8 +223,10 @@ function AbrirWallapop({ produto, contaId, preco, pesoG, aoPreencher }: { produt
       }
       if (e.data?.vinteduo !== 'pedido') return;
       try {
-        const chave = a.produto.fotos.join('|');
-        if (fotos.current?.chave !== chave) fotos.current = { chave, ficheiros: ficheirosDoProduto(a.produto, store) };
+        // As fotos podem vir de um igual (ver produtoComFotos)
+        const origem = a.fotosDe ?? a.produto;
+        const chave = origem.fotos.join('|');
+        if (fotos.current?.chave !== chave) fotos.current = { chave, ficheiros: ficheirosDoProduto(origem, store) };
         const ficheiros = await fotos.current.ficheiros;
         const d = dadosWallapop(a.produto, modeloAnuncio(a.definicoes), a.contaId, a.preco, a.pesoG);
         (e.source as Window).postMessage({ ...d, fotos: ficheiros }, e.origin);

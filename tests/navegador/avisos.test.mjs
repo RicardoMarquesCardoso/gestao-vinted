@@ -34,7 +34,12 @@ const cartao = (page, titulo) => page.locator('section.cartao').filter({ has: pa
 
 // ---------- As 13 ações sem aviso próprio (cada uma com sub-botões quando os há) ----------
 const acoes = {
-  '1 Baixei (O que fazer)': async (page) => { await page.getByRole('button', { name: 'Já baixei' }).first().click(); },
+  '1 Baixei (O que fazer)': async (page) => {
+    // "Baixar" vem depois de "Anunciar" e "Fotografar": pode estar fora das 5 primeiras tarefas
+    const todas = page.getByRole('button', { name: /^Mostrar todas/ });
+    if (await todas.count()) await todas.first().click();
+    await page.getByRole('button', { name: 'Já baixei' }).first().click();
+  },
   '2 Adiar (O que fazer)': async (page) => { await page.getByRole('button', { name: 'Adiar' }).first().click(); },
   '3 Plano manual': async (page) => {
     await detalhe(page, 'Produto Plano Teste');

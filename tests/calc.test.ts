@@ -272,7 +272,7 @@ test('investimento: rentabilidade anualizada e stock', () => {
   assert.equal(investimento({ produtos: ps, vendas: vs }, null, '2026-10-01').valorEstimadoStock, 150);
 });
 
-import { resumoAnuncio, sugerirPlano, tarefas } from '../src/lib/plano.ts';
+import { produtoComFotos, resumoAnuncio, sugerirPlano, tarefas } from '../src/lib/plano.ts';
 
 test('plano: vender já quando o lucro compensa, guardar quando ainda vai valorizar', () => {
   const hojeT = '2026-10-27';
@@ -309,10 +309,11 @@ test('plano: vender já quando o lucro compensa, guardar quando ainda vai valori
   assert.equal(sugerirPlano(c, ctx([c])).acao, 'vender');
   // Tarefas: anunciar a; baixar um anunciado há 90 dias
   const d = produto({ id: 'd', set_numero: '2', preco_compra: 30, estado: 'anunciado', condicao: 'Novo e selado', preco_anuncio: 70, data_anuncio: '2026-07-01' });
-  const t = tarefas(ctx([a, b, d]));
-  assert.deepEqual(t.map((x) => [x.tipo, x.preco]), [['baixar', 65], ['anunciar', 86]]);
+  const af = { ...a, fotos: ['a/1.jpg'] }; // com fotografias → "Anunciar" (sem elas seria "Fotografar")
+  const t = tarefas(ctx([af, b, d]));
+  assert.deepEqual(t.map((x) => [x.tipo, x.preco]), [['anunciar', 86], ['baixar', 65]]);
   // Adiada
-  const t2 = tarefas({ ...ctx([a]), dados: { produtos: [a], vendas: [], definicoes: [{ chave: 'tarefas_adiadas', valor: { [t[1].id]: '2026-11-10' } as never }] } });
+  const t2 = tarefas({ ...ctx([af]), dados: { produtos: [af], vendas: [], definicoes: [{ chave: 'tarefas_adiadas', valor: { [t[0].id]: '2026-11-10' } as never }] } });
   assert.equal(t2.length, 0);
 });
 
@@ -329,7 +330,7 @@ test('plano: Pokémon usa o preço do TCGplayer e valoriza a taxa fixa', () => {
 
 test('tarefas: só se anuncia 1 unidade de cada produto de cada vez', () => {
   const merc = { brickset: {}, bricklink: { '1': { n: [100, 10] as [number, number] } } };
-  const a = produto({ id: 'a', set_numero: '1', preco_compra: 50, estado: 'por_anunciar', condicao: 'Novo e selado' });
+  const a = produto({ id: 'a', set_numero: '1', preco_compra: 50, estado: 'por_anunciar', condicao: 'Novo e selado', fotos: ['a/1.jpg'] });
   const b = produto({ id: 'b', set_numero: '1', preco_compra: 50, estado: 'por_anunciar', condicao: 'Novo e selado' });
   const ctx = (ps: Produto[]) => ({ dados: { produtos: ps, vendas: [], definicoes: [] }, mercado: merc, hoje: '2026-10-27' });
   const t = tarefas(ctx([a, b]));
@@ -337,6 +338,33 @@ test('tarefas: só se anuncia 1 unidade de cada produto de cada vez', () => {
   assert.match(t[0].titulo, /^Anunciar Set a/); // sem "2×"
   const c = { ...b, id: 'c', estado: 'anunciado' as const, preco_anuncio: 108, data_anuncio: '2026-10-20' };
   assert.equal(tarefas(ctx([a, c])).filter((x) => x.tipo === 'anunciar').length, 0);
+});
+
+test('tarefas: primeiro fotografar, depois anunciar; por ordem de prioridade', () => {
+  const merc = { brickset: {}, bricklink: { '1': { n: [100, 10] as [number, number] }, '2': { n: [100, 10] as [number, number] }, '3': { n: [100, 10] as [number, number] }, '4': { n: [100, 10] as [number, number] } } };
+  const ctx = (ps: Produto[], defs: never[] = []) => ({ dados: { produtos: ps, vendas: [], definicoes: defs }, mercado: merc, hoje: '2026-10-27' });
+  const novo = { estado: 'por_anunciar' as const, condicao: 'Novo e selado' };
+  // 1: com fotos → anunciar · 2: sem fotos → fotografar · 3: sem fotos, mas um igual vendido tem fotos → anunciar
+  // 4: só a miniatura que fica depois da limpeza → fotografar (a miniatura não serve para anunciar)
+  const p1 = produto({ id: 'p1', set_numero: '1', preco_compra: 50, ...novo, fotos: ['p1/a.jpg'] });
+  const p2 = produto({ id: 'p2', set_numero: '2', preco_compra: 60, ...novo });
+  const p3 = produto({ id: 'p3', set_numero: '3', preco_compra: 40, ...novo });
+  const v3 = produto({ id: 'v3', set_numero: '3', preco_compra: 40, condicao: 'Novo e selado', estado: 'vendido', fotos: ['v3/a.jpg'] });
+  const p4 = produto({ id: 'p4', set_numero: '4', preco_compra: 70, ...novo, fotos: ['p4/a.min.jpg'] });
+  const t = tarefas(ctx([p2, p4, p1, p3, v3]));
+  // Anunciar primeiro (mais dinheiro parado primeiro), depois fotografar
+  assert.deepEqual(t.map((x) => [x.tipo, x.produtos[0].id]), [['anunciar', 'p1'], ['anunciar', 'p3'], ['fotografar', 'p4'], ['fotografar', 'p2']]);
+  assert.match(t[2].titulo, /^Fotografar Set$/);
+  assert.match(t[2].detalhe, /^Depois anunciar a /);
+  // As fotos para anunciar p3 vêm do igual que as tem
+  assert.equal(produtoComFotos(p3, [p3, v3])?.id, 'v3');
+  assert.equal(produtoComFotos(p2, [p2]), null);
+  // Um igual usado não empresta fotos a um novo (condição diferente)
+  const u3 = { ...v3, id: 'u3', condicao: 'Usado' };
+  assert.equal(tarefas(ctx([p3, u3])).find((x) => x.produtos[0].id === 'p3')?.tipo, 'fotografar');
+  // Um "Anunciar" adiado antes desta mudança continua adiado como "Fotografar"
+  const idAntigo = t[3].id.replace(/^fotografar:/, 'anunciar:');
+  assert.equal(tarefas(ctx([p2], [{ chave: 'tarefas_adiadas', valor: { [idAntigo]: '2026-11-10' } } as never])).length, 0);
 });
 
 import { precoPokemon } from '../src/lib/investimento.ts';
@@ -406,18 +434,22 @@ test('sinal (semáforo): verde a correr, amarelo ação, azul guardado, vermelho
       '2': ['2018-01-01', '2020-12-31', 50, null, 'Retired'] as never,
       '3': ['2025-01-01', '2029-12-31', 100, null, 'Retail'] as never,
       '5': ['2025-01-01', '2029-12-31', 100, null, 'Retail'] as never,
+      '6': ['2025-01-01', '2029-12-31', 100, null, 'Retail'] as never,
     },
-    bricklink: { '1': { n: [80, 10] as [number, number] }, '2': { n: [55, 10] as [number, number] }, '3': { n: [80, 10] as [number, number] }, '5': { n: [80, 10] as [number, number] } },
+    bricklink: { '1': { n: [80, 10] as [number, number] }, '2': { n: [55, 10] as [number, number] }, '3': { n: [80, 10] as [number, number] }, '5': { n: [80, 10] as [number, number] }, '6': { n: [80, 10] as [number, number] } },
   };
   const ctx = (ps: Produto[]) => ({ dados: { produtos: ps, vendas: [], definicoes: [] }, mercado: merc, hoje: hojeT });
-  const a = produto({ id: 'a', set_numero: '3', preco_compra: 60, estado: 'por_anunciar', condicao: 'Novo e selado' }); // vender
+  const a = produto({ id: 'a', set_numero: '3', preco_compra: 60, estado: 'por_anunciar', condicao: 'Novo e selado', fotos: ['a/1.jpg'] }); // vender
+  const af = produto({ id: 'af', set_numero: '6', preco_compra: 60, estado: 'por_anunciar', condicao: 'Novo e selado' }); // vender, sem fotos
   const b = produto({ id: 'b', set_numero: '1', preco_compra: 75, estado: 'por_anunciar', condicao: 'Novo e selado' }); // guardar
   const d = produto({ id: 'd', set_numero: '2', preco_compra: 30, estado: 'anunciado', condicao: 'Novo e selado', preco_anuncio: 70, data_anuncio: '2026-07-01' }); // 118 dias
   const e = produto({ id: 'e', set_numero: '5', preco_compra: 60, estado: 'anunciado', condicao: 'Novo e selado', preco_anuncio: 86, data_anuncio: '2026-10-20' }); // 7 dias
   const v = produto({ id: 'v', set_numero: '2', preco_compra: 30, estado: 'vendido' });
-  const s = sinais(ctx([a, b, d, e, v]));
+  const s = sinais(ctx([a, af, b, d, e, v]));
   assert.equal(s.get('a')!.cor, 'amarelo');
   assert.match(s.get('a')!.texto, /^Anunciar a 86/);
+  assert.equal(s.get('af')!.cor, 'amarelo');
+  assert.equal(s.get('af')!.texto, 'Fotografar');
   assert.equal(s.get('b')!.cor, 'azul');
   assert.match(s.get('b')!.texto, /^Guardar até /);
   assert.equal(s.get('d')!.cor, 'vermelho'); // mais de 60 dias anunciado
