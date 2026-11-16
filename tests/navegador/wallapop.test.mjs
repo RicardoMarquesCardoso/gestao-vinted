@@ -9,36 +9,70 @@ import { abrirApp, abrirBrowser, abrirProduto, dia, fecharTudo, produtoBase, ver
 
 // O formulário do passo "Algo de que não preciso mais" (o endereço sem /consumer-goods abre antes uma escolha)
 const URL_WALLAPOP = 'https://pt.wallapop.com/app/catalog/upload/consumer-goods';
-// Mesmos ids e estrutura que o formulário da Wallapop (lidos em nov/2026)
-const PAGINA_WALLAPOP = `<!doctype html><meta charset="utf-8"><title>Wallapop simulada</title><body>
-<div id="passo1">
+// Mesmos ids e estrutura que o formulário da Wallapop (vistos a 16/11/2026): 4 passos que ficam
+// todos na página, cada um com o seu "Continuar" (um <button> dentro do shadow DOM de um
+// walla-button); as listas (categoria, estado) só aceitam escolhas depois de abertas e o texto das
+// opções está no aria-label.
+const PAGINA_WALLAPOP = `<!doctype html><meta charset="utf-8"><title>Wallapop simulada</title><body><form>
+<tsl-upload-step-template id="step-title"><section>
   <textarea id="summary" name="summary" maxlength="50"></textarea>
-  <div><input type="file" class="d-none" multiple accept="image/jpeg, image/png"></div>
-  <label><input type="file" id="dropAreaPreviewInput" hidden multiple></label>
-  <walla-button id="continuar"></walla-button>
-</div>
+  <walla-button class="continuar"></walla-button>
+</section></tsl-upload-step-template>
+</form>
 <script>
-// "Continuar" como na Wallapop: um componente com o <button> dentro do shadow DOM; desativado
-// enquanto o resumo está vazio.
-const cont = document.getElementById('continuar');
-const raiz = cont.attachShadow({ mode: 'open' });
-raiz.innerHTML = '<button disabled>Continuar</button>';
-document.getElementById('summary').addEventListener('input', (e) => { raiz.querySelector('button').disabled = !e.target.value; });
-raiz.querySelector('button').addEventListener('click', () => setTimeout(() => window.passo2(), 300));
-window.passo2 = () => {
-  document.getElementById('passo1').remove();
-  document.body.insertAdjacentHTML('beforeend', \`
+// Só um dos campos de ficheiros funciona (window.campoFotos: 'semId', o da Wallapop, ou 'area'; outro valor: nenhum)
+window.campoFotos = 'semId';
+window.fotosRecebidas = 0;
+window.cliquesContinuar = 0;
+const form = document.querySelector('form');
+function continuar(host, ativo, seguinte) {
+  const raiz = host.attachShadow({ mode: 'open' });
+  raiz.innerHTML = '<button disabled>Continuar</button>';
+  const b = raiz.querySelector('button');
+  b.addEventListener('click', () => { window.cliquesContinuar++; b.disabled = true; setTimeout(seguinte, 400); });
+  return () => { b.disabled = !ativo(); };
+}
+function lista(host, opcoes, escolher) {
+  host.insertAdjacentHTML('beforeend', '<div role="button" class="abrir"><input type="text" readonly></div>');
+  host.querySelector('.abrir').addEventListener('click', () => {
+    host.insertAdjacentHTML('beforeend', '<div role="listbox">' + opcoes + '</div>');
+    host.querySelectorAll('[role=option]').forEach((o) => o.addEventListener('click', (e) => { escolher(o.getAttribute('aria-label'), e); host.querySelector('[role=listbox]').remove(); }));
+  });
+}
+const atualizar1 = continuar(document.querySelector('#step-title .continuar'), () => document.getElementById('summary').value, passoFotos);
+document.getElementById('summary').addEventListener('input', atualizar1);
+function passoFotos() {
+  if (document.getElementById('step-photo')) return;
+  form.insertAdjacentHTML('beforeend', '<tsl-upload-step-template id="step-photo"><section><div><input type="file" class="d-none" multiple accept="image/jpeg"><walla-button></walla-button></div><label><input type="file" id="dropAreaPreviewInput" hidden multiple></label><div class="previews"></div><walla-button class="continuar"></walla-button></section></tsl-upload-step-template>');
+  const atualizar = continuar(document.querySelector('#step-photo .continuar'), () => window.fotosRecebidas > 0, passoCategoria);
+  const receber = (n) => setTimeout(() => {
+    window.fotosRecebidas += n;
+    for (let i = 0; i < n; i++) document.querySelector('#step-photo .previews').insertAdjacentHTML('beforeend', '<img src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">');
+    atualizar();
+  }, 600);
+  document.querySelector('#step-photo input.d-none').addEventListener('change', (e) => { if (window.campoFotos === 'semId') receber(e.target.files.length); });
+  document.getElementById('dropAreaPreviewInput').addEventListener('change', (e) => { if (window.campoFotos === 'area') receber(e.target.files.length); });
+}
+function passoCategoria() {
+  if (document.getElementById('step-category')) return;
+  form.insertAdjacentHTML('beforeend', '<tsl-upload-step-template id="step-category"><section><walla-dropdown id="cat"><input type="hidden" id="category_leaf_id"></walla-dropdown></section></tsl-upload-step-template>');
+  lista(document.getElementById('cat'), '<span>Categorias sugeridas</span><walla-dropdown-item role="option" aria-label="Brinquedos"><walla-list-item></walla-list-item></walla-dropdown-item><walla-dropdown-item role="option" aria-label="Colecionismo"><walla-list-item></walla-list-item></walla-dropdown-item><span>Todas as categorias</span><walla-dropdown-item role="option" aria-label="Casa e jardim"><walla-list-item></walla-list-item></walla-dropdown-item>', (nome, e) => {
+    document.getElementById('category_leaf_id').value = nome;
+    // Como na Wallapop: o formulário final só aparece com um "clique de pessoa" (houve mousedown antes)
+    if (window.ratoEmBaixo) setTimeout(window.passoFinal, 400);
+  });
+  document.addEventListener('mousedown', () => { window.ratoEmBaixo = true; });
+}
+window.passoFinal = () => {
+  if (document.getElementById('title')) return;
+  form.insertAdjacentHTML('beforeend', \`
     <input id="title" maxlength="50" value="Título inventado">
     <textarea id="description" maxlength="640">Descrição inventada</textarea>
-    <div role="button" id="estadoBtn"><span>Estado*</span><input type="text" readonly><input type="hidden" id="condition" name="condition"></div>
+    <walla-dropdown id="estadoDd"><input type="hidden" id="condition" name="condition"></walla-dropdown>
     <input id="price_amount" maxlength="11">
-    \${[0, 1, 2, 3, 4, 5].map((i) => '<input type="radio" id="' + i + '" name="' + i + '" value="' + i + '">').join('')}\`);
-  document.getElementById('estadoBtn').addEventListener('click', () => {
-    document.body.insertAdjacentHTML('beforeend', '<div id="lista"><div role="option">NovoNunca foi usado</div><div role="option">Praticamente novoPraticamente novo</div></div>');
-    document.querySelectorAll('[role=option]').forEach((o) => o.addEventListener('click', () => {
-      document.getElementById('condition').value = o.textContent.startsWith('Novo') ? 'new' : 'outro';
-      document.getElementById('lista').remove();
-    }));
+    \${[0, 1, 2, 3, 4, 5].map((i) => '<input type="radio" id="' + i + '" name="peso" value="' + i + '">').join('')}\`);
+  lista(document.getElementById('estadoDd'), '<walla-dropdown-item role="option" aria-label="Novo"></walla-dropdown-item><walla-dropdown-item role="option" aria-label="Praticamente novo"></walla-dropdown-item>', (nome) => {
+    document.getElementById('condition').value = nome === 'Novo' ? 'new' : 'outro';
   });
 };
 </script>`;
@@ -89,7 +123,8 @@ test('botão Wallapop: um clique preenche tudo (com Continuar) e a app marca com
     // Um só clique: mostra logo um sinal (antes, a espera pela app parecia "não faz nada")
     await w.evaluate(botao);
     assert.match(await w.evaluate(() => document.getElementById('vinteduo-aviso')?.textContent ?? ''), /a pedir os dados/);
-    await w.waitForFunction(() => /marcado como anunciado/.test(document.getElementById('vinteduo-aviso')?.textContent ?? ''), null, { timeout: 15000 });
+    await w.waitForFunction(() => /marcado como anunciado/.test(document.getElementById('vinteduo-aviso')?.textContent ?? ''), null, { timeout: 60000 });
+    assert.equal(await w.evaluate(() => window.fotosRecebidas), 2, 'as 2 fotografias, uma só vez');
     const p2 = await w.evaluate(() => ({
       titulo: document.getElementById('title').value,
       descricao: document.getElementById('description').value,
@@ -101,6 +136,9 @@ test('botão Wallapop: um clique preenche tudo (com Continuar) e a app marca com
     assert.ok(p2.descricao.length <= 640);
     assert.equal(p2.preco, '49,9');
     assert.equal(p2.estado, 'new');
+    assert.equal(await w.evaluate(() => document.getElementById('category_leaf_id').value), 'Brinquedos', '1.ª categoria sugerida');
+    assert.equal(await w.evaluate(() => window.cliquesContinuar), 2, 'o Continuar de cada passo, uma vez');
+    assert.match(await w.evaluate(() => document.getElementById('vinteduo-aviso').textContent), /revê a categoria \(Brinquedos\)/i);
 
     // A app marcou o produto como anunciado na conta Wallapop, ao preço escolhido
     await page.waitForTimeout(1500);
@@ -112,6 +150,67 @@ test('botão Wallapop: um clique preenche tudo (com Continuar) e a app marca com
     // Só se gravou o produto (nada mais)
     assert.deepEqual(app.escritas.filter((e) => !e.endsWith('/historico')).map((e) => e.split('?')[0]).filter((e) => !/\/produtos$/.test(e)), []);
     assert.deepEqual(app.errosJs, []);
+    verificarSemFugas(assert, app);
+  } finally {
+    await app.ctx.close();
+  }
+});
+
+test('botão Wallapop: as fotos entram pelo outro campo, só uma vez, e espera pelo Continuar', async () => {
+  const app = await abrirApp(browser, { dados, rota: '#/definicoes', paginas: { [URL_WALLAPOP]: PAGINA_WALLAPOP } });
+  try {
+    const { page, ctx } = app;
+    const botao = (await page.getByText('VinteDuo → Wallapop').getAttribute('href')).slice('javascript:'.length);
+    await abrirProduto(page, 'Castelo Teste');
+    await page.getByRole('button', { name: 'Anunciar', exact: true }).last().click();
+    await page.waitForTimeout(500);
+    await page.locator('.janela select').first().selectOption('cw');
+    await page.waitForTimeout(300);
+    const [w] = await Promise.all([ctx.waitForEvent('page'), page.getByRole('button', { name: 'Abrir na Wallapop' }).click()]);
+    await w.waitForLoadState();
+    await w.evaluate(() => { window.campoFotos = 'area'; });
+    await w.evaluate(botao);
+    await w.waitForFunction(() => /marcado como anunciado/.test(document.getElementById('vinteduo-aviso')?.textContent ?? ''), null, { timeout: 60000 });
+    assert.equal(await w.evaluate(() => window.fotosRecebidas), 2, 'as 2 fotografias, uma só vez');
+    assert.equal(await w.evaluate(() => document.getElementById('title').value), 'Lego 99992 Castelo Teste');
+    assert.deepEqual(app.errosJs, []);
+    verificarSemFugas(assert, app);
+  } finally {
+    await app.ctx.close();
+  }
+});
+
+test('botão Wallapop: se a Wallapop não aceita as fotos, diz o que fazer e continua depois', async () => {
+  const app = await abrirApp(browser, { dados, rota: '#/definicoes', paginas: { [URL_WALLAPOP]: PAGINA_WALLAPOP } });
+  try {
+    const { page, ctx } = app;
+    const botao = (await page.getByText('VinteDuo → Wallapop').getAttribute('href')).slice('javascript:'.length);
+    await abrirProduto(page, 'Castelo Teste');
+    await page.getByRole('button', { name: 'Anunciar', exact: true }).last().click();
+    await page.waitForTimeout(500);
+    await page.locator('.janela select').first().selectOption('cw');
+    await page.waitForTimeout(300);
+    const [w] = await Promise.all([ctx.waitForEvent('page'), page.getByRole('button', { name: 'Abrir na Wallapop' }).click()]);
+    await w.waitForLoadState();
+    await w.evaluate(() => { window.campoFotos = 'nenhum'; });
+    await w.evaluate(botao);
+    await w.waitForFunction(() => /não aceitou as fotografias/.test(document.getElementById('vinteduo-aviso')?.textContent ?? ''), null, { timeout: 60000 });
+    assert.equal(await w.evaluate(() => !!document.getElementById('step-category')), false, 'não passa das fotos');
+    await page.waitForTimeout(500);
+    assert.equal(app.db.produtos.find((p) => p.id === 'pw').estado, 'por_anunciar', 'não marca como anunciado');
+    // A pessoa junta as fotos à mão e carrega em Continuar: o botão continua sozinho até ao fim
+    await w.evaluate(() => {
+      window.campoFotos = 'semId';
+      const i = document.querySelector('#step-photo input.d-none');
+      const dt = new DataTransfer();
+      dt.items.add(new File(['x'], 'm.jpg', { type: 'image/jpeg' }));
+      i.files = dt.files;
+      i.dispatchEvent(new Event('change'));
+    });
+    await page.waitForTimeout(1500);
+    await w.evaluate(() => document.querySelector('#step-photo .continuar').shadowRoot.querySelector('button').click());
+    await w.waitForFunction(() => /marcado como anunciado/.test(document.getElementById('vinteduo-aviso')?.textContent ?? ''), null, { timeout: 60000 });
+    assert.equal(await w.evaluate(() => document.getElementById('title').value), 'Lego 99992 Castelo Teste');
     verificarSemFugas(assert, app);
   } finally {
     await app.ctx.close();
@@ -130,7 +229,7 @@ test('botão Wallapop já no formulário final (Continuar carregado à mão): pr
     await page.waitForTimeout(300);
     const [w] = await Promise.all([ctx.waitForEvent('page'), page.getByRole('button', { name: 'Abrir na Wallapop' }).click()]);
     await w.waitForLoadState();
-    await w.evaluate(() => window.passo2());
+    await w.evaluate(() => window.passoFinal());
     await w.evaluate(botao);
     await w.waitForFunction(() => /marcado como anunciado/.test(document.getElementById('vinteduo-aviso')?.textContent ?? ''), null, { timeout: 15000 });
     assert.equal(await w.evaluate(() => document.getElementById('title').value), 'Lego 99992 Castelo Teste');
