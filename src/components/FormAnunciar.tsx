@@ -22,7 +22,7 @@ import { Campo, Dinheiro, Janela, SelecionarConta } from './ui';
 import { PartilharFotos, ficheirosDoProduto } from './fotos';
 import { infoMercado, useMercado } from '../lib/investimento';
 import { URL_PUBLICAR_WALLAPOP, dadosWallapop, eContaWallapop } from '../lib/wallapop';
-import { produtoComFotos, sugerirPlano } from '../lib/plano';
+import { produtoComFotos, sugerirPlano, temFotosUsaveis } from '../lib/plano';
 import { useContextoPlano } from './planos';
 
 const CHAVE_CONTA = 'gv.ultimaConta';
@@ -33,11 +33,12 @@ const CHAVE_CONTA = 'gv.ultimaConta';
  */
 export function FormAnunciar({ ids, retirar, precoSugerido, unidades, aoFechar }: { ids: string[]; retirar?: boolean; precoSugerido?: number | null; unidades?: number; aoFechar(): void }) {
   const { dados, guardar, aviso } = useDados();
-  // Candidatos: os que estão no estado certo, os mais antigos primeiro
+  // Candidatos: os que estão no estado certo; ao anunciar, primeiro os que têm fotografias nossas
+  // (é essa unidade que se fotografou e se anuncia); depois os mais antigos
   const candidatos = ids
     .map((id) => dados.produtos.find((p) => p.id === id))
     .filter((p): p is Produto => !!p && p.estado === (retirar ? 'anunciado' : 'por_anunciar'))
-    .sort((a, b) => (a.data_compra ?? '').localeCompare(b.data_compra ?? ''));
+    .sort((a, b) => (retirar ? 0 : Number(temFotosUsaveis(b)) - Number(temFotosUsaveis(a))) || (a.data_compra ?? '').localeCompare(b.data_compra ?? ''));
   const nome = candidatos[0]?.nome ?? 'Produto';
   // Sem preço vindo de fora (ex.: aberto no detalhe do produto), usa o sugerido pelo plano
   const ctx = useContextoPlano();

@@ -344,7 +344,7 @@ test('tarefas: primeiro fotografar, depois anunciar; por ordem de prioridade', (
   const merc = { brickset: {}, bricklink: { '1': { n: [100, 10] as [number, number] }, '2': { n: [100, 10] as [number, number] }, '3': { n: [100, 10] as [number, number] }, '4': { n: [100, 10] as [number, number] } } };
   const ctx = (ps: Produto[], defs: never[] = []) => ({ dados: { produtos: ps, vendas: [], definicoes: defs }, mercado: merc, hoje: '2026-10-27' });
   const novo = { estado: 'por_anunciar' as const, condicao: 'Novo e selado' };
-  // 1: com fotos → anunciar · 2: sem fotos → fotografar · 3: sem fotos, mas um igual vendido tem fotos → anunciar
+  // 1: com fotos → anunciar · 2: sem fotos → fotografar · 3: sem fotos; só um igual VENDIDO tem → fotografar
   // 4: só a miniatura que fica depois da limpeza → fotografar (a miniatura não serve para anunciar)
   const p1 = produto({ id: 'p1', set_numero: '1', preco_compra: 50, ...novo, fotos: ['p1/a.jpg'] });
   const p2 = produto({ id: 'p2', set_numero: '2', preco_compra: 60, ...novo });
@@ -352,18 +352,25 @@ test('tarefas: primeiro fotografar, depois anunciar; por ordem de prioridade', (
   const v3 = produto({ id: 'v3', set_numero: '3', preco_compra: 40, condicao: 'Novo e selado', estado: 'vendido', fotos: ['v3/a.jpg'] });
   const p4 = produto({ id: 'p4', set_numero: '4', preco_compra: 70, ...novo, fotos: ['p4/a.min.jpg'] });
   const t = tarefas(ctx([p2, p4, p1, p3, v3]));
-  // Anunciar primeiro (mais dinheiro parado primeiro), depois fotografar
-  assert.deepEqual(t.map((x) => [x.tipo, x.produtos[0].id]), [['anunciar', 'p1'], ['anunciar', 'p3'], ['fotografar', 'p4'], ['fotografar', 'p2']]);
-  assert.match(t[2].titulo, /^Fotografar Set$/);
-  assert.match(t[2].detalhe, /^Depois anunciar a /);
-  // As fotos para anunciar p3 vêm do igual que as tem
-  assert.equal(produtoComFotos(p3, [p3, v3])?.id, 'v3');
+  // Anunciar primeiro, depois fotografar (mais dinheiro parado primeiro em cada tipo)
+  assert.deepEqual(t.map((x) => [x.tipo, x.produtos[0].id]), [['anunciar', 'p1'], ['fotografar', 'p4'], ['fotografar', 'p2'], ['fotografar', 'p3']]);
+  assert.match(t[1].titulo, /^Fotografar Set$/);
+  assert.match(t[1].detalhe, /^Depois anunciar a /);
+  // Só contam fotos de unidades em stock: as do igual vendido não servem
+  assert.equal(produtoComFotos(p3, [p3, v3]), null);
   assert.equal(produtoComFotos(p2, [p2]), null);
+  // Um igual em stock com fotos: o grupo passa a "Anunciar", a unidade com fotos vem primeiro
+  // (é a que abre ao tocar e a que se anuncia) e as fotos vêm dela
+  const q3 = produto({ id: 'q3', set_numero: '3', preco_compra: 40, ...novo, fotos: ['q3/a.jpg'], data_compra: '2026-10-20' });
+  const t3 = tarefas(ctx([p3, q3])).find((x) => x.produtos.some((y) => y.id === 'p3'))!;
+  assert.equal(t3.tipo, 'anunciar');
+  assert.equal(t3.produtos[0].id, 'q3');
+  assert.equal(produtoComFotos(p3, [p3, q3])?.id, 'q3');
   // Um igual usado não empresta fotos a um novo (condição diferente)
   const u3 = { ...v3, id: 'u3', condicao: 'Usado' };
   assert.equal(tarefas(ctx([p3, u3])).find((x) => x.produtos[0].id === 'p3')?.tipo, 'fotografar');
   // Um "Anunciar" adiado antes desta mudança continua adiado como "Fotografar"
-  const idAntigo = t[3].id.replace(/^fotografar:/, 'anunciar:');
+  const idAntigo = t[2].id.replace(/^fotografar:/, 'anunciar:');
   assert.equal(tarefas(ctx([p2], [{ chave: 'tarefas_adiadas', valor: { [idAntigo]: '2026-11-10' } } as never])).length, 0);
 });
 

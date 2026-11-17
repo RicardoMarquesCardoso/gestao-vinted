@@ -414,14 +414,14 @@ export const temFotosUsaveis = (p: Produto) => (p.fotos ?? []).some((f) => !eMin
 
 /**
  * Produto de onde vêm as fotografias para anunciar p: o próprio, se tiver; senão um igual (mesmo set
- * e mesma condição, `chavePlano`) que tenha, de preferência ainda em stock. As fotos novas do
- * detalhe do grupo vão para o 1.º igual com fotos, por isso podem estar noutra unidade.
+ * e mesma condição, `chavePlano`) AINDA EM STOCK que tenha (as fotos novas do detalhe do grupo vão
+ * para um igual em stock, por isso podem estar noutra unidade). Só contam fotos nossas de unidades
+ * que temos: as de unidades já vendidas não servem (pedido do Ricardo, nov/2026).
  */
 export function produtoComFotos(p: Produto, produtos: Produto[]): Produto | null {
   if (temFotosUsaveis(p)) return p;
   const k = chavePlano(p);
-  const iguais = produtos.filter((x) => x.id !== p.id && chavePlano(x) === k && temFotosUsaveis(x));
-  return iguais.find(emInventario) ?? iguais[0] ?? null;
+  return produtos.find((x) => x.id !== p.id && chavePlano(x) === k && emInventario(x) && temFotosUsaveis(x)) ?? null;
 }
 
 /** Última vez que o anúncio começou ou mudou de preço. */
@@ -489,8 +489,9 @@ export function tarefas(ctx: Contexto): Tarefa[] {
   const jaAnunciados = new Set(
     ctx.dados.produtos.filter((p) => p.estado === 'anunciado' && unidadesDisponiveis(p, ctx.dados.vendas) > 0).map(chaveComparacao),
   );
-  // Grupos de iguais (set + condição) com fotografias que servem para anunciar
-  const comFotos = new Set(ctx.dados.produtos.filter(temFotosUsaveis).map(chavePlano));
+  // Grupos de iguais (set + condição) com fotografias nossas que servem para anunciar, de unidades
+  // ainda em stock (as de unidades vendidas não contam)
+  const comFotos = new Set(ctx.dados.produtos.filter((p) => emInventario(p) && temFotosUsaveis(p)).map(chavePlano));
   for (const p of ctx.dados.produtos) {
     if (!emInventario(p) || !unidadesDisponiveis(p, ctx.dados.vendas)) continue;
     const plano = sugerirPlano(p, ctx);
@@ -525,6 +526,8 @@ export function tarefas(ctx: Contexto): Tarefa[] {
     // Um "Fotografar" adiado antes de existir esta tarefa estava guardado como "Anunciar"
     const ate = adiadas[id] ?? (g.tipo === 'fotografar' ? adiadas[id.replace(/^fotografar:/, 'anunciar:')] : undefined);
     if (ate && ate > ctx.hoje) continue;
+    // A unidade com fotografias primeiro: tocar na tarefa abre-a (vê-se as fotos) e é a que se anuncia
+    if (g.tipo === 'anunciar') g.produtos.sort((a, b) => Number(temFotosUsaveis(b)) - Number(temFotosUsaveis(a)));
     const p = g.produtos[0];
     const unidades = g.produtos.reduce((a, x) => a + unidadesDisponiveis(x, ctx.dados.vendas), 0);
     // "Anunciar" e "Fotografar" são sempre de 1 unidade; nas outras tarefas mostra-se quantas são

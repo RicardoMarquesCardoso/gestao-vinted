@@ -28,15 +28,21 @@ export function DetalheGrupo({ ids, aoFechar }: { ids: string[]; aoFechar(): voi
   // Todos os produtos iguais ao do cartão, incluindo os já vendidos (o cartão pode só mostrar os
   // que passam nos filtros do ecrã, mas aqui interessa o histórico todo)
   const base = ids.map((id) => dados.produtos.find((x) => x.id === id)).find((x): x is Produto => !!x);
-  // Produto que recebe as fotos novas: o primeiro igual que já tem fotos, senão o mais antigo
+  // Produto que recebe as fotos novas: uma unidade AINDA EM STOCK (as fotos servem para a anunciar;
+  // numa unidade vendida não contariam): a 1.ª em stock que já tem fotos, senão a mais antiga em
+  // stock; sem nada em stock, como antes (o 1.º igual com fotos, senão o mais antigo)
   const comFotos = base ? dados.produtos.filter((x) => chaveComparacao(x) === chaveComparacao(base)).sort((a, b) => (a.data_compra ?? '').localeCompare(b.data_compra ?? '')) : [];
-  const fotos = useEnviarFotos(comFotos.find((x) => x.fotos.length) ?? comFotos[0]);
+  const emStockIguais = comFotos.filter((x) => emInventario(x) && unidadesDisponiveis(x, dados.vendas) > 0);
+  const fotos = useEnviarFotos(
+    emStockIguais.find((x) => x.fotos.length) ?? emStockIguais[0] ?? comFotos.find((x) => x.fotos.length) ?? comFotos[0],
+  );
   if (!base) return null;
   const chave = chaveComparacao(base);
   const itens = dados.produtos.filter((x) => chaveComparacao(x) === chave);
   // Do mais antigo para o mais recente (a ordem em que se costumam vender)
   itens.sort((a, b) => (a.data_compra ?? '').localeCompare(b.data_compra ?? ''));
-  const p = itens.find((x) => x.fotos.length) ?? itens[0];
+  // Fotos a mostrar: as de uma unidade em stock, se houver; senão as de qualquer igual
+  const p = itens.find((x) => emInventario(x) && unidadesDisponiveis(x, dados.vendas) > 0 && x.fotos.length) ?? itens.find((x) => x.fotos.length) ?? itens[0];
 
   const vendasDe = (x: Produto) => dados.vendas.filter((v) => v.produto_id === x.id && vendaValida(v));
   const emStock = itens.filter((x) => emInventario(x) && unidadesDisponiveis(x, dados.vendas) > 0);
