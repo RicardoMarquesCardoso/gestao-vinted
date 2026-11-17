@@ -414,14 +414,15 @@ export const temFotosUsaveis = (p: Produto) => (p.fotos ?? []).some((f) => !eMin
 
 /**
  * Produto de onde vêm as fotografias para anunciar p: o próprio, se tiver; senão um igual (mesmo set
- * e mesma condição, `chavePlano`) AINDA EM STOCK que tenha (as fotos novas do detalhe do grupo vão
- * para um igual em stock, por isso podem estar noutra unidade). Só contam fotos nossas de unidades
- * que temos: as de unidades já vendidas não servem (pedido do Ricardo, nov/2026).
+ * e mesma condição, `chavePlano`) que tenha, de preferência ainda em stock. As fotografias são do set
+ * (pedido do Ricardo, nov/2026): as de uma unidade já vendida servem enquanto houver iguais em stock,
+ * porque só se limpam quando o set fica sem stock (ver fotosALimpar).
  */
 export function produtoComFotos(p: Produto, produtos: Produto[]): Produto | null {
   if (temFotosUsaveis(p)) return p;
   const k = chavePlano(p);
-  return produtos.find((x) => x.id !== p.id && chavePlano(x) === k && emInventario(x) && temFotosUsaveis(x)) ?? null;
+  const iguais = produtos.filter((x) => x.id !== p.id && chavePlano(x) === k && temFotosUsaveis(x));
+  return iguais.find(emInventario) ?? iguais[0] ?? null;
 }
 
 /** Última vez que o anúncio começou ou mudou de preço. */
@@ -489,9 +490,9 @@ export function tarefas(ctx: Contexto): Tarefa[] {
   const jaAnunciados = new Set(
     ctx.dados.produtos.filter((p) => p.estado === 'anunciado' && unidadesDisponiveis(p, ctx.dados.vendas) > 0).map(chaveComparacao),
   );
-  // Grupos de iguais (set + condição) com fotografias nossas que servem para anunciar, de unidades
-  // ainda em stock (as de unidades vendidas não contam)
-  const comFotos = new Set(ctx.dados.produtos.filter((p) => emInventario(p) && temFotosUsaveis(p)).map(chavePlano));
+  // Grupos de iguais (set + condição) com fotografias nossas que servem para anunciar (de qualquer
+  // unidade, também vendida: as fotos são do set e só se limpam quando o set fica sem stock)
+  const comFotos = new Set(ctx.dados.produtos.filter(temFotosUsaveis).map(chavePlano));
   for (const p of ctx.dados.produtos) {
     if (!emInventario(p) || !unidadesDisponiveis(p, ctx.dados.vendas)) continue;
     const plano = sugerirPlano(p, ctx);

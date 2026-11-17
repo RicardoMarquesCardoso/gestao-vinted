@@ -7,11 +7,14 @@
 //     listas e no detalhe, para poupar o tráfego do plano grátis (5 GB por mês).
 // No produto (produtos.fotos) guarda-se só o caminho da original: "id-do-produto/uuid.jpg".
 //
-// LIMPEZA (pedido do Ricardo): quando um produto está todo vendido há mais de 7 dias, apagam-se as
-// fotografias e fica só a miniatura da primeira (numa devolução a Vinted mantém as fotos do anúncio),
-// para o produto continuar a ter imagem nas listas. O produto passa a ter fotos = ["…/uuid.min.jpg"].
+// LIMPEZA (pedido do Ricardo): as fotografias são do SET, não da unidade: enquanto houver alguma
+// unidade igual em stock (mesmo set e condição) servem para a anunciar e não se apagam. Só quando o
+// set fica sem stock, com a última venda há mais de 7 dias (numa devolução a Vinted mantém as fotos
+// do anúncio), se apagam as fotografias e fica só a miniatura da primeira, para o produto continuar
+// a ter imagem nas listas. O produto passa a ter fotos = ["…/uuid.min.jpg"].
 
-import { diasEntre, unidadesDisponiveis, vendaValida } from './calc';
+import { produtoNovo } from './anuncio';
+import { chaveComparacao, diasEntre, emInventario, unidadesDisponiveis, vendaValida } from './calc';
 import type { Produto, Venda } from './types';
 
 /** Tamanho e qualidade das versões guardadas. */
@@ -39,24 +42,40 @@ export interface LimpezaFotos {
   apagar: string[];
 }
 
+/** Grupo de iguais para as fotografias: mesmo set (ou nome) e mesma condição (novo/usado). */
+const grupoFotos = (p: Produto) => `${chaveComparacao(p)}|${produtoNovo(p) ? 'novo' : 'usado'}`;
+
 /**
- * Produtos cujas fotografias já se podem limpar: sem unidades por vender, sem devolução em curso,
- * com a última venda concluída há mais de DIAS_LIMPAR_FOTOS dias, e com algo para apagar
- * (mais de uma fotografia, ou a primeira ainda tem a original).
+ * Produtos cujas fotografias já se podem limpar: vendidos, sem unidades por vender, sem devolução em
+ * curso, SEM NENHUMA UNIDADE IGUAL (mesmo set e condição) AINDA EM STOCK, com a última venda do
+ * grupo há mais de DIAS_LIMPAR_FOTOS dias, e com algo para apagar (mais de uma fotografia, ou a
+ * primeira ainda tem a original).
  */
 export function fotosALimpar(produtos: Produto[], vendas: Venda[], hoje: string, dias = DIAS_LIMPAR_FOTOS): LimpezaFotos[] {
+  // Por grupo de iguais: tem stock? e a data da última venda válida
+  const grupos = new Map<string, { stock: boolean; ultima: string | null; ids: Set<string> }>();
+  for (const p of produtos) {
+    const k = grupoFotos(p);
+    const g = grupos.get(k) ?? { stock: false, ultima: null, ids: new Set<string>() };
+    g.ids.add(p.id);
+    if (emInventario(p) && unidadesDisponiveis(p, vendas) > 0) g.stock = true;
+    grupos.set(k, g);
+  }
+  const grupoDe = new Map<string, { stock: boolean; ultima: string | null }>();
+  for (const g of grupos.values()) for (const id of g.ids) grupoDe.set(id, g);
+  for (const v of vendas) {
+    const g = grupoDe.get(v.produto_id);
+    if (g && vendaValida(v) && (!g.ultima || v.data_venda > g.ultima)) g.ultima = v.data_venda;
+  }
   const r: LimpezaFotos[] = [];
   for (const p of produtos) {
     const fotos = (p.fotos ?? []).filter((f) => !f.startsWith('data:'));
     if (!fotos.length || p.estado !== 'vendido') continue;
     if (fotos.length === 1 && eMiniatura(fotos[0])) continue; // já limpo
     if (unidadesDisponiveis(p, vendas) > 0) continue;
-    const ultima = vendas
-      .filter((v) => v.produto_id === p.id && vendaValida(v))
-      .map((v) => v.data_venda)
-      .sort()
-      .pop();
-    if (!ultima || diasEntre(ultima, hoje) <= dias) continue;
+    const g = grupoDe.get(p.id)!;
+    if (g.stock) continue; // ainda há iguais em stock: as fotos servem para os anunciar
+    if (!g.ultima || diasEntre(g.ultima, hoje) <= dias) continue;
     const manter = miniaturaDe(fotos[0]);
     const apagar = new Set<string>();
     fotos.forEach((f, i) => {

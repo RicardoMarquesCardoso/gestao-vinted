@@ -50,6 +50,24 @@ test('limpeza: não mexe no que ainda pode voltar ou já está limpo', () => {
   assert.deepEqual(fotosALimpar([produto({ fotos: ['p1/a.jpg'] })], [venda({})], '2026-10-30')[0].apagar, ['p1/a.jpg']);
 });
 
+test('limpeza: as fotos são do set; só se limpam quando o set (mesma condição) fica sem stock', () => {
+  const fotos = ['p1/a.jpg', 'p1/b.jpg'];
+  const vendido = produto({ fotos, set_numero: '77260', condicao: 'Novo e selado' });
+  const v = venda({ data_venda: '2026-09-01' });
+  // Outra unidade igual ainda por vender → não se limpa
+  const igual = produto({ id: 'p2', fotos: [], set_numero: '77260', condicao: 'Novo e selado', estado: 'por_anunciar' });
+  assert.equal(fotosALimpar([vendido, igual], [v], '2026-10-30').length, 0);
+  // Igual anunciado → também não
+  assert.equal(fotosALimpar([vendido, { ...igual, estado: 'anunciado' as const }], [v], '2026-10-30').length, 0);
+  // Igual USADO em stock não conta (as fotos de um selado não servem para um usado) → limpa-se
+  assert.equal(fotosALimpar([vendido, { ...igual, condicao: 'Usado' }], [v], '2026-10-30').length, 1);
+  // O igual também vendido: o set ficou sem stock; conta a última venda do set (há < 7 dias → espera)
+  const igualVendido = { ...igual, estado: 'vendido' as const };
+  const v2 = venda({ id: 'v2', produto_id: 'p2', data_venda: '2026-10-25' });
+  assert.equal(fotosALimpar([vendido, igualVendido], [v, v2], '2026-10-30').length, 0);
+  assert.equal(fotosALimpar([vendido, igualVendido], [v, v2], '2026-11-02').length, 1);
+});
+
 test('nome dos ficheiros para partilhar', () => {
   assert.equal(nomeFicheiroFoto({ nome: 'Tumbler Batman', set_numero: '76303', marca: 'LEGO' }, 0, 3), 'LEGO 76303 Tumbler Batman - 1.jpg');
   assert.equal(nomeFicheiroFoto({ nome: 'LEGO Dobby', set_numero: null, marca: 'LEGO' }, 0, 1), 'LEGO Dobby.jpg');
