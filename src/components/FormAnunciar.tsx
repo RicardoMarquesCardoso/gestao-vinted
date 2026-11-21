@@ -19,7 +19,7 @@ import type { Produto } from '../lib/types';
 import { useDados } from '../state';
 import { modeloAnuncio, textoAnuncio } from '../lib/anuncio';
 import { Campo, Dinheiro, Janela, SelecionarConta } from './ui';
-import { PartilharFotos, ficheirosDoProduto } from './fotos';
+import { PartilharFotos, eIos, ficheirosDoProduto } from './fotos';
 import { infoMercado, useMercado } from '../lib/investimento';
 import { URL_PUBLICAR_WALLAPOP, dadosWallapop, eContaWallapop } from '../lib/wallapop';
 import { produtoComFotos, sugerirPlano, temFotosUsaveis } from '../lib/plano';
@@ -154,6 +154,8 @@ export function FormAnunciar({ ids, retirar, precoSugerido, unidades, aoFechar }
 /**
  * Título e descrição prontos a copiar (com a descrição própria da conta, se tiver).
  * Numa conta Wallapop: o texto da Wallapop e o botão "Abrir na Wallapop".
+ * Numa conta Vinted (no computador): o botão "Abrir na Vinted" (fotos, título e descrição copiados,
+ * página Vender).
  */
 function TextoVinted({ produto, fotosDe, contaId, preco, aoPreencherWallapop }: { produto: Produto; fotosDe: Produto | null; contaId: string; preco: number | null; aoPreencherWallapop(): void }) {
   const { dados, aviso } = useDados();
@@ -174,6 +176,7 @@ function TextoVinted({ produto, fotosDe, contaId, preco, aoPreencherWallapop }: 
     <div className="texto-vinted">
       <h4>{wallapop ? 'Texto para a Wallapop' : 'Texto para a Vinted'}</h4>
       {wallapop && <AbrirWallapop produto={produto} fotosDe={fotosDe} contaId={contaId} preco={preco} pesoG={pesoG} aoPreencher={aoPreencherWallapop} />}
+      {!wallapop && !eIos() && <AbrirVinted titulo={t.titulo} descricao={t.descricao} fotosDe={fotosDe} />}
       <div className="texto-vinted-bloco">
         <div className="texto-vinted-topo">
           <span className="campo-rotulo">Título</span>
@@ -189,6 +192,98 @@ function TextoVinted({ produto, fotosDe, contaId, preco, aoPreencherWallapop }: 
         <p className="texto-vinted-descricao">{t.descricao}</p>
       </div>
       <p className="mudo pequeno">O texto muda-se em Definições → Texto dos anúncios.</p>
+    </div>
+  );
+}
+
+/** Página "Vender" da Vinted (confirmada a 21/11/2026; sem sessão, a Vinted pede para entrar e volta cá). */
+export const URL_VENDER_VINTED = 'https://www.vinted.pt/items/new';
+
+/**
+ * "Abrir na Vinted" (pedido do Ricardo, nov/2026; só no computador, não no iPhone). Num só clique:
+ *   1. descarrega as fotografias (nomes por ordem: "… - 1.jpg", "… - 2.jpg"…);
+ *   2. copia a descrição e logo a seguir o título: na Vinted, Ctrl+V cola o título e, no Windows,
+ *      Win+V (histórico da área de transferência) mostra a descrição logo abaixo;
+ *   3. abre a página "Vender" da Vinted noutro separador.
+ * Nada corre dentro do site da Vinted (os termos proíbem ferramentas de terceiros): a app só
+ * guarda ficheiros, copia texto e abre um link. Preencher e publicar é sempre à mão.
+ * As fotografias são preparadas logo ao abrir a janela, para o clique não ter de esperar (o
+ * browser só deixa abrir separadores e descarregar logo a seguir a um clique).
+ */
+function AbrirVinted({ titulo, descricao, fotosDe }: { titulo: string; descricao: string; fotosDe: Produto | null }) {
+  const { store, aviso } = useDados();
+  const fotos = useRef<{ chave: string; ficheiros: Promise<File[]> } | null>(null);
+  const [aAbrir, setAAbrir] = useState(false);
+  const [bloqueado, setBloqueado] = useState(false);
+  const chave = fotosDe?.fotos.join('|') ?? '';
+  const preparar = () => {
+    if (!fotosDe || !fotosDe.fotos.length) return Promise.resolve([] as File[]);
+    if (fotos.current?.chave !== chave) {
+      const ficheiros = ficheirosDoProduto(fotosDe, store);
+      ficheiros.catch(() => {
+        if (fotos.current?.ficheiros === ficheiros) fotos.current = null; // tenta outra vez no clique
+      });
+      fotos.current = { chave, ficheiros };
+    }
+    return fotos.current.ficheiros;
+  };
+  useEffect(() => {
+    preparar().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chave]);
+
+  const descarregar = (fs: File[]) => {
+    for (const f of fs) {
+      const url = URL.createObjectURL(f);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = f.name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    }
+  };
+
+  async function abrir() {
+    setAAbrir(true);
+    setBloqueado(false);
+    const falhas: string[] = [];
+    try {
+      // 1. Fotografias (já preparadas ao abrir a janela, em princípio)
+      try {
+        descarregar(await preparar());
+      } catch {
+        falhas.push('fotografias');
+      }
+      // 2. Descrição e depois título (o título fica no Ctrl+V; a descrição no Win+V)
+      try {
+        await navigator.clipboard.writeText(descricao);
+        await new Promise((ok) => setTimeout(ok, 600)); // para o histórico do Windows guardar as duas
+        await navigator.clipboard.writeText(titulo);
+      } catch {
+        falhas.push('copiar o texto');
+      }
+      // 3. Página "Vender" da Vinted
+      const w = window.open(URL_VENDER_VINTED, '_blank');
+      if (!w) setBloqueado(true);
+      aviso(falhas.length ? `Não foi possível: ${falhas.join(', ')}.` : 'Fotografias descarregadas e título copiado (descrição no Win+V).', falhas.length ? 'erro' : undefined);
+    } finally {
+      setAAbrir(false);
+    }
+  }
+
+  return (
+    <div className="linha-botoes">
+      <button type="button" className="btn btn-primario" onClick={abrir} disabled={aAbrir}>
+        {aAbrir ? 'A preparar…' : 'Abrir na Vinted'}
+      </button>
+      {/* O browser bloqueou o separador novo (o clique "expirou" à espera das fotos): link normal */}
+      {bloqueado && (
+        <a className="btn" href={URL_VENDER_VINTED} target="_blank" rel="noopener">
+          Abrir a página Vender
+        </a>
+      )}
     </div>
   );
 }

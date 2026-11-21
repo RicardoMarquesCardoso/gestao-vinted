@@ -263,6 +263,16 @@ O aviso aparece aos 80%.
 
 É um modelo com marcadores, como `{marca} {numero} {nome}`, que são trocados pelos dados do produto. `{marca}` é a marca do produto ("Lego", "Pokémon"…), para um produto Pokémon não aparecer como Lego. Há um texto para produtos novos e outro para usados, editáveis em Definições. Cada conta da Vinted pode ter a sua descrição (pedido do Ricardo, para as contas não terem anúncios iguais); em branco usa a geral. A janela Anunciar mostra o texto da conta escolhida.
 
+### Abrir na Vinted (`AbrirVinted` em `FormAnunciar.tsx`, nov/2026)
+
+Na janela Anunciar, com uma conta da Vinted e **só no computador** (no iPhone não aparece; lá continua o "Guardar"), o botão **Abrir na Vinted** faz num clique:
+
+1. descarrega as fotografias do set (nomes por ordem, "… - 1.jpg", "… - 2.jpg"…; preparadas logo ao abrir a janela, porque o browser só deixa descarregar e abrir separadores logo a seguir a um clique);
+2. copia a descrição e, 0,6 s depois, o título: na Vinted, **Ctrl+V** cola o título e, no Windows, **Win+V** (histórico da área de transferência, ativa-se uma vez em Definições → Sistema → Área de transferência) mostra a descrição logo abaixo;
+3. abre a página "Vender" (`https://www.vinted.pt/items/new`) noutro separador. Se o browser bloquear o separador, aparece o link "Abrir a página Vender".
+
+Nada corre dentro do site da Vinted (os termos proíbem ferramentas de terceiros): a app só guarda ficheiros, copia texto e abre um link. Não marca como anunciado; isso continua a ser o "Marcar como anunciado". Teste: `tests/navegador/vinted.test.mjs`.
+
 ### Piloto Wallapop (`src/lib/wallapop.ts`, nov/2026)
 
 Para poupar uns minutos por anúncio na Wallapop (pt.wallapop.com), sem publicar nada sozinho:

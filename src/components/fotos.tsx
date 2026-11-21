@@ -48,7 +48,7 @@ const podePartilharFicheiros = () => {
  * guarda em Ficheiros. Por isso no iPhone há um só botão, "Guardar", que abre esse menu; depois,
  * no anúncio da Vinted, escolhem-se as fotos da galeria (são as mais recentes).
  */
-const eIos = () =>
+export const eIos = () =>
   typeof navigator !== 'undefined' && (/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
 
 // Ícones (24×24, traço) para os botões de partilhar e descarregar
