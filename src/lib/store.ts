@@ -13,6 +13,7 @@
 
 import * as sb from './supabase';
 import { FOTO_MINIATURA, eMiniatura, miniaturaDe, originalDe, reduzirFoto } from './fotos';
+import { anunciosDosPeriodos } from './anuncios';
 import type { Dados, Historico, Tabela } from './types';
 
 /** Tabelas com dados normais (o histórico é especial: só se acrescenta, nunca se altera). */
@@ -50,6 +51,7 @@ export const dadosVazios = (): Dados => ({
   vendas: [],
   acertos: [],
   definicoes: [],
+  anuncios: [],
 });
 
 // ---------- Supabase ----------
@@ -60,11 +62,11 @@ export function storeSupabase(email: string): Store {
     utilizador: email,
     async carregar() {
       // Primeiro confirma que este email está na lista de membros (senão as regras RLS escondiam tudo
-      // e a app parecia vazia sem explicação). Depois carrega as 7 tabelas em paralelo.
+      // e a app parecia vazia sem explicação). Depois carrega as 8 tabelas em paralelo.
       const autorizado = await sb.rpc<boolean>('e_membro');
       if (!autorizado)
         throw new Error(`O email ${email} não está autorizado. Acrescenta-o à tabela "membros" no Supabase (ver supabase/schema.sql).`);
-      const [pessoas, contas, compras, produtos, vendas, acertos, definicoes] = await Promise.all([
+      const [pessoas, contas, compras, produtos, vendas, acertos, definicoes, anuncios] = await Promise.all([
         sb.listar<Dados['pessoas'][number]>('pessoas', 'nome'),
         sb.listar<Dados['contas'][number]>('contas', 'nome'),
         sb.listar<Dados['compras'][number]>('compras', 'data.desc'),
@@ -72,8 +74,10 @@ export function storeSupabase(email: string): Store {
         sb.listar<Dados['vendas'][number]>('vendas', 'data_venda.desc'),
         sb.listar<Dados['acertos'][number]>('acertos', 'data.desc'),
         sb.listar<Dados['definicoes'][number]>('definicoes', 'chave', Infinity, 'chave'),
+        // Anúncios por plataforma (nov/2026): onde cada produto está anunciado (ver lib/anuncios.ts)
+        sb.listar<Dados['anuncios'][number]>('anuncios', 'inicio'),
       ]);
-      return { pessoas, contas, compras: numeros(compras), produtos: numeros(produtos), vendas: numeros(vendas), acertos: numeros(acertos), definicoes };
+      return { pessoas, contas, compras: numeros(compras), produtos: numeros(produtos), vendas: numeros(vendas), acertos: numeros(acertos), definicoes, anuncios: numeros(anuncios) };
     },
     async guardar(tabela, linhas) {
       // O Supabase exige que todas as linhas de um pedido tenham as mesmas colunas:
@@ -131,7 +135,7 @@ export function storeSupabase(email: string): Store {
 function numeros<T extends object>(linhas: T[]): T[] {
   const campos = [
     'valor_artigos', 'portes', 'outros_custos', 'preco_compra', 'custos_adicionais',
-    'preco_anuncio', 'preco_venda', 'comissao', 'quantidade', 'valor',
+    'preco_anuncio', 'preco_venda', 'comissao', 'quantidade', 'valor', 'preco',
   ];
   for (const l of linhas as Record<string, unknown>[]) {
     for (const c of campos) {
@@ -182,6 +186,12 @@ export function storeDemo(): Store {
     async carregar() {
       g = lerDemo();
       g.dados = { ...dadosVazios(), ...g.dados };
+      // Dados de demonstração antigos (ou os de exemplo) trazem os anúncios no formato antigo, dentro
+      // de cada produto: convertem-se uma vez para a lista de anúncios por plataforma
+      if (!g.dados.anuncios.length && g.dados.produtos.some((p) => p.anuncios?.length || p.estado === 'anunciado')) {
+        g.dados.anuncios = anunciosDosPeriodos(g.dados.produtos, g.dados.contas);
+        gravarDemo(g);
+      }
       return structuredClone(g.dados);
     },
     async guardar(tabela, linhas) {

@@ -147,8 +147,11 @@ test('botão Wallapop: um clique preenche tudo (com Continuar) e a app marca com
     assert.equal(pw.conta_id, 'cw');
     assert.equal(pw.preco_anuncio, 49.9);
 
-    // Só se gravou o produto (nada mais)
-    assert.deepEqual(app.escritas.filter((e) => !e.endsWith('/historico')).map((e) => e.split('?')[0]).filter((e) => !/\/produtos$/.test(e)), []);
+    // Anúncio na tabela de anúncios (nov/2026): aberto na Wallapop, na conta e ao preço escolhidos
+    const aw = app.db.anuncios.find((a) => a.produto_id === 'pw' && !a.fim);
+    assert.deepEqual([aw?.plataforma, aw?.conta_id, Number(aw?.preco)], ['wallapop', 'cw', 49.9]);
+    // Só se gravaram o anúncio e o produto (nada mais)
+    assert.deepEqual(app.escritas.filter((e) => !e.endsWith('/historico')).map((e) => e.split('?')[0]).filter((e) => !/\/(produtos|anuncios)$/.test(e)), []);
     assert.deepEqual(app.errosJs, []);
     verificarSemFugas(assert, app);
   } finally {

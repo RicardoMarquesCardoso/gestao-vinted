@@ -3,10 +3,11 @@
 // Ao guardar, atualiza também o estado do produto (vendido / ainda anunciado).
 
 import { useMemo, useState } from 'react';
-import { fecharPeriodoVendido } from '../lib/anuncios';
-import { CHAVE_FORA_LIMITES, arred, chaveComparacao, custoUnitario, estadoAposNovaVenda, estadoAposVendas, unidadesVendidas, vendasForaLimites } from '../lib/calc';
+import { abertosDoProduto } from '../lib/anuncios';
+import { CHAVE_FORA_LIMITES, arred, chaveComparacao, custoUnitario, estadoAposVendas, unidadesVendidas, vendasForaLimites } from '../lib/calc';
+import { depoisDaVenda, textoRetirar } from '../lib/vendasAnuncios';
 import { fmtEuro, hoje, lerNumero } from '../lib/format';
-import type { EstadoVenda, Venda } from '../lib/types';
+import type { Anuncio, EstadoVenda, Plataforma, Produto, Venda } from '../lib/types';
 import { ESTADOS_VENDA } from '../lib/types';
 import { useDados } from '../state';
 import { paraCampo, vazioANull } from './acoes';
@@ -129,8 +130,8 @@ export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?
         else fora.delete(v.id);
         await guardar('definicoes', [{ chave: CHAVE_FORA_LIMITES, valor: [...fora] }]);
       }
-      await atualizarProdutos([v.produto_id, existente?.produto_id], [...dados.vendas.filter((x) => x.id !== v.id), v], existente ? undefined : v.produto_id);
-      aviso(existente ? 'Venda atualizada.' : 'Venda registada.');
+      const retirarDe = await atualizarProdutos([v.produto_id, existente?.produto_id], [...dados.vendas.filter((x) => x.id !== v.id), v], existente ? undefined : v);
+      aviso(existente ? 'Venda atualizada.' : `Venda registada.${textoRetirar(retirarDe)}`);
       aoFechar();
     } catch (e) {
       aviso(`Erro ao guardar: ${e instanceof Error ? e.message : e}`, 'erro');
@@ -143,22 +144,33 @@ export function FormVenda({ id, produtoId, aoFechar }: { id?: string; produtoId?
   const estadoVenda = (vendas: Venda[], pid: string) => vendas.some((x) => x.produto_id === pid && x.estado === 'concluida');
 
   /**
-   * Mantém o estado dos produtos coerente com as vendas (vendido / anunciado). novaVendaDe: o
-   * produto de uma venda NOVA; se estava anunciado e sobram unidades, volta a "por anunciar"
-   * (a unidade anunciada foi a vendida) e o período de anúncio fecha como "vendido".
+   * Mantém o estado dos produtos coerente com as vendas (vendido / em stock). vendaNova: a venda
+   * NOVA (se for concluída, os anúncios seguem as regras de lib/vendasAnuncios.ts: fecha o da
+   * plataforma onde se vendeu e mantém ou passa os outros). Noutros casos (editar ou apagar uma
+   * venda), só o estado: um produto que volta ao stock fica "anunciado" só se ainda tiver anúncios
+   * abertos. Devolve as plataformas de onde é preciso retirar anúncios à mão.
    */
-  async function atualizarProdutos(ids: (string | undefined)[], vendas: Venda[], novaVendaDe?: string) {
+  async function atualizarProdutos(ids: (string | undefined)[], vendas: Venda[], vendaNova?: Venda) {
     const agora = new Date().toISOString();
-    const alterados = [...new Set(ids.filter(Boolean))]
-      .map((pid) => dados.produtos.find((p) => p.id === pid))
-      .filter((p) => !!p)
-      .map((p) => ({ p: p!, estado: p!.id === novaVendaDe && estadoVenda(vendas, p!.id) ? estadoAposNovaVenda(p!, vendas) : estadoAposVendas(p!, vendas) }))
-      .filter((x) => x.estado !== x.p.estado)
-      .map((x) => {
-        const anuncios = x.p.estado === 'anunciado' && x.estado === 'por_anunciar' ? fecharPeriodoVendido(x.p.anuncios, agora) : undefined;
-        return { ...x.p, estado: x.estado, ...(anuncios ? { anuncios } : {}) };
-      });
+    const produtos = [...new Set(ids.filter(Boolean))].map((pid) => dados.produtos.find((p) => p.id === pid)).filter((p) => !!p) as Produto[];
+    const anuncios: Anuncio[] = [];
+    const alterados: Produto[] = [];
+    let retirarDe: Plataforma[] = [];
+    for (const p of produtos) {
+      if (vendaNova && p.id === vendaNova.produto_id && estadoVenda(vendas, p.id)) {
+        const r = depoisDaVenda(dados, p, vendaNova.conta_id, vendas, agora);
+        anuncios.push(...r.anuncios);
+        alterados.push(...r.produtos);
+        retirarDe = r.retirarDe;
+        continue;
+      }
+      let estado = estadoAposVendas(p, vendas);
+      if (estado === 'anunciado' && !abertosDoProduto(dados.anuncios, p.id).length) estado = 'por_anunciar';
+      if (estado !== p.estado) alterados.push({ ...p, estado });
+    }
+    if (anuncios.length) await guardar('anuncios', anuncios);
     if (alterados.length) await guardar('produtos', alterados);
+    return retirarDe;
   }
 
   // Apagar a venda (com confirmação) e repor o estado do produto

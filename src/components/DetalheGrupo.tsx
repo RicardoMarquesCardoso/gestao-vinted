@@ -13,6 +13,7 @@ import { useAbrir } from './acoes';
 import { ImagemReferencia, Foto, Janela, Valor, urlReferencia, useImagemReferencia } from './ui';
 import { urlBrickEconomy, urlEbayVendidos, urlVinted } from '../lib/avaliar';
 import { produtoNovo } from '../lib/anuncio';
+import { abertosDoProduto, plataformaDaConta } from '../lib/anuncios';
 import { chaveComparacao, custoUnitario, emInventario, liquidoVenda, lucroVenda, unidadesDisponiveis, vendaValida } from '../lib/calc';
 import { fmtEuro, plural } from '../lib/format';
 import type { Produto, Venda } from '../lib/types';
@@ -64,12 +65,14 @@ export function DetalheGrupo({ ids, aoFechar }: { ids: string[]; aoFechar(): voi
       rodape={
         <>
           <span className="espaco" />
-          {emStock.some((x) => x.estado === 'anunciado') && (
+          {itens.some((x) => abertosDoProduto(dados.anuncios, x.id).length > 0) && (
             <button className="btn" onClick={() => abrir({ tipo: 'anunciar', ids: ids_, retirar: true })}>Retirar</button>
           )}
-          {emStock.some((x) => x.estado === 'por_anunciar') && !emStock.some((x) => x.estado === 'anunciado') && (
-            <button className="btn" onClick={() => abrir({ tipo: 'anunciar', ids: ids_ })}>Anunciar</button>
-          )}
+          {/* Anunciar: há stock e uma plataforma (com conta ativa) onde o set ainda não está */}
+          {emStock.length > 0 &&
+            [...new Set(dados.contas.filter((c) => c.ativa).map(plataformaDaConta))].some((pl) => !emStock.some((x) => abertosDoProduto(dados.anuncios, x.id).some((a) => a.plataforma === pl))) && (
+              <button className="btn" onClick={() => abrir({ tipo: 'anunciar', ids: ids_ })}>Anunciar</button>
+            )}
           {emStock.length > 0 && (
             <button className="btn btn-primario" onClick={() => abrir({ tipo: 'vendi', ids: ids_ })}>Vendi</button>
           )}

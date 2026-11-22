@@ -22,7 +22,7 @@ function cenario(prod: Partial<Produto>, venda: Partial<Venda>, titular: string 
     pessoa_id: null, comissao: 0, portes: 0, outros_custos: 0, estado: 'concluida', ...venda,
   } as Venda;
   return {
-    pessoas: [{ id: R, nome: 'Ricardo' }, { id: A, nome: 'Ana' }], contas: [conta], compras: [],
+    pessoas: [{ id: R, nome: 'Ricardo' }, { id: A, nome: 'Ana' }], contas: [conta], compras: [], anuncios: [],
     produtos: [produto], vendas: [v], acertos: [], definicoes: [],
   };
 }

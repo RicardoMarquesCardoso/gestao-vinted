@@ -1,4 +1,4 @@
-// Ecrã "Contas da Vinted": cada conta com as barras dos limites do período, as vendas fora
+// Ecrã "Contas" (Vinted, Wallapop, eBay): cada conta com as barras dos limites do período, as vendas fora
 // da app (contam só para os limites) e a atividade recente.
 
 import { useMemo, useState } from 'react';
@@ -21,7 +21,7 @@ export function Contas() {
   return (
     <div className="pagina">
       <div className="pagina-topo">
-        <h1>Contas da Vinted</h1>
+        <h1>Contas</h1>
         <button className="btn btn-primario" onClick={() => abrir({ tipo: 'conta' })}>+ Conta</button>
       </div>
 

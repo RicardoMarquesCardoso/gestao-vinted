@@ -7,6 +7,7 @@ import { LinhaPlano, LinhaPokemon } from './planos';
 import { AdicionarFotos, PartilharFotos, useEnviarFotos } from './fotos';
 import { TabelaProdutos } from './DetalheGrupo';
 import { ehPokemon } from '../lib/plano';
+import { abertosDoProduto, plataformaDaConta } from '../lib/anuncios';
 import { urlBrickEconomy, urlEbayVendidos, urlVinted } from '../lib/avaliar';
 import { produtoNovo } from '../lib/anuncio';
 import { chaveComparacao, custoTotalProduto, emInventario, unidadesDisponiveis, vendasDoProduto } from '../lib/calc';
@@ -35,6 +36,11 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
     oficial && compararNomes(p.nome, oficial.nome) === 'diferente' ? procurarSet.parecidos(p.nome, oficial.tema, oficial.ano, oficial.numero) : [];
   const compra = p.compra_id ? dados.compras.find((c) => c.id === p.compra_id) : undefined;
   const disponiveis = unidadesDisponiveis(p, dados.vendas);
+  // Anúncios por plataforma: pode anunciar-se se houver uma plataforma (com conta ativa) onde ainda
+  // não está; pode retirar-se se houver algum anúncio aberto
+  const abertos = abertosDoProduto(dados.anuncios, p.id);
+  const podeAnunciar =
+    emInventario(p) && disponiveis > 0 && [...new Set(dados.contas.filter((c) => c.ativa).map(plataformaDaConta))].some((pl) => !abertos.some((a) => a.plataforma === pl));
   // Este produto e os outros iguais (mesmo n.º de set ou, sem set, mesmo nome), do mais antigo
   // para o mais recente, para a tabela
   const produtosDoSet = dados.produtos
@@ -86,12 +92,12 @@ export function DetalheProduto({ id, aoFechar }: { id: string; aoFechar(): void 
             <IconeLixo />
           </button>
           <span className="espaco" />
-          {p.estado === 'por_anunciar' && (
+          {podeAnunciar && (
             <button className="btn" onClick={() => abrir({ tipo: 'anunciar', ids: [p.id] })}>
               Anunciar
             </button>
           )}
-          {p.estado === 'anunciado' && (
+          {abertos.length > 0 && (
             <button className="btn" onClick={() => abrir({ tipo: 'anunciar', ids: [p.id], retirar: true })}>
               Retirar
             </button>

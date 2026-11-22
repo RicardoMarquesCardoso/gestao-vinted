@@ -11,6 +11,11 @@
 //   3. Envia para a base de dados (store.guardar) e grava o histórico (store.registar).
 //   4. Atualiza logo a memória (setDados), para o ecrã mudar sem esperar por novo carregamento.
 //
+// ANÚNCIOS POR PLATAFORMA (nov/2026, lib/anuncios.ts): ao gravar produtos, a mudança de estado,
+// conta ou preço traduz-se em linhas da tabela anuncios (planearGravacao), que se gravam antes do
+// produto. Ao carregar e depois de cada gravação, ligarAnuncios põe em cada produto o resumo dos
+// anúncios abertos (estado, conta, preço) e os períodos, para o resto da app os ler como antes.
+//
 // SE A GRAVAÇÃO FALHAR: guardar()/apagar() lançam um ErroGravacao. Os formulários que tratam o
 // erro mostram a sua mensagem ("Erro ao guardar: …"). Nos botões que não o tratam, o erro fica
 // "por apanhar" e o DadosProvider mostra o aviso "Não foi guardado: …" (uma só mensagem, nunca
@@ -26,7 +31,7 @@
 //   - as definições (planos, tarefas adiadas, listas…) juntam-se com o que está no servidor antes
 //     de gravar, para uma alteração do Ricardo não apagar uma da Cass feita no mesmo minuto.
 
-import { atualizarPeriodos } from './lib/anuncios';
+import { ligarAnuncios, planearGravacao } from './lib/anuncios';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { chaveDe, dadosVazios } from './lib/store';
@@ -143,7 +148,7 @@ export function DadosProvider(props: { store: Store; aoExpirar(duranteGravacao?:
       // Houve gravações durante o carregamento, ou começou outro mais recente: estes dados já
       // estão desatualizados (o próximo carregamento traz tudo)
       if (pedido !== ultimoPedido.current || gravacoes.current !== gravacoesAntes) return;
-      setDados((atual) => juntarDados(atual, d));
+      setDados((atual) => juntarDados(atual, ligarAnuncios(d)));
       setErro(null);
       setUltima(new Date());
     } catch (e) {
@@ -168,18 +173,23 @@ export function DadosProvider(props: { store: Store; aoExpirar(duranteGravacao?:
 
   // Gravar de facto (guardar, abaixo, só conta as gravações à volta disto)
   const guardarAgora = useCallback(
-    async (tabela: TabelaDados, linhas: object[]) => {
+    async function guardarAgora(tabela: TabelaDados, linhas: object[]): Promise<void> {
       const chave = chaveDe(tabela);
       const atuais = dadosRef.current[tabela] as unknown as Record<string, unknown>[];
       const agora = new Date().toISOString();
       const historico: Historico[] = [];
-      // Produtos: registar automaticamente os períodos em que estiveram anunciados
+      // Produtos: a mudança de estado/conta/preço vira anúncios por plataforma, gravados primeiro
+      // (lib/anuncios.ts, planearGravacao); o produto grava-se já com o resumo certo
       if (tabela === 'produtos') {
-        linhas = (linhas as Partial<Produto>[]).map((l) => {
-          const antes = (atuais as unknown as Produto[]).find((x) => x.id === l.id);
-          const anuncios = atualizarPeriodos(antes, l, agora);
-          return anuncios ? { ...l, anuncios } : l;
-        });
+        const plano = planearGravacao(
+          linhas as (Partial<Produto> & { id: string })[],
+          atuais as unknown as Produto[],
+          dadosRef.current.anuncios,
+          dadosRef.current.contas,
+          agora,
+        );
+        if (plano.anuncios.length) await guardarAgora('anuncios', plano.anuncios);
+        linhas = plano.linhas;
       }
       // Histórico: para cada linha, guardar só os campos que mudaram (antes → depois)
       for (const l of linhas as Record<string, unknown>[]) {
@@ -210,16 +220,19 @@ export function DadosProvider(props: { store: Store; aoExpirar(duranteGravacao?:
       } catch (e) {
         tratarErro(e); // lança sempre (ver tratarErro)
       }
-      // Atualizar já a memória para a interface responder logo
-      setDados((d) => {
+      // Atualizar já a memória para a interface responder logo. A referência também, já: a gravação
+      // seguinte (ex.: o produto depois dos seus anúncios) tem de ver esta, antes de o ecrã redesenhar.
+      const juntar = (d: Dados): Dados => {
         const lista = [...(d[tabela] as unknown as Record<string, unknown>[])];
         for (const l of linhas as Record<string, unknown>[]) {
           const i = lista.findIndex((x) => x[chave] === l[chave]);
           if (i >= 0) lista[i] = { ...lista[i], ...l };
           else lista.unshift({ criado_em: agora, ...l });
         }
-        return { ...d, [tabela]: lista };
-      });
+        return ligarAnuncios({ ...d, [tabela]: lista });
+      };
+      dadosRef.current = juntar(dadosRef.current);
+      setDados(juntar);
     },
     [store, tratarErro],
   );
@@ -255,10 +268,15 @@ export function DadosProvider(props: { store: Store; aoExpirar(duranteGravacao?:
       } finally {
         gravacoes.current++;
       }
-      setDados((d) => ({
-        ...d,
-        [tabela]: (d[tabela] as unknown as Record<string, unknown>[]).filter((x) => x[chave] !== id),
-      }));
+      // Apagar um produto apaga também os seus anúncios (na base de dados, "on delete cascade")
+      const tirar = (d: Dados): Dados =>
+        ligarAnuncios({
+          ...d,
+          [tabela]: (d[tabela] as unknown as Record<string, unknown>[]).filter((x) => x[chave] !== id),
+          ...(tabela === 'produtos' ? { anuncios: d.anuncios.filter((a) => a.produto_id !== id) } : {}),
+        });
+      dadosRef.current = tirar(dadosRef.current);
+      setDados(tirar);
     },
     [store, tratarErro],
   );

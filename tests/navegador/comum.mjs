@@ -120,10 +120,31 @@ const chaveDe = (t) => (t === 'definicoes' ? 'chave' : 'id');
  *
  * Devolve { ctx, page, db, escritas, errosJs, fugas, estado, matar, avisos() }.
  */
+/** Anúncios (tabela) a partir dos produtos de um teste: períodos antigos e produtos "anunciado". */
+function anunciosDoTeste(produtos, contas) {
+  const plataforma = (id) => {
+    const c = contas.find((x) => x.id === id);
+    return c?.plataforma ?? (/\(\s*wallapop\s*\)/i.test(c?.nome ?? '') ? 'wallapop' : /\(\s*ebay\s*\)/i.test(c?.nome ?? '') ? 'ebay' : 'vinted');
+  };
+  const r = [];
+  let n = 0;
+  for (const p of produtos) {
+    const periodos = p.anuncios ?? [];
+    if (p.estado === 'anunciado' && !periodos.some((x) => !x.fim))
+      r.push({ id: `an-${++n}`, produto_id: p.id, conta_id: p.conta_id ?? null, plataforma: plataforma(p.conta_id), preco: p.preco_anuncio ?? null, precos: [], inicio: `${p.data_anuncio ?? p.data_compra ?? '2026-01-01'}T12:00:00.000Z`, fim: null, motivo: null, aproximado: true, id_externo: null });
+    for (const x of periodos)
+      r.push({ id: `an-${++n}`, produto_id: p.id, conta_id: x.conta_id ?? null, plataforma: x.plataforma ?? plataforma(x.conta_id), preco: x.preco ?? null, precos: x.precos ?? [], inicio: x.inicio, fim: x.fim ?? null, motivo: x.motivo ?? null, aproximado: !!x.aproximado, id_externo: null });
+  }
+  return r;
+}
+
 export async function abrirApp(browser, opcoes = {}) {
   const pasta = compilarApp();
   const db = structuredClone(opcoes.dados ?? {});
   for (const t of ['pessoas', 'contas', 'compras', 'produtos', 'vendas', 'acertos', 'definicoes', 'historico']) db[t] ??= [];
+  // Anúncios por plataforma (nov/2026): se o teste não os dá, saem dos produtos anunciados, como fez a
+  // migração na produção (os testes antigos descrevem os anúncios dentro de cada produto)
+  db.anuncios ??= anunciosDoTeste(db.produtos, db.contas);
   const falhas = structuredClone(opcoes.falhas ?? []);
   const sessao = opcoes.sessao ?? {};
   const estado = { renovacaoMorta: false, rest401: false, pedidosDepois: [], aoEscrever: null };

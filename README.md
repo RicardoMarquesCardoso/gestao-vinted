@@ -202,7 +202,18 @@ erDiagram
 | `historico` | Todas as alterações (nunca se apaga) | `quando`, `utilizador`, `tabela`, `acao`, `antes`, `depois` |
 | `membros` | Emails autorizados | `email` |
 
-**Estados de um produto:** `por_anunciar` → `anunciado` → `vendido`. Também pode ficar `devolvido` ou `cancelado`. Anuncia-se uma unidade de cada vez: num produto com várias unidades, vender a anunciada põe as que sobram em `por_anunciar` (`estadoAposNovaVenda`), e só fica `vendido` quando não sobra nenhuma.
+**Estados de um produto:** `por_anunciar` → `anunciado` → `vendido`. Também pode ficar `devolvido` ou `cancelado`. Com os anúncios por plataforma (nov/2026), "anunciado" quer dizer **com pelo menos um anúncio aberto** na tabela `anuncios` (o estado é um resumo calculado; ver abaixo). Num produto com várias unidades, vender a unidade anunciada numa plataforma fecha esse anúncio; se não houver outro aberto, as que sobram ficam `por_anunciar`; só fica `vendido` quando não sobra nenhuma.
+
+### Anúncios em várias plataformas (`src/lib/anuncios.ts`, nov/2026)
+
+O mesmo set anuncia-se **uma vez em cada plataforma** (Vinted, Wallapop, eBay). Cada anúncio é uma linha da tabela `anuncios` (produto, conta, plataforma, preço, início, fim, motivo). Regras do Ricardo (22/11/2026):
+
+- **Vinted: um só anúncio aberto por set** (as fotos são do set). A janela Anunciar não deixa outro.
+- **Preço = o que recebemos**, igual em todas as plataformas: mudar o preço (ex.: "Já baixei") muda-o em todos os anúncios abertos.
+- **Vender** (`lib/vendasAnuncios.ts`, `depoisDaVenda`): fecha como "vendido" o anúncio da plataforma da conta onde se vendeu. Se sobram unidades do produto, os outros anúncios continuam. Se não, passam para outra unidade igual em stock (mesmo set e condição) ou, se não houver, **ficam abertos e aparece "Retirar da …"** com o botão **"Retirei"**. A app nunca retira sozinha (risco de venda dupla aceite).
+- **Tarefas** (ordem): Retirar → Fotografar → Anunciar (Vinted) → Anunciar na Wallapop (tudo o que está na Vinted e não na Wallapop, se houver conta Wallapop ativa) → Baixar → Rever.
+
+Como a app usa a tabela: ao carregar, `ligarAnuncios` calcula para cada produto em stock o resumo (estado, conta, preço e data do anúncio **principal**, o da Vinted) e os períodos (`produto.anuncios`), para os ecrãs e cálculos antigos continuarem iguais. Ao gravar um produto, `planearGravacao` (em `state.tsx`) traduz a mudança em anúncios: anunciar numa conta abre o anúncio dessa plataforma **sem fechar os das outras**; mudar de conta dentro da mesma plataforma fecha um e abre outro; "por anunciar"/devolvido/cancelado fecham todos. A coluna antiga `produtos.anuncios` já não se grava. No detalhe do produto vê-se onde está anunciado ("na RM1 · RM1 (Wallapop)"); "Retirar" deixa escolher de que plataformas. Testes: `tests/calc.test.ts` (regras) e `tests/navegador/plataformas.test.mjs` (ecrã).
 **Estados de uma venda:** `concluida`, `cancelada` ou `devolvida`. Não há estado intermédio: na Vinted um produto passa diretamente de anunciado a vendido, por isso uma venda nova fica logo `concluida`.
 
 ### O que está em `definicoes`

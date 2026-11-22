@@ -1,11 +1,13 @@
 // Janela rápida "Vendi": só pede o preço e a conta. Cria a venda como concluída, com data de hoje
 // e quem recebeu = titular da conta. Para os restantes campos, há "Mais opções" (FormVenda).
-// Num produto com várias unidades anunciado, as unidades que sobram voltam a "por anunciar"
-// (anuncia-se 1 de cada vez, e a anunciada foi a vendida).
+// Anúncios (nov/2026, lib/vendasAnuncios.ts): o anúncio da plataforma da conta onde se vendeu fecha
+// como "vendido". Se sobram unidades, os anúncios das outras plataformas continuam; se não sobra
+// nenhuma, passam para outra unidade igual em stock ou, se não houver, ficam por retirar (aviso).
 
 import { useState } from 'react';
-import { arred, custoUnitario, estadoAposNovaVenda, unidadesDisponiveis } from '../lib/calc';
-import { fecharPeriodoVendido } from '../lib/anuncios';
+import { arred, custoUnitario, unidadesDisponiveis } from '../lib/calc';
+import { abertosDoProduto } from '../lib/anuncios';
+import { depoisDaVenda, textoRetirar } from '../lib/vendasAnuncios';
 import { fmtEuro, hoje, lerNumero } from '../lib/format';
 import type { Produto, Venda } from '../lib/types';
 import { useDados } from '../state';
@@ -34,14 +36,19 @@ export function FormVendi({ ids, aoFechar, abrirCompleto }: { ids: string[]; aoF
     .filter((p): p is Produto => !!p && (p.estado === 'por_anunciar' || p.estado === 'anunciado') && unidadesDisponiveis(p, vendasSemEsta) > 0)
     .sort((a, b) => (a.data_compra ?? '').localeCompare(b.data_compra ?? ''));
 
-  const contasAnunciadas = [...new Set(candidatos.filter((p) => p.estado === 'anunciado' && p.conta_id).map((p) => p.conta_id!))];
+  // Contas onde estes produtos estão anunciados (o principal, o da Vinted, primeiro)
+  const abertosDe = (p: Produto) => abertosDoProduto(dados.anuncios, p.id);
+  const contasAnunciadas = [
+    ...new Set(candidatos.flatMap((p) => [p.conta_id, ...abertosDe(p).map((a) => a.conta_id)]).filter((c): c is string => !!c && candidatos.some((p) => abertosDe(p).some((a) => a.conta_id === c)))),
+  ];
   const [conta, setConta] = useState(() => contasAnunciadas[0] ?? contaHabitual(contas));
+  // Vende-se de preferência a unidade anunciada nessa conta, depois uma anunciada, depois a mais antiga
   const unidade = (c: string) =>
     unidadeFixa
       ? candidatos.find((p) => p.id === unidadeFixa)
-      : (candidatos.find((p) => p.estado === 'anunciado' && p.conta_id === c) ?? candidatos.find((p) => p.estado === 'anunciado') ?? candidatos[0]);
+      : (candidatos.find((p) => abertosDe(p).some((a) => a.conta_id === c)) ?? candidatos.find((p) => abertosDe(p).length > 0) ?? candidatos[0]);
   const escolhido = unidade(conta);
-  const [preco, setPreco] = useState(() => paraCampo(escolhido?.preco_anuncio));
+  const [preco, setPreco] = useState(() => paraCampo(escolhido ? abertosDe(escolhido).find((a) => a.conta_id === conta)?.preco ?? escolhido.preco_anuncio : null));
   const [aGuardar, setAGuardar] = useState(false);
 
   if (!escolhido) {
@@ -81,17 +88,16 @@ export function FormVendi({ ids, aoFechar, abrirCompleto }: { ids: string[]; aoF
     setAGuardar(true);
     try {
       await guardar('vendas', [v]);
-      const atualizado = { ...p, conta_id: p.conta_id ?? conta };
-      // Sobram unidades: a anunciada foi vendida e as outras voltam a "por anunciar"
-      const estado = estadoAposNovaVenda(atualizado, [...vendasSemEsta, v]);
-      const anuncios = p.estado === 'anunciado' && estado === 'por_anunciar' ? fecharPeriodoVendido(p.anuncios, new Date().toISOString()) : undefined;
-      if (estado !== p.estado || atualizado.conta_id !== p.conta_id) await guardar('produtos', [{ ...atualizado, estado, ...(anuncios ? { anuncios } : {}) }]);
+      // Anúncios: fecha o desta plataforma, mantém/passa os outros (lib/vendasAnuncios.ts)
+      const r = depoisDaVenda(dados, { ...p, conta_id: p.conta_id ?? conta }, conta, [...vendasSemEsta, v], new Date().toISOString());
+      if (r.anuncios.length) await guardar('anuncios', r.anuncios);
+      await guardar('produtos', r.produtos);
       try {
         localStorage.setItem('gv.ultimaConta', conta);
       } catch {
         /* ignorar */
       }
-      aviso(`Venda registada: ${fmtEuro(valor)} (lucro ${fmtEuro(lucro)}).`);
+      aviso(`Venda registada: ${fmtEuro(valor)} (lucro ${fmtEuro(lucro)}).${textoRetirar(r.retirarDe)}`);
       aoFechar();
     } catch (e) {
       aviso(`Erro ao guardar: ${e instanceof Error ? e.message : e}`, 'erro');

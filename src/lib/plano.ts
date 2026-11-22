@@ -20,7 +20,8 @@ import { eMiniatura } from './fotos';
 import { ultimoResultado } from './memo';
 import { descontoEbayEfetivo, idsPokemon, infoMercado, precoPokemon } from './investimento';
 import type { Mercado } from './investimento';
-import type { Dados, Definicao, Produto, Venda } from './types';
+import type { Anuncio, Dados, Definicao, Plataforma, Produto, Venda } from './types';
+import { abertosDoProduto, estaAberto, nomePlataforma, plataformaDaConta, plataformaDe } from './anuncios';
 
 export const CHAVE_REGRAS = 'regras_plano';
 export const CHAVE_PLANOS = 'planos';
@@ -110,7 +111,7 @@ export const tarefasAdiadas = (defs: Definicao[]) => obj<Adiadas>(defs, CHAVE_AD
 export const chavePlano = (p: Produto) => `${chaveComparacao(p)}|${produtoNovo(p) ? 'novo' : 'usado'}`;
 
 export interface Contexto {
-  dados: Pick<Dados, 'produtos' | 'vendas' | 'definicoes'> & { contas?: Dados['contas'] };
+  dados: Pick<Dados, 'produtos' | 'vendas' | 'definicoes'> & { contas?: Dados['contas']; anuncios?: Dados['anuncios'] };
   mercado: Mercado | null;
   /** Ano de lançamento pelo catálogo oficial, quando não há dados da Brickset. */
   anoSet?: (numero: string) => number | null | undefined;
@@ -400,8 +401,15 @@ export function sugerirPlano(p: Produto, ctx: Contexto): Plano {
 
 export interface Tarefa {
   id: string;
-  tipo: 'anunciar' | 'fotografar' | 'baixar' | 'rever';
+  /**
+   * retirar = tirar um anúncio de uma plataforma (o set já não tem stock; só aviso, carrega-se em
+   * "Retirei"); anunciar = na Vinted; anunciar_wallapop = o que já está na Vinted e ainda não na Wallapop.
+   */
+  tipo: 'retirar' | 'fotografar' | 'anunciar' | 'anunciar_wallapop' | 'baixar' | 'rever';
   produtos: Produto[];
+  /** Na tarefa "retirar": o anúncio a fechar e a plataforma. */
+  anuncio?: Anuncio;
+  plataforma?: Plataforma;
   unidades: number;
   titulo: string;
   detalhe: string;
@@ -481,81 +489,132 @@ export function resumoAnuncio(p: Produto, ctx: Contexto): ResumoAnuncio | null {
   };
 }
 
+/**
+ * Anúncios abertos de um produto. Com a tabela de anúncios (nov/2026), os dela; sem ela (testes e
+ * dados antigos), o resumo do próprio produto (anunciado numa conta = um anúncio nessa plataforma).
+ */
+function abertosDe(p: Produto, ctx: Contexto): Pick<Anuncio, 'plataforma' | 'conta_id' | 'preco'>[] {
+  if (ctx.dados.anuncios) return abertosDoProduto(ctx.dados.anuncios, p.id);
+  return p.estado === 'anunciado' ? [{ plataforma: plataformaDe(ctx.dados.contas, p.conta_id), conta_id: p.conta_id, preco: p.preco_anuncio }] : [];
+}
+
+/**
+ * Lista "O que fazer". Ordem (pedido do Ricardo, 22/11/2026): retirar (venda dupla a evitar) →
+ * fotografar → anunciar na Vinted → anunciar na Wallapop → baixar preços → rever prazos; dentro de
+ * cada tipo, primeiro o que tem mais dinheiro parado.
+ *   - Fotografar/Anunciar (Vinted): por set (mesmo n.º ou nome e condição), quando o set tem stock
+ *     e nenhum anúncio aberto na Vinted (na Vinted só um por set: as fotos são do set).
+ *   - Anunciar na Wallapop: tudo o que está anunciado na Vinted e ainda não na Wallapop (decisão do
+ *     Ricardo), se houver uma conta Wallapop ativa. A tarefa é da unidade com o anúncio da Vinted.
+ *   - Baixar: como antes; ao carregar em "Já baixei", o preço muda em todos os anúncios abertos.
+ *   - Retirar: anúncios abertos em produtos que já não estão em stock (vendeu-se a última unidade
+ *     do set noutra plataforma). Nunca se retira sozinho: carrega-se em "Retirei".
+ */
 export function tarefas(ctx: Contexto): Tarefa[] {
   const r = regrasPlano(ctx.dados.definicoes);
   const adiadas = tarefasAdiadas(ctx.dados.definicoes);
   const grupos = new Map<string, { tipo: Tarefa['tipo']; produtos: Produto[]; plano: Plano; extra?: string; preco: number | null }>();
-  // Anuncia-se 1 unidade de cada produto de cada vez: se já há um anunciado (mesmo set ou nome),
-  // as outras unidades não geram a tarefa "Anunciar" até essa ser vendida.
-  const jaAnunciados = new Set(
-    ctx.dados.produtos.filter((p) => p.estado === 'anunciado' && unidadesDisponiveis(p, ctx.dados.vendas) > 0).map(chaveComparacao),
-  );
   // Grupos de iguais (set + condição) com fotografias nossas que servem para anunciar (de qualquer
   // unidade, também vendida: as fotos são do set e só se limpam quando o set fica sem stock)
   const comFotos = new Set(ctx.dados.produtos.filter(temFotosUsaveis).map(chavePlano));
+  // Plataformas em que cada set (chavePlano) tem um anúncio aberto, em qualquer unidade em stock
+  const cobertura = new Map<string, Set<Plataforma>>();
   for (const p of ctx.dados.produtos) {
-    if (!emInventario(p) || !unidadesDisponiveis(p, ctx.dados.vendas)) continue;
-    const plano = sugerirPlano(p, ctx);
-    let tipo: Tarefa['tipo'] | null = null;
-    let preco: number | null = null;
-    let extra: string | undefined;
-    if (plano.manual && plano.acao === 'guardar' && plano.ate && plano.ate <= ctx.hoje) {
-      tipo = 'rever';
-    } else if (p.estado === 'por_anunciar' && plano.acao === 'vender' && !jaAnunciados.has(chaveComparacao(p))) {
-      // Primeiro fotografar, depois anunciar (pedido do Ricardo): sem fotografias que sirvam
-      // (deste produto ou de um igual), a tarefa é "Fotografar"; o preço fica para o anúncio.
-      tipo = comFotos.has(chavePlano(p)) ? 'anunciar' : 'fotografar';
-      preco = plano.precoSugerido;
-    } else if (p.estado === 'anunciado' && p.preco_anuncio) {
-      const desde = desdeUltimaMudanca(p);
-      const dias = desde ? diasEntre(desde, ctx.hoje) : 0;
-      const novo = Math.max(arredEuro(p.preco_anuncio * (1 - r.baixarPct)), plano.chao);
-      if (dias >= r.diasBaixar && novo < p.preco_anuncio && !(plano.acao === 'guardar' && !plano.manual && p.preco_anuncio <= (plano.precoSugerido ?? Infinity))) {
-        tipo = 'baixar';
-        preco = novo;
-        extra = `${dias} dias a ${fmtEuro(p.preco_anuncio)}`;
-      }
-    }
-    if (!tipo) continue;
+    if (!emInventario(p)) continue;
+    const k = chavePlano(p);
+    const pl = cobertura.get(k) ?? new Set<Plataforma>();
+    for (const a of abertosDe(p, ctx)) pl.add(a.plataforma);
+    cobertura.set(k, pl);
+  }
+  const temWallapop = (ctx.dados.contas ?? []).some((c) => c.ativa && plataformaDaConta(c) === 'wallapop');
+  const juntar = (tipo: Tarefa['tipo'], p: Produto, plano: Plano, preco: number | null, extra?: string) => {
     const k = `${tipo}:${chavePlano(p)}:${preco ?? ''}`;
     const g = grupos.get(k);
     if (g) g.produtos.push(p);
     else grupos.set(k, { tipo, produtos: [p], plano, extra, preco });
+  };
+  for (const p of ctx.dados.produtos) {
+    if (!emInventario(p) || !unidadesDisponiveis(p, ctx.dados.vendas)) continue;
+    const plano = sugerirPlano(p, ctx);
+    if (plano.manual && plano.acao === 'guardar' && plano.ate && plano.ate <= ctx.hoje) {
+      juntar('rever', p, plano, null);
+      continue;
+    }
+    const k = chavePlano(p);
+    const noSet = cobertura.get(k) ?? new Set<Plataforma>();
+    const meus = abertosDe(p, ctx);
+    if (plano.acao === 'vender' && !noSet.has('vinted')) {
+      // Primeiro fotografar, depois anunciar (pedido do Ricardo): sem fotografias que sirvam
+      // (deste produto ou de um igual), a tarefa é "Fotografar"; o preço fica para o anúncio.
+      juntar(comFotos.has(k) ? 'anunciar' : 'fotografar', p, plano, plano.precoSugerido);
+    } else if (plano.acao === 'vender' && temWallapop && !noSet.has('wallapop') && meus.some((a) => a.plataforma === 'vinted')) {
+      juntar('anunciar_wallapop', p, plano, p.preco_anuncio ?? plano.precoSugerido);
+    }
+    if (p.estado === 'anunciado' && p.preco_anuncio) {
+      const desde = desdeUltimaMudanca(p);
+      const dias = desde ? diasEntre(desde, ctx.hoje) : 0;
+      const novo = Math.max(arredEuro(p.preco_anuncio * (1 - r.baixarPct)), plano.chao);
+      if (dias >= r.diasBaixar && novo < p.preco_anuncio && !(plano.acao === 'guardar' && !plano.manual && p.preco_anuncio <= (plano.precoSugerido ?? Infinity)))
+        juntar('baixar', p, plano, novo, `${dias} dias a ${fmtEuro(p.preco_anuncio)}`);
+    }
   }
   const lista: Tarefa[] = [];
   for (const [id, g] of grupos) {
     // Um "Fotografar" adiado antes de existir esta tarefa estava guardado como "Anunciar"
     const ate = adiadas[id] ?? (g.tipo === 'fotografar' ? adiadas[id.replace(/^fotografar:/, 'anunciar:')] : undefined);
     if (ate && ate > ctx.hoje) continue;
-    // A unidade com fotografias primeiro: tocar na tarefa abre-a (vê-se as fotos) e é a que se anuncia
-    if (g.tipo === 'anunciar') g.produtos.sort((a, b) => Number(temFotosUsaveis(b)) - Number(temFotosUsaveis(a)));
+    // Anunciar: primeiro a unidade já anunciada noutra plataforma (os anúncios do set ficam juntos),
+    // depois a que tem fotografias (tocar na tarefa abre-a e é a que se anuncia)
+    if (g.tipo === 'anunciar')
+      g.produtos.sort((a, b) => abertosDe(b, ctx).length - abertosDe(a, ctx).length || Number(temFotosUsaveis(b)) - Number(temFotosUsaveis(a)));
     const p = g.produtos[0];
     const unidades = g.produtos.reduce((a, x) => a + unidadesDisponiveis(x, ctx.dados.vendas), 0);
     // "Anunciar" e "Fotografar" são sempre de 1 unidade; nas outras tarefas mostra-se quantas são
-    const umaDeCadaVez = g.tipo === 'anunciar' || g.tipo === 'fotografar';
+    const umaDeCadaVez = g.tipo === 'anunciar' || g.tipo === 'fotografar' || g.tipo === 'anunciar_wallapop';
     const nome = `${unidades > 1 && !umaDeCadaVez ? `${unidades}× ` : ''}${p.nome}`;
     const titulo =
       g.tipo === 'anunciar'
-        ? `Anunciar ${nome} a ${fmtEuro(g.preco)}`
-        : g.tipo === 'fotografar'
-          ? `Fotografar ${nome}`
-          : g.tipo === 'baixar'
-            ? `Baixar ${nome} para ${fmtEuro(g.preco)}`
-            : `Rever ${nome}: o prazo para guardar acabou`;
+        ? `Anunciar ${nome} na Vinted a ${fmtEuro(g.preco)}`
+        : g.tipo === 'anunciar_wallapop'
+          ? `Anunciar ${nome} na Wallapop a ${fmtEuro(g.preco)}`
+          : g.tipo === 'fotografar'
+            ? `Fotografar ${nome}`
+            : g.tipo === 'baixar'
+              ? `Baixar ${nome} para ${fmtEuro(g.preco)}`
+              : `Rever ${nome}: o prazo para guardar acabou`;
     const detalhe =
       g.tipo === 'baixar'
         ? `${g.extra}. Mínimo: ${fmtEuro(g.plano.chao)}.`
         : g.tipo === 'fotografar'
           ? `Depois anunciar a ${fmtEuro(g.preco)}.`
-          : g.tipo === 'anunciar' && unidades > 1
-          ? `${g.plano.motivo} (${unidades} em stock: anuncia-se 1 de cada vez.)`
-          : g.plano.motivo;
+          : g.tipo === 'anunciar_wallapop'
+            ? 'Já está na Vinted.'
+            : g.tipo === 'anunciar' && unidades > 1
+              ? `${g.plano.motivo} (${unidades} em stock: anuncia-se 1 de cada vez.)`
+              : g.plano.motivo;
     lista.push({ id, tipo: g.tipo, produtos: g.produtos, unidades, titulo, detalhe, preco: g.preco, capital: g.produtos.reduce((a, x) => a + custoUnitario(x) * unidadesDisponiveis(x, ctx.dados.vendas), 0) });
   }
-  // Ordem de prioridade (pedido do Ricardo, nov/2026): primeiro anunciar o que já tem fotos (é o que
-  // falta para começar a vender), depois fotografar, depois baixar preços e rever prazos.
-  // Dentro de cada tipo, primeiro o que tem mais dinheiro parado.
-  const ordem = { anunciar: 0, fotografar: 1, baixar: 2, rever: 3 };
+  // Retirar: anúncios abertos em produtos que já não estão em stock (só aviso; nunca sozinho)
+  for (const a of (ctx.dados.anuncios ?? []).filter(estaAberto)) {
+    const q = ctx.dados.produtos.find((x) => x.id === a.produto_id);
+    if (!q || (emInventario(q) && unidadesDisponiveis(q, ctx.dados.vendas) > 0)) continue;
+    const id = `retirar:${a.id}`;
+    const ate = adiadas[id];
+    if (ate && ate > ctx.hoje) continue;
+    lista.push({
+      id,
+      tipo: 'retirar',
+      produtos: [q],
+      unidades: 0,
+      titulo: `Retirar ${q.nome} da ${nomePlataforma(a.plataforma)}`,
+      detalhe: q.estado === 'vendido' ? 'Já não há unidades deste set à venda.' : 'Já não está em stock.',
+      preco: a.preco,
+      capital: Infinity, // sempre primeiro: evita vender duas vezes
+      anuncio: a,
+      plataforma: a.plataforma,
+    });
+  }
+  const ordem: Record<Tarefa['tipo'], number> = { retirar: 0, fotografar: 1, anunciar: 2, anunciar_wallapop: 3, baixar: 4, rever: 5 };
   return lista.sort((a, b) => ordem[a.tipo] - ordem[b.tipo] || b.capital - a.capital);
 }
 
@@ -595,8 +654,15 @@ function textoAnunciado(dias: number | null) {
  * Sinal de cada produto (id → sinal). Calcula as tarefas uma só vez para todos os produtos.
  */
 export function sinais(ctx: Contexto): Map<string, Sinal> {
+  // A tarefa que conta para a bolinha de cada produto: a mais importante para ele (anunciar na
+  // Wallapop não pinta de amarelo um produto que já está a correr na Vinted)
+  const peso: Record<Tarefa['tipo'], number> = { rever: 0, baixar: 1, anunciar: 2, fotografar: 3, anunciar_wallapop: 4, retirar: 5 };
   const porProduto = new Map<string, Tarefa>();
-  for (const t of tarefas(ctx)) for (const p of t.produtos) porProduto.set(p.id, t);
+  for (const t of tarefas(ctx))
+    for (const p of t.produtos) {
+      const atual = porProduto.get(p.id);
+      if (!atual || peso[t.tipo] < peso[atual.tipo]) porProduto.set(p.id, t);
+    }
   // Produtos (set ou nome) que já têm uma unidade anunciada: as outras unidades esperam a vez
   const jaAnunciados = new Set(
     ctx.dados.produtos.filter((p) => p.estado === 'anunciado' && unidadesDisponiveis(p, ctx.dados.vendas) > 0).map(chaveComparacao),
