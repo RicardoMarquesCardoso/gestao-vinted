@@ -46,6 +46,31 @@ export interface Conta {
   periodo_fim: string | null;
   alerta_pct: number;
   titular_id: string | null; // quem recebe o dinheiro das vendas desta conta
+  /** Plataforma da conta (nov/2026). Contas antigas sem o campo: deduz-se do nome (ver plataformaDaConta). */
+  plataforma?: Plataforma;
+  criado_em?: string;
+}
+
+/** Plataformas onde se anuncia (uma conta pertence a uma só). */
+export type Plataforma = 'vinted' | 'wallapop' | 'ebay';
+
+/**
+ * Um anúncio numa plataforma (tabela anuncios, nov/2026): uma linha por produto e plataforma.
+ * O mesmo set pode estar anunciado ao mesmo tempo na Vinted, na Wallapop e no eBay (decisão do
+ * Ricardo, 22/11/2026). Aberto = sem "fim". No máximo um aberto por produto e plataforma.
+ */
+export interface Anuncio {
+  id: string;
+  produto_id: string;
+  conta_id: string | null;
+  plataforma: Plataforma;
+  preco: number | null; // o que recebemos (nunca o que o comprador paga)
+  precos: { quando: string; preco: number | null }[]; // mudanças de preço durante o anúncio
+  inicio: string; // data e hora (ISO)
+  fim: string | null; // vazio = ainda anunciado
+  motivo: 'vendido' | 'retirado' | 'outro' | null;
+  aproximado: boolean;
+  id_externo: string | null; // n.º do anúncio na plataforma (eBay, futuro)
   criado_em?: string;
 }
 
@@ -87,12 +112,16 @@ export interface Produto {
   preco_anuncio: number | null;
   notas: string | null;
   fotos: string[];
-  /** Períodos em que esteve anunciado (guardado automaticamente). */
+  /**
+   * Períodos em que esteve anunciado. Desde a fase 2 (nov/2026) é CALCULADO na app a partir da
+   * tabela anuncios (lib/anuncios.ts, ligarAnuncios) e nunca se grava (a coluna jsonb ficou
+   * congelada como cópia antiga). Mantém-se para quem já o lia (tempo anunciado, análises).
+   */
   anuncios?: PeriodoAnuncio[];
   criado_em?: string;
 }
 
-/** Um período em que o produto esteve anunciado na Vinted. */
+/** Um período em que o produto esteve anunciado (numa plataforma; ver Anuncio). */
 export interface PeriodoAnuncio {
   inicio: string; // data ou data e hora (ISO)
   fim?: string | null; // vazio enquanto continua anunciado
@@ -101,6 +130,7 @@ export interface PeriodoAnuncio {
   preco?: number | null; // preço com que foi anunciado
   precos?: { quando: string; preco: number | null }[]; // mudanças de preço durante o anúncio
   aproximado?: boolean; // reconstruído a partir da data de anúncio (sem hora)
+  plataforma?: Plataforma;
 }
 
 /** Uma venda de uma ou mais unidades de um produto. preco_venda é o total recebido antes de custos. */
@@ -161,6 +191,8 @@ export interface Dados {
   vendas: Venda[];
   acertos: Acerto[];
   definicoes: Definicao[];
+  /** Anúncios por plataforma (tabela anuncios). A fonte da verdade de "onde está anunciado". */
+  anuncios: Anuncio[];
 }
 
 export type Tabela = keyof Dados | 'historico';

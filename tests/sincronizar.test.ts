@@ -46,7 +46,7 @@ test('juntarLista / juntarDados: o que não mudou continua a ser o mesmo objeto'
   assert.deepEqual(b[1], { id: '2', n: 3 });
   assert.notEqual(juntarLista(a, [a[1], a[0]].map((x) => ({ ...x })), 'id'), a); // ordem mudou
 
-  const vazio = (): Dados => ({ pessoas: [], contas: [], compras: [], produtos: [], vendas: [], acertos: [], definicoes: [] });
+  const vazio = (): Dados => ({ pessoas: [], contas: [], compras: [], produtos: [], vendas: [], acertos: [], definicoes: [], anuncios: [] });
   const antigos = { ...vazio(), definicoes: [{ chave: 'planos', valor: { x: 1 } }] } as unknown as Dados;
   const iguais = { ...vazio(), definicoes: [{ chave: 'planos', valor: { x: 1 } }] } as unknown as Dados;
   assert.equal(juntarDados(antigos, iguais), antigos);

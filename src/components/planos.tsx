@@ -15,6 +15,7 @@ import { chaveComparacao, custoUnitario, somarDias } from '../lib/calc';
 import { CHAVE_ADIADAS, CHAVE_PLANOS, CHAVE_POKEMON_IDS, CHAVE_PVPS, chavePlano, pvpDoProduto, mesAno, planosManuais, resumoAnuncio, sinais, sugerirPlano, tarefas, tarefasAdiadas } from '../lib/plano';
 import type { Contexto, Plano, PlanoManual, Sinal, Tarefa } from '../lib/plano';
 import type { Produto } from '../lib/types';
+import { abertosDoProduto, fecharAnuncio, nomePlataforma } from '../lib/anuncios';
 import { useDados } from '../state';
 import { useAbrir } from './acoes';
 import { useCatalogoSets } from './catalogo';
@@ -69,6 +70,10 @@ export function LinhaPlano({ p }: { p: Produto }) {
   const abrir = useAbrir();
   const pl = sugerirPlano(p, ctx);
   const a = resumoAnuncio(p, ctx);
+  // Onde está anunciado (anúncios por plataforma, nov/2026): "RM1 · RM1 (Wallapop)"
+  const onde = abertosDoProduto(ctx.dados.anuncios, p.id)
+    .map((x) => ctx.dados.contas?.find((c) => c.id === x.conta_id)?.nome ?? nomePlataforma(x.plataforma))
+    .join(' · ');
   const mudar = <button className="link" onClick={() => abrir({ tipo: 'plano', ids: [p.id] })}>Mudar plano</button>;
   // "?" no canto: mostra como foi calculado o plano e o preço (no telemóvel não há tooltip)
   const [verPorque, setVerPorque] = useState(false);
@@ -77,7 +82,7 @@ export function LinhaPlano({ p }: { p: Produto }) {
       <div className="linha-plano linha-anuncio">
         <div>
           <strong>Anunciado a {fmtEuro(a.preco)}</strong>
-          {a.conta && <span> na {a.conta}</span>}
+          {(onde || a.conta) && <span> na {onde || a.conta}</span>}
           <span className="mudo"> · há {plural(a.dias, 'dia', 'dias')}</span>
         </div>
         <div>
@@ -193,8 +198,15 @@ export function CartaoTarefas() {
     aviso(`Adiado até ${fmtData(ate)}.`);
   }
   async function baixei(t: Tarefa) {
+    // O preço muda em todos os anúncios abertos do produto (lib/anuncios.ts, planearGravacao)
     await guardar('produtos', t.produtos.map((p) => ({ ...p, preco_anuncio: t.preco })));
     aviso('Preço atualizado.');
+  }
+  // "Retirei": fecha o anúncio nessa plataforma (a app nunca o faz sozinha; regra do Ricardo)
+  async function retirei(t: Tarefa) {
+    if (!t.anuncio) return;
+    await guardar('anuncios', [fecharAnuncio(t.anuncio, new Date().toISOString(), 'retirado')]);
+    aviso('Anúncio retirado.');
   }
 
   return (
@@ -221,8 +233,16 @@ export function CartaoTarefas() {
               <small className="mudo">{t.detalhe}</small>
             </button>
             <div className="tarefa-botoes">
-              {t.tipo === 'anunciar' && (
-                <button className="btn btn-pequeno btn-primario" onClick={() => abrir({ tipo: 'anunciar', ids: t.produtos.map((p) => p.id), preco: t.preco, unidades: 1 })}>
+              {t.tipo === 'retirar' && (
+                <button className="btn btn-pequeno btn-primario" onClick={() => retirei(t)}>
+                  Retirei
+                </button>
+              )}
+              {(t.tipo === 'anunciar' || t.tipo === 'anunciar_wallapop') && (
+                <button
+                  className="btn btn-pequeno btn-primario"
+                  onClick={() => abrir({ tipo: 'anunciar', ids: t.produtos.map((p) => p.id), preco: t.preco, unidades: 1, plataforma: t.tipo === 'anunciar' ? 'vinted' : 'wallapop' })}
+                >
                   Anunciar
                 </button>
               )}

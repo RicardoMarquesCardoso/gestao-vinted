@@ -94,8 +94,13 @@ Tudo passa por `guardar()` e `apagar()` em `src/state.tsx`.
   (`supabase/migrations/20261122_anuncios_por_plataforma.sql`): `contas.plataforma`, tabela
   `anuncios` e o gatilho `espelhar_anuncios` em `produtos` (copia `produtos.anuncios` para a tabela).
   **Enquanto o gatilho existir, a verdade é `produtos.anuncios`**: não escrever na tabela à mão.
-  Fase 2: a app passa a ler/escrever a tabela; fase 3: sai o gatilho e as colunas `conta_id`,
-  `preco_anuncio`, `data_anuncio`. Contas novas criadas na app ficam `vinted` até a fase 2 trazer o
+  **Fase 2** (código pronto a 22/11/2026): a app passa a ler/escrever a tabela e deixa de gravar
+  `produtos.anuncios`. **A troca é num só momento:** publicar a app nova e LOGO A SEGUIR correr
+  `supabase/migrations/20261122_anuncios_fase2_troca.sql` (desliga o gatilho: senão uma gravação de
+  uma app antiga aberta apagava anúncios novos da tabela). Depois, os dois telemóveis recarregam
+  (faixa "Há uma versão nova"). Reverter: publicar a versão anterior e correr
+  `…_fase2_reverter.sql` (reconstrói `produtos.anuncios` a partir da tabela e repõe o gatilho).
+  Fase 3: sair as colunas `conta_id`, `preco_anuncio`, `data_anuncio`, `anuncios` do produto. Contas novas criadas na app ficam `vinted` até a fase 2 trazer o
   seletor de plataforma (corrigir à mão se se criar uma conta Wallapop/eBay antes disso).
   Decisões: documento do Projeto `claude/anuncios-multiplataforma-2026-11.md`.
 - **Evitar migrações:** dados novos vão para `definicoes` (chave → jsonb). A lista de chaves está no `CLAUDE.md`.

@@ -103,13 +103,15 @@ export const emInventario = (p: Produto) => p.estado === 'por_anunciar' || p.est
  * vende muitos artigos iguais, por isso a janela Anunciar avisa a partir de 2 (pedido do Ricardo).
  * Os anúncios retirados sem venda não contam.
  */
-export function vezesNaConta(d: Pick<Dados, 'produtos' | 'vendas'>, p: Pick<Produto, 'set_numero' | 'nome'>, contaId: string): number {
+export function vezesNaConta(d: Pick<Dados, 'produtos' | 'vendas'> & Partial<Pick<Dados, 'anuncios'>>, p: Pick<Produto, 'set_numero' | 'nome'>, contaId: string): number {
   if (!contaId) return 0;
   const chave = chaveComparacao(p);
   let n = 0;
   for (const x of d.produtos) {
     if (chaveComparacao(x) !== chave) continue;
-    if (x.estado === 'anunciado' && x.conta_id === contaId) n += 1;
+    // Anunciado agora nesta conta (com anúncios por plataforma, pela tabela; senão pelo resumo)
+    const aqui = d.anuncios ? d.anuncios.some((a) => !a.fim && a.produto_id === x.id && a.conta_id === contaId) : x.estado === 'anunciado' && x.conta_id === contaId;
+    if (aqui) n += 1;
     for (const v of vendasDoProduto(x.id, d.vendas)) if (vendaValida(v) && v.conta_id === contaId) n += v.quantidade || 1;
   }
   return n;
@@ -328,9 +330,12 @@ export function vendasExternas(d: Pick<Dados, 'definicoes'>): VendaExterna[] {
  * Conta as vendas da app nessa conta + as vendas fora da app (vendas_externas),
  * e ignora as que a Vinted não conta (vendas_fora_limites).
  */
-export function usoConta(c: Conta, d: Pick<Dados, 'produtos' | 'vendas'> & Partial<Pick<Dados, 'definicoes'>>, hoje: string): UsoConta {
+export function usoConta(c: Conta, d: Pick<Dados, 'produtos' | 'vendas'> & Partial<Pick<Dados, 'definicoes' | 'anuncios'>>, hoje: string): UsoConta {
   const periodo = periodoConta(c, hoje);
-  const anunciosAtivos = d.produtos.filter((p) => p.conta_id === c.id && p.estado === 'anunciado').length;
+  // Anúncios abertos nesta conta (tabela anuncios, nov/2026); sem a tabela, pelo resumo do produto
+  const anunciosAtivos = d.anuncios
+    ? d.anuncios.filter((a) => !a.fim && a.conta_id === c.id).length
+    : d.produtos.filter((p) => p.conta_id === c.id && p.estado === 'anunciado').length;
   const fora = vendasForaLimites({ definicoes: d.definicoes ?? [] });
   const vendas = d.vendas.filter((v) => v.conta_id === c.id && vendaValida(v) && dentro(v.data_venda, periodo) && !fora.has(v.id));
   const externas = vendasExternas({ definicoes: d.definicoes ?? [] }).filter((x) => x.conta_id === c.id && dentro(x.data, periodo));

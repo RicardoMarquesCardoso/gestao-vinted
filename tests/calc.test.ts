@@ -111,7 +111,7 @@ test('uso de limites e avisos', () => {
 
 test('estatísticas básicas', () => {
   const d: Dados = {
-    pessoas: [], contas: [conta({})], definicoes: [], acertos: [],
+    pessoas: [], contas: [conta({})], definicoes: [], acertos: [], anuncios: [],
     compras: [{ id: 'k1', data: '2026-01-01', pessoa_id: null, tipo_pagamento: 'pessoa', metodo_pagamento: null, vendedor: null, valor_artigos: 20, portes: 2, outros_custos: 0, distribuicao: 'igual', notas: null }],
     produtos: [
       produto({ id: 'p1', compra_id: 'k1', preco_compra: 10, custos_adicionais: 1, set_numero: '75192' }),
@@ -135,7 +135,7 @@ test('o total de uma compra é a soma dos seus produtos (o preço do produto é 
   const compra = { id: 'k1', data: '2026-11-04', pessoa_id: null, tipo_pagamento: 'pessoa' as const, metodo_pagamento: null, vendedor: null, valor_artigos: 45, portes: 0, outros_custos: 0, distribuicao: 'igual' as const, notas: null };
   const vazia = { ...compra, id: 'k2', valor_artigos: 22.5 };
   const d: Dados = {
-    pessoas: [], contas: [], definicoes: [], acertos: [], vendas: [],
+    pessoas: [], contas: [], definicoes: [], acertos: [], vendas: [], anuncios: [],
     compras: [compra, vazia],
     // Registada a 45 €, o produto foi corrigido para 12 € (+1 € de portes)
     produtos: [produto({ id: 'p1', compra_id: 'k1', preco_compra: 12, custos_adicionais: 1 })],
@@ -232,21 +232,119 @@ test('texto do anúncio: descrição própria de uma conta', () => {
   assert.match(textoAnuncio({ ...p, condicao: 'Usado' }, m, 'rm1').descricao, /^Used/); // usado vazio: o geral
 });
 
-import { atualizarPeriodos, diasAnunciado, fecharPeriodoVendido } from '../src/lib/anuncios.ts';
+import { anunciosDosPeriodos, diasAnunciado, ligarAnuncios, planearGravacao, plataformaDaConta, retirarDe } from '../src/lib/anuncios.ts';
+import type { Anuncio } from '../src/lib/types.ts';
+import { depoisDaVenda } from '../src/lib/vendasAnuncios.ts';
 
-test('períodos de anúncio', () => {
-  const p = produto({ estado: 'por_anunciar' });
-  const a1 = atualizarPeriodos(p, { ...p, estado: 'anunciado', preco_anuncio: 50 }, '2026-10-01T10:00:00Z')!;
-  assert.equal(a1.length, 1);
-  assert.equal(a1[0].preco, 50);
-  const p2 = { ...p, estado: 'anunciado' as const, preco_anuncio: 50, anuncios: a1 };
-  const a2 = atualizarPeriodos(p2, { ...p2, preco_anuncio: 45 }, '2026-10-05T10:00:00Z')!;
-  assert.deepEqual(a2[0].precos, [{ quando: '2026-10-05T10:00:00Z', preco: 45 }]);
-  const p3 = { ...p2, anuncios: a2 };
-  const a3 = atualizarPeriodos(p3, { ...p3, estado: 'vendido' }, '2026-10-11T09:00:00Z')!;
-  assert.equal(a3[0].motivo, 'vendido');
-  assert.equal(diasAnunciado({ anuncios: a3 }, '2026-12-01'), 10);
-  assert.equal(atualizarPeriodos(p3, { id: 'p1', nome: 'x' }, 'agora'), undefined);
+// Contas fictícias: uma da Vinted e uma da Wallapop (a plataforma deduz-se do nome nas antigas)
+const contasT = [
+  { id: 'v1', nome: 'RM1', plataforma: 'vinted' },
+  { id: 'v2', nome: 'Cass1' },
+  { id: 'w1', nome: 'RM1 (Wallapop)' },
+] as unknown as Conta[];
+
+test('anúncios: plataforma da conta (guardada ou pelo nome)', () => {
+  assert.equal(plataformaDaConta({ nome: 'RM1 (Wallapop)' }), 'wallapop');
+  assert.equal(plataformaDaConta({ nome: 'RM1 (eBay)' }), 'ebay');
+  assert.equal(plataformaDaConta({ nome: 'Cass1' }), 'vinted');
+  assert.equal(plataformaDaConta({ nome: 'X', plataforma: 'ebay' }), 'ebay');
+  assert.equal(plataformaDaConta(null), 'vinted');
+});
+
+test('anúncios: anunciar na Vinted e depois na Wallapop não apaga o da Vinted; o preço muda nos dois', () => {
+  const p = produto({ id: 'p', estado: 'por_anunciar' });
+  // Anunciar na Vinted
+  const g1 = planearGravacao([{ ...p, estado: 'anunciado', conta_id: 'v1', preco_anuncio: 50 }], [p], [], contasT, '2026-11-01T10:00:00Z');
+  assert.equal(g1.anuncios.length, 1);
+  assert.deepEqual([g1.anuncios[0].plataforma, g1.anuncios[0].conta_id, g1.anuncios[0].preco], ['vinted', 'v1', 50]);
+  assert.equal(g1.linhas[0].estado, 'anunciado');
+  assert.equal('anuncios' in g1.linhas[0], false, 'a coluna antiga não se grava');
+  let an: Anuncio[] = g1.anuncios;
+  const p1 = { ...p, ...g1.linhas[0] } as Produto;
+  // Anunciar na Wallapop: abre outro, a Vinted continua; o resumo fica com a Vinted (principal)
+  const g2 = planearGravacao([{ ...p1, estado: 'anunciado', conta_id: 'w1', preco_anuncio: 50 }], [p1], an, contasT, '2026-11-02T10:00:00Z');
+  assert.equal(g2.anuncios.length, 1);
+  assert.equal(g2.anuncios[0].plataforma, 'wallapop');
+  an = [...an, ...g2.anuncios];
+  assert.equal(an.filter((a) => !a.fim).length, 2);
+  assert.equal(g2.linhas[0].conta_id, 'v1', 'a conta principal é a da Vinted');
+  const p2 = { ...p1, ...g2.linhas[0] } as Produto;
+  // Baixar o preço: muda nos dois anúncios abertos
+  const g3 = planearGravacao([{ ...p2, preco_anuncio: 45 }], [p2], an, contasT, '2026-11-05T10:00:00Z');
+  assert.equal(g3.anuncios.length, 2);
+  assert.ok(g3.anuncios.every((a) => a.preco === 45 && a.precos.at(-1)?.preco === 45));
+  // Mudar de conta dentro da Vinted: fecha um e abre outro (a Wallapop não mexe)
+  const g4 = planearGravacao([{ ...p2, conta_id: 'v2' }], [p2], an, contasT, '2026-11-06T10:00:00Z');
+  assert.deepEqual(g4.anuncios.map((a) => [a.plataforma, a.conta_id, a.fim ? 'fechado' : 'aberto']).sort(), [['vinted', 'v1', 'fechado'], ['vinted', 'v2', 'aberto']]);
+  // Passar a "por anunciar" (retirar tudo): fecham-se os dois como "retirado"
+  const g5 = planearGravacao([{ ...p2, estado: 'por_anunciar' }], [p2], an, contasT, '2026-11-07T10:00:00Z');
+  assert.ok(g5.anuncios.length === 2 && g5.anuncios.every((a) => a.fim && a.motivo === 'retirado'));
+  // Gravação parcial sem estado: não mexe nos anúncios
+  assert.equal(planearGravacao([{ id: 'p', nome: 'x' }], [p2], an, contasT, 'agora').anuncios.length, 0);
+});
+
+test('anúncios: retirar só da Wallapop mantém o produto anunciado na Vinted', () => {
+  const p = produto({ id: 'p', estado: 'anunciado', conta_id: 'v1', preco_anuncio: 40 });
+  const an = [
+    { id: 'a', produto_id: 'p', conta_id: 'v1', plataforma: 'vinted', preco: 40, precos: [], inicio: '2026-11-01T10:00:00Z', fim: null, motivo: null, aproximado: false, id_externo: null },
+    { id: 'b', produto_id: 'p', conta_id: 'w1', plataforma: 'wallapop', preco: 40, precos: [], inicio: '2026-11-02T10:00:00Z', fim: null, motivo: null, aproximado: false, id_externo: null },
+  ] as Anuncio[];
+  const r = retirarDe(p, ['wallapop'], an, '2026-11-03T10:00:00Z');
+  assert.deepEqual(r.anuncios.map((a) => [a.id, a.motivo]), [['b', 'retirado']]);
+  assert.equal(r.resumo.estado, 'anunciado');
+  assert.equal(r.resumo.conta_id, 'v1');
+  // O resumo calculado ao carregar diz o mesmo; e o tempo anunciado não conta dias a dobrar
+  const d = ligarAnuncios({ produtos: [p], anuncios: an, contas: contasT } as unknown as Dados);
+  assert.equal(d.produtos[0].anuncios!.length, 2);
+  assert.equal(diasAnunciado(d.produtos[0], '2026-11-11'), 10);
+});
+
+test('anúncios: vender na Vinted com outra unidade do set em stock passa o da Wallapop para ela', () => {
+  const p = produto({ id: 'p', set_numero: '10311', estado: 'anunciado', conta_id: 'v1', preco_anuncio: 40, condicao: 'Novo e selado' });
+  const q = produto({ id: 'q', set_numero: '10311', estado: 'por_anunciar', condicao: 'Novo e selado' });
+  const an = [
+    { id: 'a', produto_id: 'p', conta_id: 'v1', plataforma: 'vinted', preco: 40, precos: [], inicio: '2026-11-01T10:00:00Z', fim: null, motivo: null, aproximado: false, id_externo: null },
+    { id: 'b', produto_id: 'p', conta_id: 'w1', plataforma: 'wallapop', preco: 40, precos: [], inicio: '2026-11-02T10:00:00Z', fim: null, motivo: null, aproximado: false, id_externo: null },
+  ] as Anuncio[];
+  const v = venda({ id: 'v', produto_id: 'p', conta_id: 'v1', preco_venda: 40 });
+  const r = depoisDaVenda({ produtos: [p, q], anuncios: an, contas: contasT }, p, 'v1', [v], '2026-11-05T10:00:00Z');
+  assert.deepEqual(r.anuncios.find((a) => a.id === 'a')!.motivo, 'vendido');
+  assert.equal(r.anuncios.find((a) => a.id === 'b')!.produto_id, 'q', 'a Wallapop passa para a unidade em stock');
+  assert.equal(r.produtos.find((x) => x.id === 'p')!.estado, 'vendido');
+  assert.equal(r.produtos.find((x) => x.id === 'q')!.estado, 'anunciado');
+  assert.deepEqual(r.retirarDe, [], 'nada a retirar: o set ainda tem stock');
+});
+
+test('anúncios: vender a última unidade do set deixa o da Wallapop aberto para retirar (só aviso)', () => {
+  const p = produto({ id: 'p', set_numero: '10311', estado: 'anunciado', conta_id: 'v1', preco_anuncio: 40 });
+  const an = [
+    { id: 'a', produto_id: 'p', conta_id: 'v1', plataforma: 'vinted', preco: 40, precos: [], inicio: '2026-11-01T10:00:00Z', fim: null, motivo: null, aproximado: false, id_externo: null },
+    { id: 'b', produto_id: 'p', conta_id: 'w1', plataforma: 'wallapop', preco: 40, precos: [], inicio: '2026-11-02T10:00:00Z', fim: null, motivo: null, aproximado: false, id_externo: null },
+  ] as Anuncio[];
+  const v = venda({ id: 'v', produto_id: 'p', conta_id: 'v1', preco_venda: 40 });
+  const r = depoisDaVenda({ produtos: [p], anuncios: an, contas: contasT }, p, 'v1', [v], '2026-11-05T10:00:00Z');
+  assert.deepEqual(r.anuncios.map((a) => a.id), ['a'], 'só fecha o da Vinted');
+  assert.deepEqual(r.retirarDe, ['wallapop']);
+  assert.equal(r.produtos[0].estado, 'vendido');
+});
+
+test('anúncios: produto com 2 unidades, vende 1 na Wallapop: continua anunciado na Vinted', () => {
+  const p = produto({ id: 'p', quantidade: 2, estado: 'anunciado', conta_id: 'v1', preco_anuncio: 40 });
+  const an = [
+    { id: 'a', produto_id: 'p', conta_id: 'v1', plataforma: 'vinted', preco: 40, precos: [], inicio: '2026-11-01T10:00:00Z', fim: null, motivo: null, aproximado: false, id_externo: null },
+    { id: 'b', produto_id: 'p', conta_id: 'w1', plataforma: 'wallapop', preco: 40, precos: [], inicio: '2026-11-02T10:00:00Z', fim: null, motivo: null, aproximado: false, id_externo: null },
+  ] as Anuncio[];
+  const v = venda({ id: 'v', produto_id: 'p', conta_id: 'w1', preco_venda: 40 });
+  const r = depoisDaVenda({ produtos: [p], anuncios: an, contas: contasT }, p, 'w1', [v], '2026-11-05T10:00:00Z');
+  assert.deepEqual(r.anuncios.map((a) => [a.id, a.motivo]), [['b', 'vendido']]);
+  assert.equal(r.produtos[0].estado, 'anunciado');
+  assert.equal(r.produtos[0].conta_id, 'v1');
+});
+
+test('anúncios: os períodos antigos (JSON) convertem-se em anúncios por plataforma', () => {
+  const p = produto({ id: 'p', anuncios: [{ inicio: '2026-10-01T10:00:00Z', fim: null, conta_id: 'w1', preco: 30, precos: [] }] });
+  const a = anunciosDosPeriodos([p], contasT);
+  assert.deepEqual([a[0].plataforma, a[0].conta_id, a[0].preco, a[0].fim], ['wallapop', 'w1', 30, null]);
 });
 
 import { investimento, infoMercado } from '../src/lib/investimento.ts';
@@ -335,9 +433,30 @@ test('tarefas: só se anuncia 1 unidade de cada produto de cada vez', () => {
   const ctx = (ps: Produto[]) => ({ dados: { produtos: ps, vendas: [], definicoes: [] }, mercado: merc, hoje: '2026-10-27' });
   const t = tarefas(ctx([a, b]));
   assert.equal(t.length, 1);
-  assert.match(t[0].titulo, /^Anunciar Set a/); // sem "2×"
+  assert.match(t[0].titulo, /^Anunciar Set na Vinted a/); // sem "2×"
   const c = { ...b, id: 'c', estado: 'anunciado' as const, preco_anuncio: 108, data_anuncio: '2026-10-20' };
   assert.equal(tarefas(ctx([a, c])).filter((x) => x.tipo === 'anunciar').length, 0);
+});
+
+test('tarefas: anunciar na Wallapop o que está na Vinted; retirar o que ficou aberto sem stock', () => {
+  const merc = { brickset: {}, bricklink: { '1': { n: [100, 10] as [number, number] }, '2': { n: [100, 10] as [number, number] } } };
+  const contas = [
+    { id: 'v1', nome: 'RM1', ativa: true },
+    { id: 'w1', nome: 'RM1 (Wallapop)', ativa: true },
+  ] as never;
+  const a = produto({ id: 'a', set_numero: '1', preco_compra: 50, estado: 'anunciado', conta_id: 'v1', preco_anuncio: 90, data_anuncio: '2026-10-25', condicao: 'Novo e selado', fotos: ['a/1.jpg'] });
+  const vendido = produto({ id: 'b', set_numero: '2', preco_compra: 50, estado: 'vendido', condicao: 'Novo e selado' });
+  const an = [
+    { id: 'x', produto_id: 'a', conta_id: 'v1', plataforma: 'vinted', preco: 90, precos: [], inicio: '2026-10-25T10:00:00Z', fim: null, motivo: null, aproximado: false, id_externo: null },
+    { id: 'y', produto_id: 'b', conta_id: 'w1', plataforma: 'wallapop', preco: 80, precos: [], inicio: '2026-10-25T10:00:00Z', fim: null, motivo: null, aproximado: false, id_externo: null },
+  ] as never;
+  const t = tarefas({ dados: { produtos: [a, vendido], vendas: [venda({ produto_id: 'b' })], definicoes: [], contas, anuncios: an }, mercado: merc, hoje: '2026-10-27' });
+  assert.deepEqual(t.map((x) => [x.tipo, x.produtos[0].id]), [['retirar', 'b'], ['anunciar_wallapop', 'a']]);
+  assert.match(t[0].titulo, /Retirar .* da Wallapop/);
+  assert.match(t[1].titulo, /na Wallapop a 90,00/);
+  // Sem conta Wallapop ativa, não há "Anunciar na Wallapop"
+  const semW = tarefas({ dados: { produtos: [a], vendas: [], definicoes: [], contas: [{ id: 'v1', nome: 'RM1', ativa: true }] as never, anuncios: an }, mercado: merc, hoje: '2026-10-27' });
+  assert.equal(semW.some((x) => x.tipo === 'anunciar_wallapop'), false);
 });
 
 test('tarefas: primeiro fotografar, depois anunciar; por ordem de prioridade', () => {
@@ -352,10 +471,10 @@ test('tarefas: primeiro fotografar, depois anunciar; por ordem de prioridade', (
   const v3 = produto({ id: 'v3', set_numero: '3', preco_compra: 40, condicao: 'Novo e selado', estado: 'vendido', fotos: ['v3/a.jpg'] });
   const p4 = produto({ id: 'p4', set_numero: '4', preco_compra: 70, ...novo, fotos: ['p4/a.min.jpg'] });
   const t = tarefas(ctx([p2, p4, p1, p3, v3]));
-  // Anunciar primeiro, depois fotografar (mais dinheiro parado primeiro em cada tipo)
-  assert.deepEqual(t.map((x) => [x.tipo, x.produtos[0].id]), [['anunciar', 'p1'], ['anunciar', 'p3'], ['fotografar', 'p4'], ['fotografar', 'p2']]);
-  assert.match(t[2].titulo, /^Fotografar Set$/);
-  assert.match(t[2].detalhe, /^Depois anunciar a /);
+  // Fotografar primeiro, depois anunciar (pedido do Ricardo, 22/11/2026; mais dinheiro parado primeiro em cada tipo)
+  assert.deepEqual(t.map((x) => [x.tipo, x.produtos[0].id]), [['fotografar', 'p4'], ['fotografar', 'p2'], ['anunciar', 'p1'], ['anunciar', 'p3']]);
+  assert.match(t[0].titulo, /^Fotografar Set$/);
+  assert.match(t[0].detalhe, /^Depois anunciar a /);
   // As fotos são do set: as do igual vendido servem enquanto houver stock
   assert.equal(produtoComFotos(p3, [p3, v3])?.id, 'v3');
   assert.equal(produtoComFotos(p2, [p2]), null);
@@ -371,7 +490,7 @@ test('tarefas: primeiro fotografar, depois anunciar; por ordem de prioridade', (
   const u3 = { ...v3, id: 'u3', condicao: 'Usado' };
   assert.equal(tarefas(ctx([p3, u3])).find((x) => x.produtos[0].id === 'p3')?.tipo, 'fotografar');
   // Um "Anunciar" adiado antes desta mudança continua adiado como "Fotografar"
-  const idAntigo = t[3].id.replace(/^fotografar:/, 'anunciar:');
+  const idAntigo = t.find((x) => x.tipo === 'fotografar' && x.produtos[0].id === 'p2')!.id.replace(/^fotografar:/, 'anunciar:');
   assert.equal(tarefas(ctx([p2], [{ chave: 'tarefas_adiadas', valor: { [idAntigo]: '2026-11-10' } } as never])).length, 0);
 });
 
@@ -521,15 +640,6 @@ test('eBay: cada venda compara-se com o eBay da mesma altura', () => {
   assert.equal(ebayNaData({ ...m, ebay_hist: { '20000': [['2026-06-01', 90, 10]] } }, '20000', '2026-09-10'), null);
 });
 
-test('vender a unidade anunciada: o período fecha como "vendido", não "retirado"', () => {
-  const antes = { id: 'p', estado: 'anunciado' as const, anuncios: [{ inicio: '2026-10-01T10:00:00Z', fim: null, conta_id: 'c', preco: 30 }] };
-  const anuncios = fecharPeriodoVendido(antes.anuncios, '2026-10-31T10:00:00Z')!;
-  assert.equal(anuncios[0].motivo, 'vendido');
-  assert.equal(anuncios[0].fim, '2026-10-31T10:00:00Z');
-  // Ao guardar o produto em "por anunciar" com o período já fechado, não muda para "retirado"
-  assert.equal(atualizarPeriodos(antes, { ...antes, estado: 'por_anunciar', anuncios }, '2026-10-31T10:00:01Z'), undefined);
-});
-
 test('resumo do anúncio: lucro, mínimo a aceitar e quando baixar', () => {
   const merc = { brickset: { '2': ['2018-01-01', '2020-12-31', 50, null, 'Retired'] as never }, bricklink: { '2': { n: [55, 10] as [number, number] } } };
   const ctx = (ps: Produto[], hojeT: string) => ({ dados: { produtos: ps, vendas: [], definicoes: [], contas: [{ id: 'c1', nome: 'RM1' }] as never }, mercado: merc, hoje: hojeT });
@@ -552,7 +662,7 @@ test('vendas por semana: de segunda a domingo, com as semanas sem vendas, lucro 
   assert.equal(inicioSemana('2026-11-02'), '2026-11-02');
   assert.equal(inicioSemana('2026-11-08'), '2026-11-02'); // domingo → mesma semana
   const d: Dados = {
-    pessoas: [], contas: [], compras: [], acertos: [], definicoes: [],
+    pessoas: [], contas: [], compras: [], acertos: [], definicoes: [], anuncios: [],
     produtos: [produto({ id: 'p1', quantidade: 3, data_compra: '2026-10-12', preco_compra: 15, custos_adicionais: 0 })],
     vendas: [
       venda({ id: 'v1', produto_id: 'p1', data_venda: '2026-10-13', preco_venda: 20 }),
@@ -569,7 +679,7 @@ test('vendas por semana: de segunda a domingo, com as semanas sem vendas, lucro 
 
 test('vendas no tempo: por mês com os meses vazios; por semana desde o início do período', () => {
   const d: Dados = {
-    pessoas: [], contas: [], compras: [], acertos: [], definicoes: [],
+    pessoas: [], contas: [], compras: [], acertos: [], definicoes: [], anuncios: [],
     produtos: [produto({ id: 'p1', quantidade: 3, data_compra: '2026-07-20', preco_compra: 15, custos_adicionais: 0 })],
     vendas: [
       venda({ id: 'v1', produto_id: 'p1', data_venda: '2026-07-25', preco_venda: 20 }),
@@ -614,7 +724,7 @@ test('pesquisa das Análises: categoria/subcategoria e texto sem acentos', async
   assert.equal(correspondeFiltro(sc, { texto: 'ferrari', categoria: { marca: 'LEGO', tema: 'City' } }), false);
   // Vendas e gastos filtrados pela categoria
   const d: Dados = {
-    pessoas: [], contas: [], compras: [], acertos: [], definicoes: [],
+    pessoas: [], contas: [], compras: [], acertos: [], definicoes: [], anuncios: [],
     produtos: [{ ...sc, data_compra: '2026-10-01', preco_compra: 20, custos_adicionais: 0 }, { ...pk, data_compra: '2026-10-01', preco_compra: 35, custos_adicionais: 0 }],
     vendas: [venda({ produto_id: 'a', preco_venda: 30, data_venda: '2026-10-10' })],
   };

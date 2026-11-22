@@ -1,4 +1,4 @@
-// Janela "Anunciar" (ou "Retirar anúncio"): escolhe a conta da Vinted, quantas unidades e o preço,
+// Janela "Anunciar" (ou "Retirar anúncio"): escolhe a conta (Vinted, Wallapop…), quantas unidades e o preço,
 // e mostra o título e a descrição prontos a copiar para a Vinted (ver lib/anuncio.ts) e as
 // fotografias do produto para partilhar ou descarregar (components/fotos.tsx).
 // Ao marcar como anunciado, o registo do tempo anunciado começa sozinho (lib/anuncios.ts).
@@ -11,18 +11,26 @@
 // (pedido do Ricardo, nov/2026), como se se carregasse em "Marcar como anunciado".
 // O preço vem preenchido com o sugerido pelo plano (o mesmo do "Anunciar a X €"), venha a janela
 // das tarefas ou do detalhe do produto.
+//
+// ANÚNCIOS POR PLATAFORMA (fase 2, nov/2026; lib/anuncios.ts): anunciar numa conta abre o anúncio
+// dessa plataforma SEM fechar os das outras (o mesmo set pode estar na Vinted e na Wallapop). As
+// unidades a anunciar são as que ainda não estão anunciadas nessa plataforma (de preferência a que já
+// está anunciada noutra, para os anúncios do set ficarem juntos). Na Vinted só pode haver UM anúncio
+// aberto por set (as fotos são do set; regra do Ricardo): se já houver, a janela não deixa anunciar.
+// Retirar: escolhe-se de que plataforma(s) (por omissão, de todas).
 
 import { useEffect, useRef, useState } from 'react';
 import { fmtEuro, hoje, lerNumero } from '../lib/format';
-import { vezesNaConta } from '../lib/calc';
-import type { Produto } from '../lib/types';
+import { emInventario, vezesNaConta } from '../lib/calc';
+import type { Anuncio, Plataforma, Produto } from '../lib/types';
+import { PLATAFORMAS, abertosDoProduto, nomePlataforma, plataformaDe, retirarDe } from '../lib/anuncios';
 import { useDados } from '../state';
 import { modeloAnuncio, textoAnuncio } from '../lib/anuncio';
 import { Campo, Dinheiro, Janela, SelecionarConta } from './ui';
 import { PartilharFotos, eIos, ficheirosDoProduto } from './fotos';
 import { infoMercado, useMercado } from '../lib/investimento';
-import { URL_PUBLICAR_WALLAPOP, dadosWallapop, eContaWallapop } from '../lib/wallapop';
-import { produtoComFotos, sugerirPlano, temFotosUsaveis } from '../lib/plano';
+import { URL_PUBLICAR_WALLAPOP, dadosWallapop } from '../lib/wallapop';
+import { chavePlano, produtoComFotos, sugerirPlano, temFotosUsaveis } from '../lib/plano';
 import { useContextoPlano } from './planos';
 
 const CHAVE_CONTA = 'gv.ultimaConta';
@@ -31,32 +39,62 @@ const CHAVE_CONTA = 'gv.ultimaConta';
  * Marca rapidamente unidades como anunciadas (ou retira o anúncio).
  * Para um grupo de produtos iguais, escolhe-se quantas unidades.
  */
-export function FormAnunciar({ ids, retirar, precoSugerido, unidades, aoFechar }: { ids: string[]; retirar?: boolean; precoSugerido?: number | null; unidades?: number; aoFechar(): void }) {
+export function FormAnunciar({ ids, retirar, precoSugerido, unidades, plataforma, aoFechar }: { ids: string[]; retirar?: boolean; precoSugerido?: number | null; unidades?: number; plataforma?: Plataforma; aoFechar(): void }) {
   const { dados, guardar, aviso } = useDados();
-  // Candidatos: os que estão no estado certo; ao anunciar, primeiro os que têm fotografias nossas
-  // (é essa unidade que se fotografou e se anuncia); depois os mais antigos
-  const candidatos = ids
-    .map((id) => dados.produtos.find((p) => p.id === id))
-    .filter((p): p is Produto => !!p && p.estado === (retirar ? 'anunciado' : 'por_anunciar'))
-    .sort((a, b) => (retirar ? 0 : Number(temFotosUsaveis(b)) - Number(temFotosUsaveis(a))) || (a.data_compra ?? '').localeCompare(b.data_compra ?? ''));
-  const nome = candidatos[0]?.nome ?? 'Produto';
+  const contasAtivas = dados.contas.filter((c) => c.ativa);
+  const [conta, setConta] = useState(() => {
+    // Vindo de uma tarefa "Anunciar na Wallapop": a 1.ª conta dessa plataforma
+    if (plataforma) {
+      const c = contasAtivas.find((x) => plataformaDe(dados.contas, x.id) === plataforma);
+      if (c) return c.id;
+    }
+    try {
+      const c = localStorage.getItem(CHAVE_CONTA);
+      if (c && contasAtivas.some((x) => x.id === c) && (!plataforma || plataformaDe(dados.contas, c) === plataforma)) return c;
+    } catch {
+      /* ignorar */
+    }
+    return contasAtivas.find((c) => plataformaDe(dados.contas, c.id) === 'vinted')?.id ?? contasAtivas[0]?.id ?? '';
+  });
+  const naPlataforma = plataformaDe(dados.contas, conta);
+  const produtosDosIds = ids.map((id) => dados.produtos.find((p) => p.id === id)).filter((p): p is Produto => !!p);
+  // Candidatos. Anunciar: em stock e ainda sem anúncio nesta plataforma; primeiro os que já estão
+  // anunciados noutra plataforma (os anúncios do set ficam na mesma unidade), depois os que têm
+  // fotografias nossas, depois os mais antigos. Retirar: os que têm anúncios abertos.
+  const candidatos = produtosDosIds
+    .filter((p) =>
+      retirar
+        ? abertosDoProduto(dados.anuncios, p.id).length > 0
+        : emInventario(p) && !abertosDoProduto(dados.anuncios, p.id).some((a) => a.plataforma === naPlataforma),
+    )
+    .sort(
+      (a, b) =>
+        (retirar ? 0 : abertosDoProduto(dados.anuncios, b.id).length - abertosDoProduto(dados.anuncios, a.id).length) ||
+        (retirar ? 0 : Number(temFotosUsaveis(b)) - Number(temFotosUsaveis(a))) ||
+        (a.data_compra ?? '').localeCompare(b.data_compra ?? ''),
+    );
+  const nome = candidatos[0]?.nome ?? produtosDosIds[0]?.nome ?? 'Produto';
   // Sem preço vindo de fora (ex.: aberto no detalhe do produto), usa o sugerido pelo plano
   const ctx = useContextoPlano();
   const sugerido = precoSugerido ?? (!retirar && candidatos[0] ? sugerirPlano(candidatos[0], ctx).precoSugerido : null);
   // Fotografias para o anúncio: as deste produto ou, se não tiver, as de um igual (mesmo set e condição)
   const fotosDe = candidatos[0] ? produtoComFotos(candidatos[0], dados.produtos) : null;
+  // Regra da Vinted (fotos do set): só um anúncio aberto na Vinted por set
+  const setNaVinted =
+    !retirar && naPlataforma === 'vinted' && candidatos[0]
+      ? dados.anuncios.find(
+          (a) => !a.fim && a.plataforma === 'vinted' && (() => {
+            const q = dados.produtos.find((x) => x.id === a.produto_id);
+            return !!q && chavePlano(q) === chavePlano(candidatos[0]);
+          })(),
+        ) ?? null
+      : null;
+  // Retirar: de que plataformas (por omissão, de todas onde há anúncios abertos)
+  const plataformasAbertas = PLATAFORMAS.map((x) => x.valor).filter((pl) => candidatos.some((p) => abertosDoProduto(dados.anuncios, p.id).some((a) => a.plataforma === pl)));
+  const [retirarDas, setRetirarDas] = useState<Plataforma[]>(() => (plataforma ? [plataforma] : plataformasAbertas));
 
-  const [conta, setConta] = useState(() => {
-    try {
-      const c = localStorage.getItem(CHAVE_CONTA);
-      if (c && dados.contas.some((x) => x.id === c && x.ativa)) return c;
-    } catch {
-      /* ignorar */
-    }
-    return dados.contas.find((c) => c.ativa)?.id ?? '';
-  });
   // Quantas unidades marcar (vindo das tarefas é 1: anuncia-se uma de cada vez)
-  const [qtd, setQtd] = useState(String(Math.min(unidades ?? candidatos.length, candidatos.length)));
+  const [qtd, setQtd] = useState(String(Math.min(unidades ?? candidatos.length, Math.max(candidatos.length, 1))));
   const [preco, setPreco] = useState(sugerido ? String(sugerido).replace('.', ',') : '');
   const [aGuardar, setAGuardar] = useState(false);
   // Quantos iguais já passaram por esta conta (vendidos + anunciados agora)
@@ -64,22 +102,43 @@ export function FormAnunciar({ ids, retirar, precoSugerido, unidades, aoFechar }
 
   async function submeter(origem?: 'wallapop') {
     const n = Math.min(Math.max(Math.round(lerNumero(qtd)) || 1, 1), candidatos.length);
-    if (!retirar && !conta) return aviso('Escolhe a conta da Vinted.', 'erro');
+    if (!retirar && !conta) return aviso('Escolhe a conta.', 'erro');
+    if (!retirar && setNaVinted) return aviso('Este set já está anunciado na Vinted.', 'erro');
+    if (retirar && !retirarDas.length) return aviso('Escolhe de onde retirar.', 'erro');
     const escolhidos = candidatos.slice(0, n);
-    const alterados = escolhidos.map((p) =>
-      retirar
-        ? { ...p, estado: 'por_anunciar' as const, data_anuncio: null }
-        : { ...p, estado: 'anunciado' as const, conta_id: conta, data_anuncio: hoje(), preco_anuncio: preco ? lerNumero(preco) : p.preco_anuncio },
-    );
     setAGuardar(true);
     try {
-      await guardar('produtos', alterados);
-      try {
-        if (!retirar) localStorage.setItem(CHAVE_CONTA, conta);
-      } catch {
-        /* ignorar */
+      if (retirar) {
+        // Fecha os anúncios das plataformas escolhidas; o produto fica com o resumo do que sobra
+        const agora = new Date().toISOString();
+        const fechados: Anuncio[] = [];
+        const produtos: Produto[] = [];
+        for (const p of escolhidos) {
+          const r = retirarDe(p, retirarDas, dados.anuncios, agora);
+          fechados.push(...r.anuncios);
+          produtos.push({ ...p, ...r.resumo });
+        }
+        if (fechados.length) await guardar('anuncios', fechados);
+        await guardar('produtos', produtos);
+      } else {
+        // Anunciar nesta conta: abre o anúncio desta plataforma (os das outras continuam)
+        await guardar(
+          'produtos',
+          escolhidos.map((p) => ({ ...p, estado: 'anunciado' as const, conta_id: conta, preco_anuncio: preco ? lerNumero(preco) : p.preco_anuncio })),
+        );
+        try {
+          localStorage.setItem(CHAVE_CONTA, conta);
+        } catch {
+          /* ignorar */
+        }
       }
-      aviso(retirar ? `Anúncio retirado (${n}).` : origem === 'wallapop' ? `Marcado como anunciado na Wallapop${preco ? ` a ${fmtEuro(lerNumero(preco))}` : ''}.` : `${n} unidade(s) marcada(s) como anunciada(s).`);
+      aviso(
+        retirar
+          ? `Anúncio retirado (${retirarDas.map(nomePlataforma).join(', ')}).`
+          : origem === 'wallapop'
+            ? `Marcado como anunciado na Wallapop${preco ? ` a ${fmtEuro(lerNumero(preco))}` : ''}.`
+            : `${n} unidade(s) marcada(s) como anunciada(s) na ${nomePlataforma(naPlataforma)}.`,
+      );
       aoFechar();
     } catch (e) {
       aviso(`Erro: ${e instanceof Error ? e.message : e}`, 'erro');
@@ -92,13 +151,17 @@ export function FormAnunciar({ ids, retirar, precoSugerido, unidades, aoFechar }
   const submeterRef = useRef(submeter);
   submeterRef.current = submeter;
 
-  if (!candidatos.length) {
+  // Nada a fazer (sem produtos em stock, ou a retirar sem anúncios abertos)
+  if (retirar ? !candidatos.length : !produtosDosIds.some(emInventario)) {
     return (
       <Janela titulo={retirar ? 'Retirar anúncio' : 'Anunciar'} aoFechar={aoFechar}>
-        <p>{retirar ? 'Não há unidades anunciadas.' : 'Não há unidades por anunciar.'}</p>
+        <p>{retirar ? 'Não há anúncios abertos.' : 'Não há unidades por anunciar.'}</p>
       </Janela>
     );
   }
+  // Nesta plataforma já está tudo anunciado (pode mudar-se a conta para outra plataforma)
+  const semCandidatos = !retirar && !candidatos.length;
+  const bloqueado = semCandidatos || !!setNaVinted;
 
   return (
     <Janela
@@ -110,7 +173,7 @@ export function FormAnunciar({ ids, retirar, precoSugerido, unidades, aoFechar }
           <button className="btn" onClick={aoFechar}>
             Cancelar
           </button>
-          <button className="btn btn-primario" onClick={() => submeter()} disabled={aGuardar}>
+          <button className="btn btn-primario" onClick={() => submeter()} disabled={aGuardar || bloqueado}>
             {retirar ? 'Retirar' : 'Marcar como anunciado'}
           </button>
         </>
@@ -118,8 +181,25 @@ export function FormAnunciar({ ids, retirar, precoSugerido, unidades, aoFechar }
     >
       <div className="grelha-form">
         {!retirar && (
-          <Campo rotulo="Conta da Vinted">
+          <Campo rotulo="Conta">
             <SelecionarConta valor={conta} mudar={setConta} />
+          </Campo>
+        )}
+        {/* Retirar: de que plataformas (só aparece se houver anúncios em mais do que uma) */}
+        {retirar && plataformasAbertas.length > 1 && (
+          <Campo rotulo="Retirar de">
+            <div className="linha-botoes">
+              {plataformasAbertas.map((pl) => (
+                <label key={pl} className="opcao-check">
+                  <input
+                    type="checkbox"
+                    checked={retirarDas.includes(pl)}
+                    onChange={(e) => setRetirarDas((x) => (e.target.checked ? [...x, pl] : x.filter((y) => y !== pl)))}
+                  />{' '}
+                  {nomePlataforma(pl)}
+                </label>
+              ))}
+            </div>
           </Campo>
         )}
         {candidatos.length > 1 && (
@@ -128,20 +208,30 @@ export function FormAnunciar({ ids, retirar, precoSugerido, unidades, aoFechar }
           </Campo>
         )}
         {!retirar && (
-          <Campo rotulo="Preço do anúncio" ajuda={sugerido ? 'Sugerido pela app' : candidatos[0].preco_anuncio ? `Atual: ${fmtEuro(candidatos[0].preco_anuncio)}` : 'Opcional'}>
+          <Campo rotulo="Preço do anúncio" ajuda={sugerido ? 'Sugerido pela app' : candidatos[0]?.preco_anuncio ? `Atual: ${fmtEuro(candidatos[0].preco_anuncio)}` : 'Opcional'}>
             <Dinheiro valor={preco} mudar={setPreco} placeholder="" />
           </Campo>
         )}
       </div>
+      {semCandidatos && (
+        <p className="alerta-repetido" role="alert">
+          Já está anunciado na {nomePlataforma(naPlataforma)}.
+        </p>
+      )}
+      {setNaVinted && (
+        <p className="alerta-repetido" role="alert">
+          Este set já está anunciado na Vinted ({dados.contas.find((c) => c.id === setNaVinted.conta_id)?.nome ?? 'outra conta'}). Na Vinted só pode haver um anúncio por set.
+        </p>
+      )}
       {/* Aviso: esta conta já vendeu/anunciou 2 ou mais iguais (a Vinted reclama de muitos artigos iguais) */}
       {!retirar && vezes >= 2 && (
         <p className="alerta-repetido" role="alert">
           ⚠ Esta conta já tem {vezes} {vezes === 1 ? 'unidade' : 'unidades'} deste produto (vendidas ou anunciadas). A Vinted reclama de muitos artigos iguais na mesma conta: considera outra conta.
         </p>
       )}
-      {!retirar && <TextoVinted produto={candidatos[0]} fotosDe={fotosDe} contaId={conta} preco={preco ? lerNumero(preco) : null} aoPreencherWallapop={() => submeterRef.current('wallapop')} />}
+      {!retirar && !bloqueado && <TextoVinted produto={candidatos[0]} fotosDe={fotosDe} contaId={conta} preco={preco ? lerNumero(preco) : null} aoPreencherWallapop={() => submeterRef.current('wallapop')} />}
       {/* As fotografias do produto, para pôr no anúncio (Partilhar → Vinted, ou Descarregar) */}
-      {!retirar && fotosDe && (
+      {!retirar && !bloqueado && fotosDe && (
         <div className="texto-vinted">
           <h4>Fotografias</h4>
           <PartilharFotos p={fotosDe} />
@@ -160,7 +250,7 @@ export function FormAnunciar({ ids, retirar, precoSugerido, unidades, aoFechar }
 function TextoVinted({ produto, fotosDe, contaId, preco, aoPreencherWallapop }: { produto: Produto; fotosDe: Produto | null; contaId: string; preco: number | null; aoPreencherWallapop(): void }) {
   const { dados, aviso } = useDados();
   const mercado = useMercado();
-  const wallapop = eContaWallapop(dados.contas.find((c) => c.id === contaId)?.nome);
+  const wallapop = plataformaDe(dados.contas, contaId) === 'wallapop';
   const modelo = modeloAnuncio(dados.definicoes);
   const pesoG = infoMercado(mercado, produto.set_numero, hoje())?.pesoG ?? null;
   const t = wallapop ? dadosWallapop(produto, modelo, contaId, preco, pesoG) : textoAnuncio(produto, modelo, contaId);

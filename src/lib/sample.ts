@@ -104,5 +104,6 @@ export function dadosExemplo(hoje: string): Dados {
 
   const definicoes = Object.entries(LISTAS_PADRAO).map(([chave, l]) => ({ chave, valor: l.valores }));
 
-  return { pessoas, contas, compras, produtos, vendas, acertos: [], definicoes };
+  // Os anúncios por plataforma saem dos produtos anunciados (o modo de demonstração converte-os ao carregar)
+  return { pessoas, contas, compras, produtos, vendas, acertos: [], definicoes, anuncios: [] };
 }

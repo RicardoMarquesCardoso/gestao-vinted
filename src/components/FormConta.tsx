@@ -1,9 +1,11 @@
-// Formulário de uma conta da Vinted: nome, utilizador, titular (quem recebe o dinheiro)
-// e limites a acompanhar (por defeito 30 vendas / 2000 € por ano civil, por causa do DAC7).
+// Formulário de uma conta: nome, plataforma (Vinted, Wallapop, eBay; uma conta por plataforma),
+// utilizador, titular (quem recebe o dinheiro) e limites a acompanhar (por defeito 30 vendas /
+// 2000 € por ano civil, por causa do DAC7, que conta por plataforma).
 
 import { useState } from 'react';
 import { lerNumero } from '../lib/format';
-import type { Conta, TipoPeriodo } from '../lib/types';
+import type { Conta, Plataforma, TipoPeriodo } from '../lib/types';
+import { PLATAFORMAS, plataformaDaConta } from '../lib/anuncios';
 import { PERIODOS } from '../lib/types';
 import { useDados } from '../state';
 import { paraCampo, vazioANull } from './acoes';
@@ -17,6 +19,7 @@ export function FormConta({ id, aoFechar }: { id?: string; aoFechar(): void }) {
 
   const [f, setF] = useState(() => ({
     nome: existente?.nome ?? '',
+    plataforma: (existente ? plataformaDaConta(existente) : 'vinted') as Plataforma,
     utilizador_vinted: existente?.utilizador_vinted ?? '',
     ativa: existente?.ativa ?? true,
     limite_anuncios: inteiro(existente?.limite_anuncios),
@@ -41,6 +44,7 @@ export function FormConta({ id, aoFechar }: { id?: string; aoFechar(): void }) {
     const c: Conta = {
       id: existente?.id ?? crypto.randomUUID(),
       nome: f.nome.trim(),
+      plataforma: f.plataforma,
       utilizador_vinted: vazioANull(f.utilizador_vinted),
       notas: vazioANull(f.notas),
       ativa: f.ativa,
@@ -110,7 +114,16 @@ export function FormConta({ id, aoFechar }: { id?: string; aoFechar(): void }) {
         <Campo rotulo="Nome da conta *">
           <input value={f.nome} onChange={(e) => mudar('nome', e.target.value)} placeholder="Ex.: Conta principal" />
         </Campo>
-        <Campo rotulo="Utilizador na Vinted">
+        <Campo rotulo="Plataforma">
+          <select value={f.plataforma} onChange={(e) => mudar('plataforma', e.target.value as Plataforma)}>
+            {PLATAFORMAS.map((x) => (
+              <option key={x.valor} value={x.valor}>
+                {x.nome}
+              </option>
+            ))}
+          </select>
+        </Campo>
+        <Campo rotulo="Utilizador">
           <input value={f.utilizador_vinted} onChange={(e) => mudar('utilizador_vinted', e.target.value)} />
         </Campo>
         <Campo rotulo="Titular (recebe o dinheiro)" ajuda="Usado nos acertos">

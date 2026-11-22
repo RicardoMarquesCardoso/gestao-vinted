@@ -18,7 +18,8 @@ import { CHAVE_REGRAS, REGRAS_PADRAO, regrasPlano } from '../lib/plano';
 import { MIN_SETS_CALIBRACAO, calibrarEbay, useMercado } from '../lib/investimento';
 import { CHAVE_TOKEN_PROMOCOES, promocoesRecebidas } from '../lib/promocoes';
 import { SUPABASE_KEY, SUPABASE_URL } from '../config';
-import { codigoBotaoWallapop, eContaWallapop } from '../lib/wallapop';
+import { codigoBotaoWallapop } from '../lib/wallapop';
+import { plataformaDaConta } from '../lib/anuncios';
 import { fmtDataHora as fmtQuando } from '../lib/format';
 import type { RegrasPlano } from '../lib/plano';
 
@@ -126,7 +127,7 @@ export function Definicoes(props: { aoSair(): void }) {
 
       <CartaoTextoAnuncios />
 
-      {dados.contas.some((c) => c.ativa && eContaWallapop(c.nome)) && <CartaoBotaoWallapop />}
+      {dados.contas.some((c) => c.ativa && plataformaDaConta(c) === 'wallapop') && <CartaoBotaoWallapop />}
 
       <CartaoRegrasPlano />
 
