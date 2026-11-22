@@ -118,6 +118,10 @@ Há **três peças principais**:
 
 ---
 
+### Versão nova da app
+
+Cada compilação gera um código de versão que fica dentro do programa (`VERSAO_APP`) e em `docs/versao.json`. Uma app aberta com uma versão anterior vê a diferença (ao abrir, ao voltar à app e de 5 em 5 minutos) e mostra no topo **"Há uma versão nova da app — Recarregar"** (`components/VersaoNova.tsx`). Os dados já se recarregam sozinhos de minuto a minuto; isto é para o próprio programa. Teste: `tests/navegador/versao.test.mjs`.
+
 ## 4. Como os dados circulam
 
 ### Ao abrir a app

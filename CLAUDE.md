@@ -112,6 +112,7 @@ Guardar os dados que permitam estas análises desde já, mesmo que ainda não ap
 ## Técnico
 
 - React + TypeScript, compilado com esbuild (`node scripts/build.mjs`) para `docs/`, que é a pasta publicada no GitHub Pages.
+  - **Versão nova** (nov/2026, preparação da fase 2 dos anúncios): cada compilação põe um código em `VERSAO_APP` (dentro do programa) e em `docs/versao.json`; `components/VersaoNova.tsx` compara-os e mostra "Há uma versão nova — Recarregar". Mudanças que exijam que os dois telemóveis tenham a versão nova (ex.: trocas na base de dados) contam com esta faixa.
   - Se `node_modules` não existir: `ln -s /opt/npm-tools/node_modules node_modules`.
 - Testes: `npx tsx --test tests/*.test.ts` (lógica) e `npm run test:navegador` (ecrã, Playwright; `tests/navegador/`). Ver README → "Testes".
 - **Regras dos testes** (pedido do Ricardo, nov/2026): fazem parte do projeto e vão para o Git (em `tests/`, nunca ficheiros temporários soltos); **nunca alteram nem apagam dados reais** (Supabase simulado de `tests/navegador/comum.mjs`, sessão falsa, browser isolado; escrita para fora da simulação = teste falha); cada teste usa **dados fictícios próprios** e uma **localização isolada** (pasta temporária própria); **operações destrutivas validam o caminho** antes de apagar (`scripts/destino.mjs`); **cada funcionalidade ou correção importante traz os testes** criados ou atualizados; a documentação explica como correr (README → "Testes"). Sem dados pessoais, serviços pagos nem a sessão de quem desenvolve.

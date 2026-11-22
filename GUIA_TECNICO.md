@@ -49,7 +49,9 @@ repositório da app as migrações, os agendamentos e a função `wallapop-rotac
 2. Testes: `npm test` (lógica) e `npm run test:navegador` (ecrã). Ver secção 7.
 3. Verificação de tipos: sem `@types/react` instalados (sem rede), usa-se um *shim* local do React
    só para verificar, fora do repositório. O único aviso esperado é o do `import './styles.css'`.
-4. Compilar: `node scripts/build.mjs`. **Apaga e recria `docs/`** (só aceita apagar `docs/` ou uma pasta
+4. Compilar: `node scripts/build.mjs`. Gera também `docs/versao.json`: as apps abertas com uma versão
+   anterior mostram a faixa "Há uma versão nova — Recarregar" (`components/VersaoNova.tsx`, verifica ao
+   abrir, ao voltar à app e de 5 em 5 min). **Apaga e recria `docs/`** (só aceita apagar `docs/` ou uma pasta
    temporária: `scripts/destino.mjs`). Antes de publicar, correr também `npm run test:navegador`.
    - Se `node_modules` não existir: `ln -s /opt/npm-tools/node_modules node_modules`.
 5. Atualizar o `README.md` (e o `CLAUDE.md`, se mudar uma regra).

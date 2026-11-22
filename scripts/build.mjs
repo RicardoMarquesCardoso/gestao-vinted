@@ -5,6 +5,8 @@
 // JavaScript (docs/assets/app.js) e o CSS em docs/assets/app.css. Depois copia public/
 // (ícones, manifest, catálogos JSON) e o index.html para docs/.
 // Cada ficheiro gerado leva um código de versão no endereço, para o telemóvel não usar uma cópia antiga.
+// O mesmo código fica dentro do programa (VERSAO_APP) e em docs/versao.json: uma app aberta com uma
+// versão antiga vê a diferença e mostra "Há uma versão nova — Recarregar" (components/VersaoNova.tsx).
 //   npm run build  -> gera docs/
 //   npm run dev    -> gera e serve em http://localhost:5173, atualizando ao gravar
 //   GV_DESTINO=/tmp/pasta node scripts/build.mjs -> gera noutra pasta (usado pelos testes de browser,
@@ -50,6 +52,9 @@ writeFileSync(resolve(destino, 'index.html'), html);
 // O manifest (ícone da app instalada) leva o mesmo código
 const manifest = resolve(destino, 'manifest.webmanifest');
 writeFileSync(manifest, readFileSync(manifest, 'utf8').replaceAll('%ICONE%', icone));
+// versao.json: a app compara-o com a sua versão e, se for diferente, pede para recarregar
+// (components/VersaoNova.tsx)
+writeFileSync(resolve(destino, 'versao.json'), JSON.stringify({ versao }));
 // .nojekyll diz ao GitHub Pages para servir os ficheiros tal como estão
 writeFileSync(resolve(destino, '.nojekyll'), '');
 
@@ -65,7 +70,7 @@ const opcoes = {
   minify: !dev,
   sourcemap: dev,
   legalComments: 'none',
-  define: { 'process.env.NODE_ENV': JSON.stringify(dev ? 'development' : 'production') },
+  define: { 'process.env.NODE_ENV': JSON.stringify(dev ? 'development' : 'production'), VERSAO_APP: JSON.stringify(versao) },
   nodePaths: [resolve(raiz, 'node_modules'), ...(process.env.NODE_PATH ?? '').split(':').filter(Boolean)],
   logLevel: 'info',
 };

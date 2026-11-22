@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { AcoesProvider } from './components/acoes';
 import { LimpezaFotos } from './components/fotos';
+import { VersaoNova } from './components/VersaoNova';
 import { Logo, ConfirmarProvider } from './components/ui';
 import { hoje } from './lib/format';
 import { dadosExemplo } from './lib/sample';
@@ -109,6 +110,8 @@ export function App() {
     <DadosProvider store={store} aoExpirar={expirou} key={store.modo + store.utilizador}>
       <ConfirmarProvider>
         <AcoesProvider>
+          {/* Faixa "Há uma versão nova — Recarregar" quando se publica uma versão mais recente */}
+          <VersaoNova />
           <Estrutura aoSair={terminar} />
           {/* Apaga as fotografias dos produtos vendidos há mais de 7 dias (fica a miniatura) */}
           <LimpezaFotos />
