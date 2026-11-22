@@ -116,7 +116,7 @@ export function DetalheSet({ set: n, promo }: { set: string; promo?: PrecoPromo 
             <small className="mudo">{[oficial?.tema, m?.lancamento ? null : oficial?.ano, ciclo].filter(Boolean).join(' · ')}</small>
             <small className="avaliar-links">
               <a href={urlVinted(base)} target="_blank" rel="noreferrer">Ver na Vinted</a>
-              <a href={urlEbayVendidos(base)} target="_blank" rel="noreferrer">Vendidos no eBay</a>
+              <a href={urlEbayVendidos(base)} target="_blank" rel="noreferrer">eBay</a>
               <a href={`https://brickset.com/sets/${base}-1`} target="_blank" rel="noreferrer">Brickset</a>
               <a href={urlBrickEconomy(base)} target="_blank" rel="noreferrer">BrickEconomy</a>
             </small>

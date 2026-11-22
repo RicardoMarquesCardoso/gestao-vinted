@@ -98,7 +98,7 @@ export function DetalheGrupo({ ids, aoFechar }: { ids: string[]; aoFechar(): voi
       {p.set_numero && urlReferencia(p) && (
         <p className="links-set mudo">
           <a href={urlVinted(p.set_numero, produtoNovo(p))} target="_blank" rel="noreferrer">Vinted</a> ·{' '}
-          <a href={urlEbayVendidos(p.set_numero, produtoNovo(p))} target="_blank" rel="noreferrer">Vendidos no eBay</a> ·{' '}
+          <a href={urlEbayVendidos(p.set_numero, produtoNovo(p))} target="_blank" rel="noreferrer">eBay</a> ·{' '}
           <a href={`https://brickset.com/sets/${encodeURIComponent(p.set_numero)}-1`} target="_blank" rel="noreferrer">Brickset</a> ·{' '}
           <a href={urlBrickEconomy(p.set_numero)} target="_blank" rel="noreferrer">BrickEconomy</a>
         </p>

@@ -134,8 +134,8 @@ test('avisa quando já há unidades em stock', () => {
 });
 
 test('links da Vinted e do eBay', () => {
-  assert.equal(urlVinted('75321-1'), 'https://www.vinted.pt/catalog?search_text=lego%2075321&order=price_low_to_high&status_ids[]=6&status_ids[]=1');
-  assert.equal(urlVinted('75321', false), 'https://www.vinted.pt/catalog?search_text=lego%2075321&order=price_low_to_high');
+  assert.equal(urlVinted('75321-1'), 'https://www.vinted.pt/catalog?search_text=lego%2075321&order=relevance&status_ids[]=6&status_ids[]=1');
+  assert.equal(urlVinted('75321', false), 'https://www.vinted.pt/catalog?search_text=lego%2075321&order=relevance');
   assert.match(urlEbayVendidos('75321'), /ebay\.com\/sch.*_nkw=lego\+75321.*LH_Sold=1.*LH_PrefLoc=5/);
 });
 

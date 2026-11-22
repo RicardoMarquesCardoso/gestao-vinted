@@ -649,13 +649,13 @@ export function sinaisEsgotar(l: LinhaPromo, hoje: string): string[] {
 // ---------- Links para ver o set noutros sites (abertos por nós, à mão) ----------
 
 /**
- * Pesquisa do set na Vinted, do mais barato para o mais caro e, se for novo, só "Novo com
+ * Pesquisa do set na Vinted, ordenada por relevância (pedido do Ricardo, nov/2026) e, se for novo, só "Novo com
  * etiquetas" e "Novo sem etiquetas". No telemóvel, se a app da Vinted estiver instalada, abre lá.
  * É só um link: a VinteDuo não lê nada da Vinted.
  */
 export function urlVinted(set: string, novo = true): string {
   const q = encodeURIComponent(`lego ${numeroBase(set)}`);
-  return `https://www.vinted.pt/catalog?search_text=${q}&order=price_low_to_high${novo ? '&status_ids[]=6&status_ids[]=1' : ''}`;
+  return `https://www.vinted.pt/catalog?search_text=${q}&order=relevance${novo ? '&status_ids[]=6&status_ids[]=1' : ''}`;
 }
 
 /**
