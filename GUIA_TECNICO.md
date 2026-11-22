@@ -94,8 +94,8 @@ Tudo passa por `guardar()` e `apagar()` em `src/state.tsx`.
   (`supabase/migrations/20261122_anuncios_por_plataforma.sql`): `contas.plataforma`, tabela
   `anuncios` e o gatilho `espelhar_anuncios` em `produtos` (copia `produtos.anuncios` para a tabela).
   **Enquanto o gatilho existir, a verdade é `produtos.anuncios`**: não escrever na tabela à mão.
-  **Fase 2** (código pronto a 22/11/2026): a app passa a ler/escrever a tabela e deixa de gravar
-  `produtos.anuncios`. **A troca é num só momento:** publicar a app nova e LOGO A SEGUIR correr
+  **Fase 2 PUBLICADA a 22/11/2026 ~16:25** (gatilho desligado; a tabela é a verdade; `produtos.anuncios`
+  congelado). A app lê/escreve a tabela e deixa de gravar `produtos.anuncios`. **A troca é num só momento:** publicar a app nova e LOGO A SEGUIR correr
   `supabase/migrations/20261122_anuncios_fase2_troca.sql` (desliga o gatilho: senão uma gravação de
   uma app antiga aberta apagava anúncios novos da tabela). Depois, os dois telemóveis recarregam
   (faixa "Há uma versão nova"). Reverter: publicar a versão anterior e correr
