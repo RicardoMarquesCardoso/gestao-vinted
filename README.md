@@ -178,6 +178,8 @@ erDiagram
   COMPRA ||--o{ PRODUTO : "tem"
   PRODUTO ||--o{ VENDA : "vendido em"
   CONTA ||--o{ VENDA : "feita na"
+  PRODUTO ||--o{ ANUNCIO : "anunciado em"
+  CONTA ||--o{ ANUNCIO : "na conta"
   PESSOA ||--o{ COMPRA : "pagou"
   PESSOA ||--o{ VENDA : "recebeu"
   PESSOA ||--o{ ACERTO : "transferiu"
@@ -186,7 +188,8 @@ erDiagram
 | Tabela | O que guarda | Campos principais |
 |---|---|---|
 | `pessoas` | Ricardo e Cass | `nome` |
-| `contas` | Contas da Vinted e os seus limites | `nome`, `utilizador_vinted`, `titular_id` (quem recebe), `limite_vendas`, `limite_valor`, `periodo` |
+| `contas` | Contas (uma por plataforma) e os seus limites | `nome`, `plataforma` (vinted / wallapop / ebay), `utilizador_vinted`, `titular_id` (quem recebe), `limite_vendas`, `limite_valor`, `periodo` |
+| `anuncios` | **Um anúncio = uma linha** (produto × plataforma), nov/2026 | `produto_id`, `conta_id`, `plataforma`, `preco` (o que recebemos), `precos` (mudanças), `inicio`, `fim` (vazio = anunciado), `motivo`, `id_externo` (eBay). No máx. 1 aberto por produto e plataforma. **Fase 1:** a app ainda não a usa; um gatilho (`espelhar_anuncios`) copia para cá `produtos.anuncios` sempre que é gravado |
 | `compras` | Cada compra | `data`, quem pagou (`tipo_pagamento` + `pessoa_id`), `valor_artigos`, `portes`, `distribuicao` (os valores só servem para repartir ao registar; o total da compra é a soma dos produtos) |
 | `produtos` | Cada produto (pode ter várias unidades) | `nome`, `set_numero`, `marca`, `tema`, `condicao`, `quantidade`, `preco_compra`, `custos_adicionais`, `estado`, `conta_id`, `preco_anuncio`, `fotos`, **`anuncios`** (períodos anunciado) |
 | `vendas` | Cada venda | `produto_id`, `quantidade`, `data_venda`, `preco_venda`, `comissao`, `portes`, `conta_id`, `pessoa_id`, `estado`, `acertada` |

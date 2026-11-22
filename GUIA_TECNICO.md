@@ -87,7 +87,15 @@ Tudo passa por `guardar()` e `apagar()` em `src/state.tsx`.
   quem tem o email em `public.membros` (função `e_membro()`, que lê o email do token de login).
   `membros` não tem política: não se lê pela app.
 - **Tabelas:** `membros`, `pessoas`, `contas`, `compras`, `produtos`, `vendas`, `acertos`,
-  `definicoes`, `historico`, `catalogo_sets` (vazia, não usada).
+  `definicoes`, `historico`, `anuncios`, `catalogo_sets` (vazia, não usada).
+- **Anúncios em várias plataformas (em curso, nov/2026):** fase 1 aplicada a 22/11/2026
+  (`supabase/migrations/20261122_anuncios_por_plataforma.sql`): `contas.plataforma`, tabela
+  `anuncios` e o gatilho `espelhar_anuncios` em `produtos` (copia `produtos.anuncios` para a tabela).
+  **Enquanto o gatilho existir, a verdade é `produtos.anuncios`**: não escrever na tabela à mão.
+  Fase 2: a app passa a ler/escrever a tabela; fase 3: sai o gatilho e as colunas `conta_id`,
+  `preco_anuncio`, `data_anuncio`. Contas novas criadas na app ficam `vinted` até a fase 2 trazer o
+  seletor de plataforma (corrigir à mão se se criar uma conta Wallapop/eBay antes disso).
+  Decisões: documento do Projeto `claude/anuncios-multiplataforma-2026-11.md`.
 - **Evitar migrações:** dados novos vão para `definicoes` (chave → jsonb). A lista de chaves está no `CLAUDE.md`.
 - **Mudar estrutura:** só por migração, com aprovação, e registada no README.
   Nunca alterar acertos nem marcar vendas como acertadas sem pedido explícito.

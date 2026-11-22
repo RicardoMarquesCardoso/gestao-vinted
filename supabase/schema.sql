@@ -54,6 +54,8 @@ create table if not exists public.contas (
   periodo_inicio date,
   periodo_fim date,
   alerta_pct integer not null default 80,
+  -- Plataforma da conta (22/11/2026; antes deduzia-se do nome "… (Wallapop)")
+  plataforma text not null default 'vinted' check (plataforma in ('vinted','wallapop','ebay')),
   criado_em timestamptz not null default now()
 );
 
@@ -402,3 +404,9 @@ create extension if not exists pg_cron;
 --     body := jsonb_build_object('token', (select valor #>> '{}' from public.definicoes where chave = 'token_rotacao_ebay')),
 --     timeout_milliseconds := 60000)
 -- $c$);
+
+
+-- ---------------------------------------------------------------------------------------------
+-- Anúncios em várias plataformas (fase 1, 22/11/2026): ver supabase/migrations/20261122_anuncios_por_plataforma.sql
+-- (tabela public.anuncios, índice "um aberto por produto e plataforma", RLS membros e o gatilho
+-- temporário espelhar_anuncios que a mantém igual a produtos.anuncios até a app passar para ela).
